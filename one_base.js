@@ -12,7 +12,7 @@ ONE.init = function(){
 	// create base class
 	this.base_.call(this.Base = {})
 	this.Base.Base = this.Base
-	this.signal_.call(this.Base.Signal = this.Signal = {})
+	this.signal_()
 
 	// make ONE the new root scope
 	this.Base.$ = this.$ = Object.create(this)
@@ -281,7 +281,7 @@ ONE.base_ = function(){
 			if(top_val !== this_sig.value)
 				stack.push(new StackValue(this_sig.value))
 
-			if(value && value._signal_){
+			if(value && value.toString == ONE.signal_type){
 				this_sig.mergeSignal(value)
 				// call the signal setters
 				this[key] = value.value
@@ -541,7 +541,7 @@ ONE.base_ = function(){
 		var fastStore = '__$' + key
 		var sig =  this[signalStore]
 		if(!sig){ 
-			sig = this[signalStore] = this.Signal.prop(this, key, setter)
+			sig = this[signalStore] = this.propSignal(key, setter)
 
 			// make a getter/setter pair
 			Object.defineProperty(this, key, {
@@ -550,8 +550,8 @@ ONE.base_ = function(){
 				get:function(){
 					var sig = this[signalStore]					
 					// make an instance copy if needed
-					if( sig.owner != this ){
-						sig = this[signalStore] = sig.fork(this)
+					if(sig.owner != this){
+						sig = this[signalStore] = this.forkSignal(sig)
 						if(fastStore in this) sig.value = this[fastStore]
 					}
 					return sig
@@ -562,7 +562,7 @@ ONE.base_ = function(){
 					if(!sig.onSet && sig.setter && 
 						(typeof value == 'number' || Array.isArray(value))){
 						if(sig.owner != this){
-							sig = this[ signalStore ] = Object.create(sig)
+							sig = this[signalStore] = this.forkSignal(sig)
 							sig.owner = this
 						}
 						sig.value = value
@@ -570,14 +570,14 @@ ONE.base_ = function(){
 						return
 					}
 					// make an instance copy if needed
-					if(sig.owner != this) sig = this[signalStore] = sig.fork(this)
+					if(sig.owner != this) sig = this[signalStore] = this.forkSignal(sig)
 					sig.set(value)
 				}
 			})
 		}
 		else{ // we might need to create a new signal copy
 			if(sig.owner != this){
-				sig = this[signalStore] = sig.fork(this)
+				sig = this[signalStore] = this.forkSignal(sig)
 				if(fastStore in this) sig.value = this[fastStore]
 			}
 		}
@@ -592,6 +592,21 @@ ONE.base_ = function(){
 // the union of a computed propery, an event, a promise and an Observable
 ONE.signal_ = function(){
 
+	this.Base.createSignal = function(){
+		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		Signal.toString = toString
+		Signal.valueOf = valueOf
+	}
+
+	function toString(){
+		return 'Signal:' + String(this.value)
+	}
+
+	// valueOf aliases signals to values
+	function valueOf(){
+		return this.value
+	}
+
 	// subscription classes
 	function cancel_subscription(){
 		if(!this.signal) return
@@ -600,21 +615,23 @@ ONE.signal_ = function(){
 	}
 
 	var SetSubscription = {
-		set:'set_list',
+		set: 'set_list',
 		cancel: cancel_subscription
 	}
 
 	var ErrorSubscription = {
-		set:'error_list',
+		set: 'error_list',
 		cancel: cancel_subscription
 	}
 
 	var EndSubscription = {
-		set:'end_list',
+		set: 'end_list',
 		cancel: cancel_subscription
 	}
 
-	this.removeListener = function( cb, set ){
+	Function.prototype.removeListener = function( cb, set ){
+		if(this.toString != toString) throw new Error('Not a signal')
+
 		set = set || 'set_list'
 		var arr = this[set]
 		if(arr === cb){
@@ -627,61 +644,61 @@ ONE.signal_ = function(){
 		arr.splice(idx, 1)
 		if(arr.length == 1) this[set] = arr[0]
 		else if(arr.length == 0) this[set] = undefined
-		console.log(window.hack == this)
 	}
 
-	this.enumListeners = function( set, cb ){
-		var proto = this
-		var s
- 		while(proto && (s = proto[set])){
- 			if(proto.hasOwnProperty(set)){
-				if(!Array.isArray(s)) cb(s)
-				else for(var i = 0, l = s.length; i < l; i++){
-					cb(s[i])
+	Function.prototype.enumListeners = function( set, cb ){
+		if(this.toString != toString) throw new Error('Not a signal')
+
+		var chain = this
+ 		while(chain){
+ 			if(chain.hasOwnProperty(set)){
+ 				var list = chain[set]
+				if(!Array.isArray(list)) cb(list)
+				else for(var i = 0, l = list.length; i < l; i++){
+					cb(list[i])
 				}
 			}
-			proto = Object.getPrototypeOf(proto)
+			chain = chain.chain
 		}
 	}
-
-	this.__class__ = 'Signal'
-	this._signal_ = 1
 	
-	// create a new signal
-	this.new = function( owner ){
-		this.owner = owner
-	}
-
-	this.apply = function( sthis, args ){
-
-	}
-
 	// call all set listeners
-	this.call = function( sthis, _value ){
+	Function.prototype.callListeners = function( sthis, _value ){
+		if(this.toString != toString) throw new Error('Not a signal')
+
 		var value = _value === undefined? this.value: _value
 		var owner = this.owner
-		var proto = this
+		var chain = this
 		var list
-		while(proto){
-			if(proto.hasOwnProperty('set_list') && (list = proto.set_list)){
-				if(!Array.isArray(list)) list.call( owner, value, this )
+		var ret
+		while(chain){
+			if(chain.hasOwnProperty('set_list') && (list = chain.set_list)){
+				if(!Array.isArray(list)) ret = list.call(owner, value, this)
 				else for(var i = 0, l = list.length; i < l; i++){
-					list[i].call( owner, value, this )
+					ret = list[i].call( owner, value, this )
 				}
 			}
-			proto = Object.getPrototypeOf(proto)
+			chain = chain.chain
 		}
+		return ret
 	}
 
+	if(!this.Base) throw new Error('no base')
+
 	// signal wrapper
-	this.wrap = function( wrap ){
-		var obj = Object.create(this)
-		wrap(obj)
-		return obj
+	this.Base.wrapSignal = function( wrap ){
+		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		Signal.toString = toString
+		Signal.valueOf = valueOf
+		wrap(Signal)
+		return Signal
 	}
-	
-	this.all = function(array){
-		var obj = Object.create(this)
+
+	this.Base.allSignals = function( array ){
+		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		Signal.toString = toString
+		Signal.valueOf = valueOf
+		var obj = Signal
 		if(!array || !array.length){
 			obj.end()
 			return obj
@@ -706,31 +723,34 @@ ONE.signal_ = function(){
 		return obj
 	}
 
-	// bind to a property
-	this.prop = function( owner, name, setter ){
-		var obj = Object.create( this )
-		
-		obj.owner = owner
-		obj.name = name
-		obj.setter = setter
+	this.Base.propSignal = function( key, setter ){
+		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		Signal.toString = toString
+		Signal.valueOf = valueOf
 
-		return obj
+		Signal.owner = this
+		Signal.key = key
+		Signal.setter = setter
+
+		return Signal
 	}
 
 	// fork a signal
-	this.fork = function( owner ){
-		var sig = Object.create( this )
-		sig.owner = owner
-		return sig
-	}
-
-	// valueOf aliases signals to values
-	this.valueOf = function(){
-		return this.value
+	this.Base.forkSignal = function( signal ){
+		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		Signal.toString = toString
+		Signal.valueOf = valueOf
+		Signal.chain = signal
+		Signal.owner = this
+		Signal.value = signal.value
+		Signal.key = signal.key
+		Signal.setter = signal.setter
+		return Signal
 	}
 
 	// listen to the end  / error
-	this.then = function( end_cb, error_cb ){
+	Function.prototype.then = function( end_cb, error_cb ){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if(this.ended){
 			if(this.errored) window.setTimeout(function(){
 					error_cb.call(this, this.exception)	
@@ -755,7 +775,8 @@ ONE.signal_ = function(){
 		}
 	}
 
-	this.mergeSignal = function(other){
+	Function.prototype.mergeSignal = function(other){
+		if(this.toString != toString) throw new Error('Not a signal')
 		var _this = this
 		other.enumListeners('set_list', function(v){
 			_this.onSet(v)
@@ -768,7 +789,8 @@ ONE.signal_ = function(){
 		})
 	}
 
-	this.unmergeSignal = function(other){
+	Function.prototype.unmergeSignal = function(other){
+		if(this.toString != toString) throw new Error('Not a signal')
 		var _this = this
 		other.enumListeners('set_list', function(v){
 			_this.removeListener(v, 'set_list')
@@ -782,8 +804,9 @@ ONE.signal_ = function(){
 	}
 
 	// listen to set
-	this.onSet =
-	this.on = function( set_cb ){
+	Function.prototype.onSet =
+	Function.prototype.on = function( set_cb ){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if(!this.hasOwnProperty('set_list')) this.set_list = set_cb
 		else if(!Array.isArray(this.set_list)) this.set_list = [this.set_list, set_cb]
 		else this.set_list.push(set_cb)
@@ -796,8 +819,13 @@ ONE.signal_ = function(){
 		return sub
 	}
 
+	Function.prototype.__defineGetter__('_signal_', function(){
+		return this.toString === toString
+	})
+
 	// set the signal value
-	this.set = function(value){
+	Function.prototype.set = function(value){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if(this.ended) throw new Error('Cant set an ended signal')
 		
 		if(typeof value == 'function'){
@@ -807,24 +835,24 @@ ONE.signal_ = function(){
 		this.value = value
 		
 		// call all our listeners
-		var proto = this 
+		var chain = this 
 		var owner = this.owner
 		if(this.setter) this.setter.call(owner, value, this)
 		var list
-		while(proto){
-			if(proto.hasOwnProperty('set_list') && (list = proto.set_list)){
+		while(chain){
+			if(chain.hasOwnProperty('set_list') && (list = chain.set_list)){
 				if(!Array.isArray(list)) list.call(owner, value, this)
 				else for(var i = 0, l = list.length; i < l; i++){
 					list[i].call(owner, value, this)
 				}
 			}
-			proto = Object.getPrototypeOf(proto)
+			chain = chain.chain
 		}
 	}
 
 	// listen to the end signal
-	this.onEnd = function(end_cb){
-
+	Function.prototype.onEnd = function(end_cb){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if(!this.hasOwnProperty('end_list')) this.end_list = end_cb
 		else if(!Array.isArray(this.end_list)) this.end_list = [this.end_list, end_cb]
 		else this.end_list.push(end_cb)
@@ -839,33 +867,36 @@ ONE.signal_ = function(){
 	}
 
 	// end the signal
-	this.end = function(value){
+	Function.prototype.end = function(value){
+		if(this.toString != toString) throw new Error('Not a signal')
 		this.set(value)
 		this.ended = true
 		// call end
-		var proto = this 
+		var chain = this 
 		var owner = this.owner
 		var list
-		while(proto){
-			if(proto.hasOwnProperty('end_list') && (list = proto.end_list)){
+		while(chain){
+			if(chain.hasOwnProperty('end_list') && (list = chain.end_list)){
 				if(!Array.isArray(list)) list.call( owner, value, this )
 				else for(var i = 0, l = list.length; i < l; i++){
 					list[i].call( owner, value, this )
 				}
 			}
-			proto = Object.getPrototypeOf(proto)
+			chain = chain.chain
 		}
 	}
 	
 	// default allows a throw to be transformed to a value
-	this.default = function(default_cb){
+	Function.prototype.default = function(default_cb){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if('default_cb' in this) throw new Error('Cannot overload defaults')
 		this.default_cb = default_cb
 		return this
 	}
 	
 	// called when signal errors
-	this.onError = function(error_cb){
+	Function.prototype.onError = function(error_cb){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if(!this.hasOwnProperty('error_list')) this.error_list = error_cb
 		else if(!Array.isArray(this.onThrow)) this.error_list = [this.error_list, error_cb]
 		else this.error_list.push( error_cb )
@@ -880,28 +911,27 @@ ONE.signal_ = function(){
 	}
 	
 	// make the signal error
-	this.error = function(value, next){
-		
+	Function.prototype.error = function(value, next){
+		if(this.toString != toString) throw new Error('Not a signal')
 		if(this.ended) throw new Error('Cant error ended signal')
 		if(this.default_cb) return this.end( this.default_cb(value) )
 		
 		this.ended = true
 		this.errored = value
 		// call error
-		var proto = this 
+		var chain = this 
 		var owner = this.owner
 		var handled
-		var s
-		while(proto){
-			if(proto.hasOwnProperty('error_list')){
+		var list
+		while(chain){
+			if(chain.hasOwnProperty('error_list') && (list = chain.error_list)){
 				handled = true
-				var list = proto.error_list
 				if(!Array.isArray(list)) list.call(owner, value, next, this)	
 				else for(var i = 0, l = list.length; i < l; i++){
 					list[i].call(owner, value, next, this)
 				}
 			}
-			proto = Object.getPrototypeOf(proto)
+			chain = chain.chain
 		}			
 		return handled
 	}

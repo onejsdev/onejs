@@ -18,7 +18,7 @@ function signalify( api ){
 		}
 		if(k in this) return
 
-		this[k] = ( ...args ) ->Signal.wrap do(sig){
+		this[k] = ( ...args ) ->wrapSignal do(sig){
 			api[k](...args) do(err, data){
 				if(err) return sig.throw(err)
 				sig.end(data)
@@ -29,7 +29,7 @@ function signalify( api ){
 
 class fs{
 	signalify(_fs)
-	exists(file) ->Signal.wrap do(sig){
+	exists(file) ->wrapSignal do(sig){
 		_fs.exists(file,function(exist){
 			sig.end(exist)
 		})
@@ -82,7 +82,7 @@ class zlib{
 }
 
 class child_process{
-	exec(call) -> Signal.wrap do(sig){
+	exec(call) -> wrapSignal do(sig){
 		_child_process.exec(call) do(err, stdout = '', stderr = ''){
 			if(err) sig.throw(err)
 			else sig.end(stdout + stderr)			

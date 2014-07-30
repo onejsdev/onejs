@@ -30,6 +30,9 @@ Signals(){
 	}
 }
 */
+function test(){
+}
+
 Scoping(){
 	class Sub{
 		scoped()

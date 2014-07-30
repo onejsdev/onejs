@@ -426,6 +426,11 @@ ONE.genjs_ = function(modules, parserCache){
 					//var marg = this.macro_args[base]
 					//if(marg) base = marg.name
 					var type = this.scope[base]
+					// lookup type on context object
+					var ctx
+					if(!type && this.context && (ctx = this.context[node.name])){
+						if(ctx.t) type = ctx.t
+					}
 					var isthis
 					if(typeof type == 'object' && !type.__class__ || (isthis = type = this.type_method)){
 						// alright so now we need to walk back down
@@ -2094,17 +2099,18 @@ ONE.genjs_ = function(modules, parserCache){
 			else {
 				// check if we are a property chain
 				if(fn.type == 'Key' || fn.type == 'Index'){
+					fastpath = 1
 					if(fn.isKeyChain()){
 						// check if we are doing some native access
 						// no tempvar
 						cthis = this.expand(fn.object, fn)
-						if(this.globals[cthis] || cthis == 'gl') fastpath = 1
+						//if(this.globals[cthis] || cthis == 'gl') fastpath = 1
 						if(fn.type == 'Index') call = cthis + '[' + this.expand(fn.index, fn) + ']'
 						else{
 							var name = fn.key.name
-							if(name in String.prototype) fastpath = 1
-							if(name in Array.prototype) fastpath = 1
-							if(name in Object.prototype) fastpath = 1
+							//if(name in String.prototype) fastpath = 1
+							//if(name in Array.prototype) fastpath = 1
+							//if(name in Object.prototype) fastpath = 1
 							call = cthis + '.' + name
 						}
 					}
@@ -2190,7 +2196,7 @@ ONE.genjs_compat_ = function(){
 	this.await = function( generator, bound, _catch ){
 		var ret = function(){
 			var iter = generator.apply(this, arguments)
-			return ONE.Signal.wrap(function(sig){
+			return ONE.Base.wrapSignal(function(sig){
 				function error(e){
 					// throw forward
 					sig.throw(e)

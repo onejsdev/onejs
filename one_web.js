@@ -124,8 +124,9 @@ ONE.proxy_ = function(){
 			for(var i = 0; i < len; i++){
 				var signal = arg[i]
 				if(!signal) continue
-				
-				var name = signal.name
+								
+				var key = signal.key
+
 				var proxy_code = signal.proxy_code
 				if(proxy_code){
 					code += proxy_code
@@ -137,7 +138,7 @@ ONE.proxy_ = function(){
 				var js = this.AST.ToJS
 				js.new_state()
 				js.module = ast.module
-				code += 'this.' + name + ' = ' + js.expand(ast) + '\n'
+				code += 'this.' + key + ' = ' + js.expand(ast) + '\n'
 
 				signal.proxy_code = code
 			}
@@ -159,7 +160,6 @@ ONE._createWorker = function(){
 		'\nvar Assert'+
 		'\nONE.init = ' + ONE.init.toString() +
 		'\nONE.init_ast = ' + ONE.init_ast.toString() +
-
 		'\nONE.base_ = ' + ONE.base_.toString() +
 		'\nONE.signal_ = ' + ONE.signal_.toString() +
 		'\nONE.proxy_ = ' + ONE.proxy_.toString() +
@@ -231,10 +231,10 @@ ONE.browser_boot_ = function(){
 		}
 	}
 
-	ONE.signal_.call( this.Signal = {} )
+	if(!fake_worker) ONE.signal_()
 
 	function module_get( url, module ){
-		return ONE.Signal.wrap(function(sig){
+		return ONE.Base.wrapSignal(function(sig){
 			var elem = document.getElementById(module)
 			if(elem){
 				var value = elem.innerHTML
@@ -259,6 +259,7 @@ ONE.browser_boot_ = function(){
 	
 	var type = "main"
 	var root
+
 	if(location.hash){
 		root = location.hash.slice(1)
 		var hack = location.hash.indexOf('?')
@@ -272,7 +273,7 @@ ONE.browser_boot_ = function(){
 		// when do we resolve a module? when all its deps have been loaded.
 		function load_dep( module ){
 			// lets load a module
-			return ONE.Signal.wrap(function(sig){
+			return ONE.Base.wrapSignal(function(sig){
 				var url = module + '.n'
 				var data_sig = loader[module]
 				var first = false
@@ -287,7 +288,7 @@ ONE.browser_boot_ = function(){
 					value.replace(/import\s+(\w+)/g, function(m, mod){
 						all.push(load_dep(mod))
 					})
-					ONE.Signal.all(all).then(function(){
+					ONE.Base.allSignals(all).then(function(){
 						if(first) worker.postMessage({_id:'eval', module:module})
 						else first = false
 						sig.end()

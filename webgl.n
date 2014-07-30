@@ -704,7 +704,7 @@ class GLNode extends Proxy{
 			// otherwise output self
 			return AST.ToCode::expand(n, parent)
 		}
-		
+
 		// Id resolver
 		Id( n ){
 			var name = n.name
@@ -831,6 +831,17 @@ class GLNode extends Proxy{
 			return ret
 		}
 
+		// typevar needs its struct definitions
+		TypeVar( n ){
+			var name = n.kind.infer.name
+			if(!(name in glsl_types)){
+				// we have to export our type
+				this.types[name] = n.kind.infer
+				//console.log(name)
+			}
+			return name + ' ' + this.flat(n.defs, n)
+		}
+
 		Def( n ){
 			var name = n.id.name
 			scope[name] = n.infer
@@ -949,6 +960,13 @@ class GLNode extends Proxy{
 		find_type = AST.ToJS.find_type
 	}
 
+	// type serializer
+	function StructToGLSL( type, type_flatten ){
+		var ret = 'struct'
+		
+		console.log(type)
+	}
+
 	class GenDrawJS extends AST.ToJS{
 		
 		context_resolve( name, n ){
@@ -990,6 +1008,7 @@ class GLNode extends Proxy{
 			var pix_uniforms = GenGLSL.uniforms = []
 			var varyings = GenGLSL.varyings = []
 			var pix_tmpvars = GenGLSL.tmpvars = []
+			var pix_types = GenGLSL.types = {}
 			var signal_deps = GenGLSL.sigdeps = []
 			var pix_expr = GenGLSL.expand(pix.value)
 			
@@ -1000,12 +1019,14 @@ class GLNode extends Proxy{
 			GenGLSL.pixel = DepTraceGLSL.pixel = 0
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
 			GenGLSL.module = vtx.value.module
+			GenGLSL.types = vtx_types
 			DepTraceGLSL.module = vtx.value.module
 			DepTraceGLSL[vtx.value.type](vtx.value)
 
 			var vtx_type_methods = GenGLSL.type_methods = {}
 			var vtx_uniforms = GenGLSL.uniforms = []
 			var vtx_tmpvars = GenGLSL.tmpvars = []
+			var vtx_types = GenGLSL.types = {}
 			var vtx_expr = GenGLSL.expand(vtx.value)
 			
 			var vary_merged = ''
@@ -1073,21 +1094,21 @@ class GLNode extends Proxy{
 				`
 			}
 
+			var vtx_tmpcode = ''
+
+			// generate vertexshader tmpvars
+			for(var i = vtx_tmpvars.length - 1; i >=0; i--){
+				var tmp = vtx_tmpvars[i]
+				vtx_tmpcode += `
+					${tmp.type} ${tmp.name} = ${tmp.value};
+				`
+			}
+
 			// generate pixelshader methods
 			var pix_method_decl = ''
 			for(var method in pix_type_methods){
 				pix_method_decl += `
 				${pix_type_methods[method]}
-				`
-			}
-
-			var vtx_tmpcode = ''
-
-			// generate pixelshader tmpvars
-			for(var i = vtx_tmpvars.length - 1; i >=0; i--){
-				var tmp = vtx_tmpvars[i]
-				vtx_tmpcode += `
-					${tmp.type} ${tmp.name} = ${tmp.value};
 				`
 			}
 
@@ -1099,24 +1120,42 @@ class GLNode extends Proxy{
 				`
 			}
 
+			// generate pixelshader types
+			var pix_type_decl = ''
+			var pix_type_flat = Object.create(null)
+			for(var type in pix_types){
+				pix_type_decl += `
+				${StructToGLSL(pix_types[type], pix_type_flat)}
+				`
+			}
+
+			// generate pixelshader types
+			var vtx_type_decl = ''
+			var vtx_type_flat = Object.create(null)
+			for(var type in vtx_types){
+				vtx_type_decl += `
+				${StructToGLSL(vtx_types[type], vtx_type_flat)}
+				`
+			}
+
+			// pixel shader
+			var pix_shader = `
+				precision highp float;
+				${pix_type_decl}${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
+				void main(){
+					${pix_tmpcode}
+					gl_FragColor = vec4(${pix_expr}, 1.);
+				}
+			`
 
 			// vertex shader
 			var vtx_shader = `
 				precision highp float;
-				${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
+				${vtx_type_decl}${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
 				void main(){
 					${vtx_tmpcode}
 					gl_Position = ${vtx_expr};
 					${vary_assign}
-				}
-			`
-			// pixel shader
-			var pix_shader = `
-				precision highp float;
-				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
-				void main(){
-					${pix_tmpcode}
-					gl_FragColor = vec4(${pix_expr}, 1.);
 				}
 			`
 			// we have to get a unique draw ID
@@ -1203,8 +1242,8 @@ class GLNode extends Proxy{
 				if(!map) throw new Error('unsupported uniform type ' + uni.node.infer.name)
 				ret +=`
 				var v = ${js}
-				if(shader.${uid}_uv_${uni.name} !== v){
-					shader.${uid}_uv_${uni.name} = v
+				if(shader.uv_${uni.name} !== v){
+					shader.uv_${uni.name} = v
 					gl.${map(`this.${uid}_ul_${uni.name}`)}
 				}
 				`

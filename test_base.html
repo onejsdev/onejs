@@ -54,22 +54,23 @@
 				var b = Bt.new()
 
 				state = 0
-				b.click.call()
+				b.click()
+
 				assert(state == 1)
 
 				b.learn(Sig2)
 				state = 0
-				b.click.call()
+				b.click()
 
 				assert(state == 4)
 				b.forget(Sig2)
 				state = 0
-				b.click.call()
+				b.click()
 				assert(state == 1)
 
 				Bt.forget(Sig1)
 				state = 0
-				b.click.call()
+				b.click()
 				assert(state == 0)
 
 				console.log('Signals OK')
@@ -143,9 +144,19 @@
 				var Role3 = ONE.Base.extend(function(){
 					this.a = 40
 					this.b = 50
+					this.c = function(){
+						return 1
+					}
+					this.d = function(){
+						assert(this.super(arguments) == 3)
+						return 4 
+					}
 				})
 				var C1 = ONE.Base.extend(function(){
 					this.a = 10
+					this.d = function(){ 
+						return 3 
+					}
 				})
 
 				var x = C1.new(this)
@@ -166,9 +177,12 @@
 				x.learn(Role3)
 				assert(x.a == 40)
 				assert(x.b == 50)
-
+				assert(x.c() == 1)
+				assert(x.d() == 4)
 				x.forget(Role3)
 				assert(x.b === undefined)
+				assert(x.c === undefined)
+				assert(x.d() === 3)
 				console.log('Roles OK')
 			})
 
