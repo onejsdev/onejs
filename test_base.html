@@ -62,7 +62,6 @@
 				b.click.call()
 
 				assert(state == 4)
-				window.hack = b.click
 				b.forget(Sig2)
 				state = 0
 				b.click.call()
@@ -160,6 +159,9 @@
 
 				x.forget(Role3)
 				assert(x.a == 20)
+
+				x.forget(Role1)
+				assert(x.a == 10)
 
 				x.learn(Role3)
 				assert(x.a == 40)

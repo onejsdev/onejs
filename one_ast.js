@@ -4,6 +4,8 @@ ONE.init_ast = function(){
 	this.ast_.call(this.Base)
 	this.color_()
 	if(this.proxy_) this.proxy_.call(this.Base)
+
+	this.Base.enumfalse( Object.keys( ONE.Base ) )
 }
 
 ONE.ast_ = function(){
@@ -80,6 +82,7 @@ ONE.ast_ = function(){
 	}
 
 	this.eval = function( ast, filename ){
+		if(!ast) throw new Error('no ast', filename)
 		if( typeof ast == 'string' ){ 
 			// lets first do a local storage scan.
 			

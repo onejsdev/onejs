@@ -16,9 +16,6 @@ ONE.init = function(){
 
 	// make ONE the new root scope
 	this.Base.$ = this.$ = Object.create(this)
-
-	// hide all the props
-	this.Base.enumfalse( Object.keys( ONE.Base ) )
 }
 
 ONE.base_ = function(){
@@ -265,7 +262,7 @@ ONE.base_ = function(){
 		var stack = overloads[key] || (overloads[key] = [])
 		// we might be a signal
 		var sigkey = '__' + key
-		var sig = this[sigkey]
+		var this_sig = this[sigkey]
 
 		if(typeof value == 'function') value.__supername__ = key
 
@@ -280,12 +277,12 @@ ONE.base_ = function(){
 			}
 		}
 
-		if(sig){
-			if(top_val !== sig.value)
-				stack.push(new StackValue(sig.value))
+		if(this_sig){
+			if(top_val !== this_sig.value)
+				stack.push(new StackValue(this_sig.value))
 
 			if(value && value._signal_){
-				sig.mergeSignal(value)
+				this_sig.mergeSignal(value)
 				// call the signal setters
 				this[key] = value.value
 			}
@@ -346,8 +343,7 @@ ONE.base_ = function(){
 					}
 				}
 			}
-			stack.pop()
-			return
+			return stack.pop()
 		}
 
 		// fetch value on this
@@ -366,20 +362,18 @@ ONE.base_ = function(){
 		var idx = stack.indexOf(marker)
 
 		if(idx != -1){ // okay so.
-			if(marker_sig){ // unmix the markers signal
+			if(marker_sig){ // unmerge the markers signal
 				if(!this_sig) throw new Error('marker has signal, but this has not')
 				this_sig.unmergeSignal(marker_sig)
-			}
+			}// remove the listener
 			else if(this_sig && typeof marker_val == 'function'){
 				this_sig.removeListener(marker_val, 'set_list')
 			}
-			// if value is a function and we are a signal
-			// we have to remove our eventl istener
-
 			// we are top of the stack, and we havent messed with the value
 			if(idx === stack.length - 1 && this_val === marker_val){
 				stack.pop() // pop the marker
-				this.pop(key) // use the tophalf of this function to pop 
+				// pop the stack to assign the new stacktop
+				stack.push(this.pop(key)) // use the tophalf of this function to pop 
 			}
 			// remove the marker from the stack				
 			stack.splice(idx, 1)

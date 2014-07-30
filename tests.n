@@ -382,9 +382,6 @@ Language(){
 	assert( arr.join('') == '123' )
 	assert( obj.y == 2 )
 
-	// logic words
-	assert(true and true or not false)
-
 	// existential object traverse
 	var x = {a:{b:{c:10}}}
 	var a = x?.a?.b?.c
@@ -431,6 +428,6 @@ for(var key in this){
 	}
 }
 for(var [name, fn] of run){
-	log('Testing:'+name)
+	out('Testing:'+name)
 	Base{ fn() }
 }

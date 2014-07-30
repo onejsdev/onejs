@@ -1,4 +1,4 @@
-#js
+
 import math
 import webgl
 
@@ -26,6 +26,7 @@ class Rect extends GLNode{
 		+ 
 		mix(#green, #purple) do
 			sin(sin(Time.sec+param1) * 2 * param1 * p.x * p.y)
+
 }
 
 var ref = GLView{
