@@ -4,7 +4,7 @@
 		<script src='one_base.js'></script>
 		<script>
 			ONE.init()
-			/*
+			
 			ONE.reloader = function(){
 				var rtime = Date.now()
 				var x = new XMLHttpRequest()
@@ -19,36 +19,62 @@
 				x.send()
 			}
 			ONE.reloader()
-			*/
+			function run(){
 			function assert(v){
 				if(!v) throw new Error('Assert failed')
 			}
-/*
+
+			var x = {
+				test:1
+			}
+			Object.createClass
+			Object.defineProperty( x, 'test', {enumerable:false, configurable:true})
+			for(var k in x){
+				console.log(k)
+			}
+			
 			var Signals = ONE.Base.extend(function(){
+				var state = 0
+
 				var Sig1 = ONE.Base.extend(function(){
 					this.signal('click')
 					this.click = function(){
-						console.log('Sig1:click')
+						state += 1
 					}
-					this.signal('x', 10)
 				})
 				var Sig2 = ONE.Base.extend(function(){
 					this.click = function(){
-						console.log('Sig2:click')
+						state += 3
 					}
 				})
 				var Bt = ONE.Base.extend(function(){
-					this.learn(Sig1, Sig2)
-					x = 20
+					this.learn(Sig1)
 				})
 
 				var b = Bt.new()
+
+				state = 0
 				b.click.call()
-				console.log(b.x)
-				Bt.forget(Sig2)
+				assert(state == 1)
+
+				b.learn(Sig2)
+				state = 0
 				b.click.call()
-				console.log(b.x)
-			})*/
+
+				assert(state == 4)
+				window.hack = b.click
+				b.forget(Sig2)
+				state = 0
+				b.click.call()
+				assert(state == 1)
+
+				Bt.forget(Sig1)
+				state = 0
+				b.click.call()
+				assert(state == 0)
+
+				console.log('Signals OK')
+			})
 	
 			var Scopes = ONE.Base.extend(function(){
 				this.scoped()
@@ -124,26 +150,28 @@
 				})
 
 				var x = C1.new(this)
-				C1.learn(Role1)
-				C1.learn(Role2)
-				C1.learn(Role3)
+				x.learn(Role1)
+				x.learn(Role2)
+				x.learn(Role3)
 				assert(x.a == 40)
 
-				C1.forget(Role2)
+				x.forget(Role2)
 				assert(x.a == 40)
 
-				C1.forget(Role3)
+				x.forget(Role3)
 				assert(x.a == 20)
 
-				C1.learn(Role3)
+				x.learn(Role3)
 				assert(x.a == 40)
 				assert(x.b == 50)
 
-				C1.forget(Role3)
+				x.forget(Role3)
 				assert(x.b === undefined)
 				console.log('Roles OK')
 			})
 
+		}
+		run()
 		</script>
 	</head>
 	<body>
