@@ -420,12 +420,19 @@ ONE.genjs_ = function(modules, parserCache){
 		this.decodeStructAccess = function( n ){
 			var node = n
 			while(node){
-				if(node.type == 'Id'){
-					// check
-					var base = this.resolve(node.name)
-					//var marg = this.macro_args[base]
-					//if(marg) base = marg.name
-					var type = this.scope[base]
+				if(node.type == 'Id' || node.type == 'Call'){
+					var base, type, calldebug
+					if(node.type == 'Call'){
+						if(!node.infer) return
+						base = this.expand(node, node.parent)
+						type = node.infer
+						calldebug = 1
+					}
+					else{
+						// check
+						base = this.resolve(node.name)
+						type = this.scope[base]
+					}
 					// lookup type on context object
 					var ctx
 					if(!type && this.context && (ctx = this.context[node.name])){
@@ -479,6 +486,7 @@ ONE.genjs_ = function(modules, parserCache){
 							n.infer = field
 							n.inferptr = 1
 							// translate this to a new Array
+							if(calldebug) console.log(node)
 							this.find_function(n).call_var = 1
 							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + '),'+
 								this.call_tmpvar+'.t=module.'+type.name+','+this.call_tmpvar+')'
@@ -508,6 +516,11 @@ ONE.genjs_ = function(modules, parserCache){
 		
 		this.Key = function( n ){
 			if(n.key.type !== 'Id') throw new Error('Unknown key type')
+			
+			// do static memory offset calculation for typed access
+			var ret = this.decodeStructAccess(n)
+			if(ret) return ret
+
 			var key = n.key
 			var obj = n.object
 			
@@ -516,11 +529,7 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			if(object_t !== 'Index' && object_t !== 'Id' && object_t !== 'Key' && object_t !== 'Call'&& object_t !== 'This')
 				object = '(' + object + ')'
-			
-			// do static memory offset calculation for typed access
-			var ret = this.decodeStructAccess(n)
-			if(ret) return ret
-			
+						
 			if(n.exist){
 				var tmp = this.alloc_tmpvar(n)
 				return '((' + tmp + '=' + object + ') && ' + tmp + '.' + n.key.name + ')'

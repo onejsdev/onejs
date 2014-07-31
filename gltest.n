@@ -11,26 +11,30 @@ class Rect extends GLNode{
 
 	struct test_t{
 		vec2 a
+		vec2 b
+		vec2 c
 	}
-	//dump = 1
-	thing1 = test_t(0, 0)
+
+	thing1 = test_t(1, 1,1,1,1,1)
 
 	vertex: mesh[] * (objmtx * viewmtx)
 	param1 = 1
 	bgcolor: #yellow
 	p:pixel mesh[]
-	
 	mul2:(x){
 		var y = x
-		//test_t v;
-		//v.a = vec2(0,0)
-		return y * 1.4
+		test_t v = thing1;
+		return y * v.a.x 
+	}
+	//dump = 1
+	test2:(){
+		return thing1
 	}
 
 	pixel:
 		mul2 do
 		(mix(bgcolor, #black) do 
-			abs(sin(param1 * atan(p.x + thing1.a.x, p.y + thing1.a.y))))
+			abs(sin(param1 * atan(p.x, p.y))))
 		+ 
 		mix(#green, #purple) do
 			sin(sin(param1) * 2 * param1 * p.x * p.y)

@@ -273,6 +273,7 @@ class GLNode extends Proxy{
 		vec3: a -> 'uniform3fv(' + a + ',v)'
 		vec4: a -> 'uniform4fv(' + a + ',v)'
 		mat4: a -> 'uniformMatrix4fv(' + a + ',false,v)'
+		uni: a -> 'uniform1fv(' + a + ',v)'
 	}
 	
 	class DepTraceGLSL extends AST.Walk{
@@ -424,8 +425,10 @@ class GLNode extends Proxy{
 		Def( n, parent ){
 			n.parent = parent
 			var type
+			// dont let the mark travel up
+			var oldmark = n.mark
 			if(n.init) this[n.init.type](n.init, n)
-
+			n.mark = oldmark
 			if(n.parent.type == 'Var'){
 				if(!n.init) throw new Error('Cannot use uninitialized var')
 				type = n.init.infer
@@ -508,6 +511,7 @@ class GLNode extends Proxy{
 						generics = old_generics
 						scope = old_scope
 						n.infer = return_type
+						n.mark = macro.mark
 						return_type = old_return
 					}
 					else if(macro.type == 'Call'){
@@ -662,11 +666,6 @@ class GLNode extends Proxy{
 		// what if we are a Key and its another objects' signal we need to depend on?
 		// we need to send over a dependency list
 		Key( n ){
-			if(n.object.type == 'Id'){ 
-				var objname = n.object.name
-				// alright so
-				// we are depending on something
-			}
 			return AST.ToJS::Key(n)
 		}
 	}
@@ -852,15 +851,16 @@ class GLNode extends Proxy{
 				type = n.init.infer
 			}
 			else if(n.parent.type === 'TypeVar'){
+				if(n.init) return name + ' = ' +  this.expand(n.init, n)
 				return name
 			}
 			else throw new Error('Unsupported Def encountered')
 		}
 
 		// Function!
-		this.Function( n, name, argdef ){
+		this.Function( n, name, argdef, ret_type ){
 			// allright lets generate a function!
-			var ret = n.infer.name + ' ' + name + '(' + argdef + ')'
+			var ret = ret_type.name + ' ' + name + '(' + argdef + ')'
 			var old_depth = this.depth
 			this.depth += this.indent
 			ret += this.expand(n.body, n)
@@ -921,7 +921,7 @@ class GLNode extends Proxy{
 							macro_args = undefined
 							depth = '\t\t\t'
 							if(macro.module) this.module = macro.module
-							type_methods[gen] = this.Function(macro, gen, argdef)
+							type_methods[gen] = this.Function(macro, gen, argdef, n.infer)
 							depth = old_depth
 							generics = old_generics
 							macro_args = old_args
@@ -961,10 +961,41 @@ class GLNode extends Proxy{
 	}
 
 	// type serializer
-	function StructToGLSL( type, type_flatten ){
-		var ret = 'struct'
-		
-		console.log(type)
+	function StructToGLSL( tabs, type, type_flatten ){
+		var ret = '\n' + tabs + 'struct ' + type.name + '{\n'
+		var fields = type.fields
+		for(var name in fields){
+			var field = fields[name]
+			// lets check if we have the type
+			var fname = field.name
+			if(!(fname in glsl_types) && !(fname in type_flatten)){
+				type_flatten[fname] = 1
+				ret = StructToGLSL(tabs, field, type_flatten) + ret
+			}
+			ret += tabs + '\t' + fname + ' ' + name + ';\n'  
+		}  
+		ret += tabs + '};'
+		return ret
+	}
+
+	// uniform type expander
+	function UniformTypeExpander( type, parts ){
+		// lets check if our type is in the mappings
+		var map = glsl_uniform_map[type.name]
+		if(map){ // unroll it
+			// if we have offset 0, we can use an array call
+			// if we have offset, we have to call it with arguments
+
+		}
+		else{
+			// lets set all the fields
+			for(var name in type.fields){
+				var field = type.fields[name]
+				// calc the offset
+				UniformTypeExpander(field, parts)
+			}
+			console.log( type )
+		}
 	}
 
 	class GenDrawJS extends AST.ToJS{
@@ -1124,24 +1155,20 @@ class GLNode extends Proxy{
 			var pix_type_decl = ''
 			var pix_type_flat = Object.create(null)
 			for(var type in pix_types){
-				pix_type_decl += `
-				${StructToGLSL(pix_types[type], pix_type_flat)}
-				`
+				pix_type_decl += StructToGLSL('\t\t\t\t',pix_types[type], pix_type_flat)
 			}
 
 			// generate pixelshader types
 			var vtx_type_decl = ''
 			var vtx_type_flat = Object.create(null)
 			for(var type in vtx_types){
-				vtx_type_decl += `
-				${StructToGLSL(vtx_types[type], vtx_type_flat)}
-				`
+				vtx_type_decl += StructToGLSL('\t\t\t\t',vtx_types[type], pix_type_flat)
 			}
 
 			// pixel shader
 			var pix_shader = `
-				precision highp float;
-				${pix_type_decl}${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
+				precision highp float;${pix_type_decl}
+				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
 				void main(){
 					${pix_tmpcode}
 					gl_FragColor = vec4(${pix_expr}, 1.);
@@ -1150,8 +1177,8 @@ class GLNode extends Proxy{
 
 			// vertex shader
 			var vtx_shader = `
-				precision highp float;
-				${vtx_type_decl}${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
+				precision highp float;${vtx_type_decl}
+				${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
 				void main(){
 					${vtx_tmpcode}
 					gl_Position = ${vtx_expr};
@@ -1191,21 +1218,61 @@ class GLNode extends Proxy{
 						gl.attachShader(shader, pix_shader)
 						gl.linkProgram(shader)
 						gl._shadercache[cache_key] = shader
-					}
-					this.${uid}_shader = shader
 			`
-			
-			for(var uni from pix_uniforms) ret += `
-					this.${uid}_ul_${uni.name} = gl.getUniformLocation(shader, "${uni.name}");`
-				
-			for(var uni from vtx_uniforms) ret += `
-					this.${uid}_ul_${uni.name} = gl.getUniformLocation(shader, "${uni.name}");`
-			
+
+			// okay we need to do uniforms differently.
+			// we need to 
+			// generate uniform setting
+			GenUniformJS.store_tempid = 1000*uid + 1
+			GenUniformJS.type_methods = type_methods
+			var uniform_parts = {
+				init:'',
+				setters:''
+			}
+
+			for(var uni from pix_uniforms.concat(vtx_uniforms)){
+				GenUniformJS.module = uni.module
+				GenUniformJS.context = context
+				GenUniformJS.proxy_props = proxy_props
+
+				var js = GenUniformJS.expand(uni.node, n)
+
+				UniformTypeExpander(uni.node.infer, 0, uniform_parts)
+
+				var map = glsl_uniform_map[uni.node.infer.name]
+
+				if(!map){ // oh god no we need to deconstruct the type
+					// so what do we do hmm?
+					console.log(uni.node.infer)
+					// into a shitfuckpile of uniform sets
+					map = glsl_uniform_map.uni
+				} 
+				//throw new Error('unsupported uniform type ' + uni.node.infer.name)
+				ret += `
+						shader.${uid}_ul_${uni.name} = gl.getUniformLocation(shader, "${uni.name}");`
+
+				uniform_setters +=`
+				var v = ${js}
+				if(shader.uv_${uni.name} !== v){
+					shader.uv_${uni.name} = v
+					gl.${map(`shader.${uid}_ul_${uni.name}`)}
+				}
+				`
+			}
+
+			ret += uniform_parts.init
+
 			for(var name in attribs)ret += `
-					this.${uid}_vb_${name} = gl.createBuffer()
-					this.${uid}_al_${name} = gl.getAttribLocation(shader, "${name}");`
-					
+						this.${uid}_al_${name} = gl.getAttribLocation(shader, "${name}");`
+	
+			ret += 	`
+					}
+					this.${uid}_shader = shader`
+
+			for(var name in attribs)ret += `
+					this.${uid}_vb_${name} = gl.createBuffer()`					
 			ret += `
+
 				}
 				gl.useProgram(shader)
 			`
@@ -1228,29 +1295,9 @@ class GLNode extends Proxy{
 				`
 			}
 			
-			// generate uniform setting
-			GenUniformJS.store_tempid = 1000*uid + 1
-			GenUniformJS.type_methods = type_methods
-			for(var uni from pix_uniforms.concat(vtx_uniforms)){
-				GenUniformJS.module = uni.module
-				GenUniformJS.context = context
-				GenUniformJS.proxy_props = proxy_props
-
-				var js = GenUniformJS.expand(uni.node, n)
-				
-				var map = glsl_uniform_map[uni.node.infer.name]
-				if(!map) throw new Error('unsupported uniform type ' + uni.node.infer.name)
-				ret +=`
-				var v = ${js}
-				if(shader.uv_${uni.name} !== v){
-					shader.uv_${uni.name} = v
-					gl.${map(`this.${uid}_ul_${uni.name}`)}
-				}
-				`
-			}
-			
 			// drawing function
 			ret += `
+				${uniform_parts.setters}
 				gl.drawArrays(${glc.TRIANGLES}, 0, ${len})
 			`
 			// correctly indent the code

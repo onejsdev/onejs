@@ -655,7 +655,7 @@ ONE.base_ = function(){
 	}
 	
 	// call all set listeners
-	Function.prototype.callListeners = function( sthis, _value ){
+	Function.prototype.callListeners = function( _value ){
 		if(this.toString != toString) throw new Error('Not a signal')
 
 		var value = _value === undefined? this.value: this.value = _value
@@ -677,7 +677,7 @@ ONE.base_ = function(){
 
 	// signal wrapper
 	this.wrapSignal = function( wrap ){
-		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		function Signal(v){ Signal.callListeners.call(Signal, v) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
 		Signal.then = then
@@ -686,7 +686,7 @@ ONE.base_ = function(){
 	}
 
 	this.allSignals = function( array ){
-		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		function Signal(v){ Signal.callListeners.call(Signal, v) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
 		Signal.then = then
@@ -716,7 +716,7 @@ ONE.base_ = function(){
 	}
 
 	this.propSignal = function( key, setter ){
-		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		function Signal(v){ Signal.callListeners.call(Signal, v) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
 		Signal.then = then
@@ -730,7 +730,7 @@ ONE.base_ = function(){
 
 	// fork a signal
 	this.forkSignal = function( signal ){
-		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
+		function Signal(v){ Signal.callListeners.call(Signal, v) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
 		Signal.then = then

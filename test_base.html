@@ -74,6 +74,13 @@
 				b.click()
 				assert(state == 0)
 
+				b.x.on(function(){
+					state = 1
+				})
+				b.x = 10
+				assert(state == 1)
+				b.x(20)
+				assert(b.x == 20)
 				console.log('Signals OK')
 			})
 	
