@@ -537,7 +537,6 @@ ONE.base_ = function(){
 
 	this.signal = function( key, value, setter ){
 		var signalStore = '__' + key
-		var fastStore = '__$' + key
 		var sig =  this[signalStore]
 		if(!sig){ 
 			sig = this[signalStore] = this.propSignal(key, setter)
@@ -551,14 +550,13 @@ ONE.base_ = function(){
 					// make an instance copy if needed
 					if(sig.owner != this){
 						sig = this[signalStore] = this.forkSignal(sig)
-						if(fastStore in this) sig.value = this[fastStore]
 					}
 					return sig
 				},
 				set:function(value){
 					var sig = this[signalStore]
 					// fast path property setter
-					if(!sig.onSet && sig.setter && 
+					if(!sig.set_list && sig.setter && 
 						(typeof value == 'number' || Array.isArray(value))){
 						if(sig.owner != this){
 							sig = this[signalStore] = this.forkSignal(sig)
@@ -577,7 +575,6 @@ ONE.base_ = function(){
 		else{ // we might need to create a new signal copy
 			if(sig.owner != this){
 				sig = this[signalStore] = this.forkSignal(sig)
-				if(fastStore in this) sig.value = this[fastStore]
 			}
 		}
 		if(value !== undefined) sig.set(value)
@@ -670,7 +667,7 @@ ONE.base_ = function(){
 			if(chain.hasOwnProperty('set_list') && (list = chain.set_list)){
 				if(!Array.isArray(list)) ret = list.call(owner, value, this)
 				else for(var i = 0, l = list.length; i < l; i++){
-					ret = list[i].call( owner, value, this )
+					ret = list[i].call(owner, value, this)
 				}
 			}
 			chain = chain.chain
@@ -826,7 +823,10 @@ ONE.base_ = function(){
 		if(this.ended) throw new Error('Cant set an ended signal')
 		
 		if(typeof value == 'function'){
-			return this.on(value)
+			if(value._signal_){
+				value = value.value
+			}
+			else return this.on(value)
 		}
 
 		this.value = value
