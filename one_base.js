@@ -830,7 +830,9 @@ ONE.base_ = function(){
 		}
 
 		this.value = value
-		
+		if(Array.isArray(value)){
+			this.length = value.length
+		}		
 		// call all our listeners
 		var chain = this 
 		var owner = this.owner
@@ -846,6 +848,73 @@ ONE.base_ = function(){
 			chain = chain.chain
 		}
 	}
+
+	// forward array API to value
+
+	Function.prototype.push = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.push.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.pop = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.pop.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.shift = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.shift.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.unshift = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.unshift.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.reverse = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.reverse.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.sort = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.sort.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.splice = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		var ret = this.value.splice.apply(this.value, arguments)
+		this.set(this.value)
+		return ret
+	}
+
+	Function.prototype.concat = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		return this.value.concat.apply(this.value, arguments)
+	}
+
+	Function.prototype.join = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		return this.value.join.apply(this.value, arguments)
+	}
+
+	Function.prototype.slice = function(){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		return this.value.slice.apply(this.value, arguments)
+	}
+
 
 	// listen to the end signal
 	Function.prototype.onEnd = function(end_cb){
