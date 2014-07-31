@@ -827,13 +827,13 @@ ONE.base_ = function(){
 		// call all our listeners
 		var chain = this 
 		var owner = this.owner
-		if(this.setter) this.setter.call(owner, value, this)
+		if(this.setter) this.setter.call(owner, value)
 		var list
 		while(chain){
 			if(chain.hasOwnProperty('set_list') && (list = chain.set_list)){
-				if(!Array.isArray(list)) list.call(owner, value, this)
+				if(!Array.isArray(list)) list.call(owner, value)
 				else for(var i = 0, l = list.length; i < l; i++){
-					list[i].call(owner, value, this)
+					list[i].call(owner, value)
 				}
 			}
 			chain = chain.chain
