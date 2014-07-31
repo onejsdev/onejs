@@ -830,9 +830,6 @@ ONE.base_ = function(){
 		}
 
 		this.value = value
-		if(Array.isArray(value)){
-			this.length = value.length
-		}		
 		// call all our listeners
 		var chain = this 
 		var owner = this.owner
@@ -849,8 +846,68 @@ ONE.base_ = function(){
 		}
 	}
 
-	// forward array API to value
+	// forwarding api for strings
+	Function.prototype.replace = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.replace.apply(this.value, arguments)
+	}
 
+	Function.prototype.match = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.match.apply(this.value, arguments)
+	}
+
+	Function.prototype.charAt = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.charAt.apply(this.value, arguments)
+	}
+
+	Function.prototype.charCodeAt = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.charCodeAt.apply(this.value, arguments)
+	}
+
+	Function.prototype.split = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.split.apply(this.value, arguments)
+	}
+
+	Function.prototype.substr = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.substr.apply(this.value, arguments)
+	}
+
+	Function.prototype.substring = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.substring.apply(this.value, arguments)
+	}
+
+	Function.prototype.trim = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.trim.apply(this.value, arguments)
+	}
+
+	Function.prototype.toLowerCase = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.toLowerCase.apply(this.value, arguments)
+	}
+
+	Function.prototype.toLocaleUpperCase = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.toLocaleUpperCase.apply(this.value, arguments)
+	}
+
+	Function.prototype.toLocaleLowerCase = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.toLocaleLowerCase.apply(this.value, arguments)
+	}
+
+	Function.prototype.toUpperCase = function(){
+		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
+		return this.value.toUpperCase.apply(this.value, arguments)
+	}
+
+	// forwarding api for arrays
 	Function.prototype.push = function(){
 		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
 		var ret = this.value.push.apply(this.value, arguments)
@@ -863,6 +920,17 @@ ONE.base_ = function(){
 		var ret = this.value.pop.apply(this.value, arguments)
 		this.set(this.value)
 		return ret
+	}
+
+	Function.prototype.setAt = function(idx, value){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		this.value[idx] = value
+		this.set(this.value)
+	}
+
+	Function.prototype.getAt = function(idx){
+		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		return this.value[idx]
 	}
 
 	Function.prototype.shift = function(){
@@ -901,8 +969,18 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.concat = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
 		return this.value.concat.apply(this.value, arguments)
+	}
+
+	Function.prototype.indexOf = function(){
+		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
+		return this.value.indexOf.apply(this.value, arguments)
+	}
+
+	Function.prototype.lastIndexOf = function(){
+		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
+		return this.value.lastIndexOf.apply(this.value, arguments)
 	}
 
 	Function.prototype.join = function(){
@@ -911,10 +989,9 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.slice = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
+		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
 		return this.value.slice.apply(this.value, arguments)
 	}
-
 
 	// listen to the end signal
 	Function.prototype.onEnd = function(end_cb){
