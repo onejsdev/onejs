@@ -13,6 +13,8 @@ ONE.init = function(){
 	this.base_.call(this.Base = {})
 	this.Base.Base = this.Base
 
+	this.Base.enumfalse( Object.keys( ONE.Base ) )
+
 	// make ONE the new root scope
 	this.Base.$ = this.$ = Object.create(this)
 }
@@ -540,7 +542,7 @@ ONE.base_ = function(){
 		var sig =  this[signalStore]
 		if(!sig){ 
 			sig = this[signalStore] = this.propSignal(key, setter)
-
+			Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 			// make a getter/setter pair
 			Object.defineProperty(this, key, {
 				configurable:true,
@@ -550,32 +552,24 @@ ONE.base_ = function(){
 					// make an instance copy if needed
 					if(sig.owner != this){
 						sig = this[signalStore] = this.forkSignal(sig)
+						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
 					return sig
 				},
 				set:function(value){
 					var sig = this[signalStore]
-					// fast path property setter
-					if(!sig.set_list && sig.setter && 
-						(typeof value == 'number' || Array.isArray(value))){
-						if(sig.owner != this){
-							sig = this[signalStore] = this.forkSignal(sig)
-							sig.owner = this
-						}
-						sig.value = value
-						sig.setter.call(this, value)
-						return
+					// make instance copy if needed
+					if(sig.owner != this){
+						sig = this[signalStore] = this.forkSignal(sig)
+						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
-					// make an instance copy if needed
-					if(sig.owner != this) sig = this[signalStore] = this.forkSignal(sig)
 					sig.set(value)
 				}
 			})
 		}
-		else{ // we might need to create a new signal copy
-			if(sig.owner != this){
-				sig = this[signalStore] = this.forkSignal(sig)
-			}
+		else if(sig.owner != this){
+			sig = this[signalStore] = this.forkSignal(sig)
+			Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 		}
 		if(value !== undefined) sig.set(value)
 		return sig

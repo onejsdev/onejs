@@ -273,9 +273,16 @@ class GLNode extends Proxy{
 		vec3: a -> 'uniform3fv(' + a + ',v)'
 		vec4: a -> 'uniform4fv(' + a + ',v)'
 		mat4: a -> 'uniformMatrix4fv(' + a + ',false,v)'
-		uni: a -> 'uniform1fv(' + a + ',v)'
 	}
 	
+	var glsl_uniform_slot_map = {
+		float:a -> 'uniform1f(' + a + ',v)'
+		vec2: a -> 'uniform2f(' + a + ',v)'
+		vec3: a -> 'uniform3f(' + a + ',v)'
+		vec4: a -> 'uniform4f(' + a + ',v)'
+	}
+
+
 	class DepTraceGLSL extends AST.Walk{
 		// causes dependency marks to travel up the tree
 		// uniform has mark 1
@@ -979,20 +986,49 @@ class GLNode extends Proxy{
 	}
 
 	// uniform type expander
-	function UniformTypeExpander( type, parts ){
+	function UniformTypeExpander( type, parts, base ){
 		// lets check if our type is in the mappings
 		var map = glsl_uniform_map[type.name]
 		if(map){ // unroll it
+			console.log(type, type0)
+			if(type.off){
+				var map = glsl_uniform_slot_map[type.name]
+				if(!map) throw new Error('type ' + type.name + ' can only be used in first position of a uniform struct')
+			}
+			else{
+				var off = type.off / AST.viewSize[type.view]
+				var if_v = ''
+				var assign_v = ''
+				var arg_v
+				for(var i = 0; i<type.slots; i++){
+					if(i) if_v += ' && ', assign_v += ', ', arg_v += ', '
+					if_v += 'shader.uv_' + base + '_' + i + '!==v[' + off + i + ']'
+					assign_v += 'shader.uv_' + base + '_' + i + ' = v[' + off + i + ']'
+					arg_v += 'v[' + off + i + ']'
+				}
+				parts.setters += `
+				if(${if_v}}){
+					${as_v}
+					gl.${map()}
+					
+
+
+				/*parts.setters +=`
+				if(shader.uv_${uni.name} !== v){
+					shader.uv_${uni.name} = v
+					gl.${map(`shader.${uid}_ul_${uni.name}`)}
+				}
+				`*/
+			}
 			// if we have offset 0, we can use an array call
 			// if we have offset, we have to call it with arguments
-
 		}
 		else{
 			// lets set all the fields
 			for(var name in type.fields){
 				var field = type.fields[name]
 				// calc the offset
-				UniformTypeExpander(field, parts)
+				UniformTypeExpander(field, parts, base + '_' + name)
 			}
 			console.log( type )
 		}
@@ -1234,10 +1270,10 @@ class GLNode extends Proxy{
 				GenUniformJS.module = uni.module
 				GenUniformJS.context = context
 				GenUniformJS.proxy_props = proxy_props
-
+				
 				var js = GenUniformJS.expand(uni.node, n)
 
-				UniformTypeExpander(uni.node.infer, 0, uniform_parts)
+				UniformTypeExpander(uni.node.infer, 0, uniform_parts, uni.node.infer)
 
 				var map = glsl_uniform_map[uni.node.infer.name]
 
