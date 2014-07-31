@@ -62,7 +62,7 @@ class Node{
 	}
 
 	// monitor mouse overs
-	mouseover.monitor(){
+	on_mouseover.monitor(){
 		// this is the has own property existential assign
 		if(!hasOwnProperty('_events')) _events = Object.create(_events)
 		_events.onmouseover(e){
@@ -71,7 +71,7 @@ class Node{
 	}
 
 	// monitor mouse outs
-	mouseout.monitor(){
+	on_mouseout.monitor(){
 		if(!hasOwnProperty('_events')) _events = Object.create(_events)
 		_events.onmouseout(e){
 			one_node.$.mouse._mouseout( one_node, e )
@@ -214,14 +214,14 @@ class Node{
 		defineProperty( k, cssPropDef(k) )
 	}
 	
-	show.setter( value ){
+	on_show.setter( value ){
 		var c = hasOwnProperty('_css') ? _css : ( _css = Object.create(_css) )
 		c.css_display = value>0?'block':'none'
 		var s = dom_style
 		if(s) s.display = value>0?'block':'none'
 	}
 
-	x.setter(value){
+	on_x.setter(value){
 		var v = parseInt(value)
 		var s = dom_style
 		if(s){
@@ -232,7 +232,7 @@ class Node{
 		c.css_left =  v
 	}
 
-	y.setter(value){
+	on_y.setter(value){
 		var v = parseInt(value)
 		var s = dom_style
 		if(s){
@@ -243,7 +243,7 @@ class Node{
 		c.css_top = v
 	}
 
-	w.setter(value){
+	on_w.setter(value){
 		var v = parseInt(value)
 		var s = dom_style
 		if(s) return s.width = v
@@ -251,7 +251,7 @@ class Node{
 		c.css_width =  v
 	}
 	
-	h.setter(value){
+	on_h.setter(value){
 		var v = parseInt(value)
 		var s = dom_style
 		if(s) return s.height = v
@@ -260,7 +260,7 @@ class Node{
 		c.css_height = v
 	}
 
-	fill.setter(vec4 value){
+	on_fill.setter(vec4 value){
 		var s = dom_style
 		var str = '#' + ('000000' + ( ( ( ( ( value[0]*255 ) & 0xff ) << 8 | ( ( value[1]*255 ) & 0xff ) ) << 8 ) | ( ( value[2]*255 ) & 0xff ) ).toString( 16 ) ).slice( -6 )
 

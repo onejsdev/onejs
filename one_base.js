@@ -544,6 +544,28 @@ ONE.base_ = function(){
 			sig = this[signalStore] = this.propSignal(key, setter)
 			Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 			// make a getter/setter pair
+			Object.defineProperty(this, 'on_' + key, {
+				configurable:true,
+				enumerable:false,
+				get:function(){
+					var sig = this[signalStore]					
+					// make an instance copy if needed
+					if(sig.owner != this){
+						sig = this[signalStore] = this.forkSignal(sig)
+						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
+					}
+					return sig
+				},
+				set:function(value){
+					var sig = this[signalStore]
+					// make instance copy if needed
+					if(sig.owner != this){
+						sig = this[signalStore] = this.forkSignal(sig)
+						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
+					}
+					sig.set(value)
+				}
+			})
 			Object.defineProperty(this, key, {
 				configurable:true,
 				enumerable:true,
@@ -554,7 +576,7 @@ ONE.base_ = function(){
 						sig = this[signalStore] = this.forkSignal(sig)
 						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
-					return sig
+					return sig.value
 				},
 				set:function(value){
 					var sig = this[signalStore]
@@ -579,11 +601,12 @@ ONE.base_ = function(){
 
 	this.createSignal = function(){
 		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
-		Signal.toString = toString
-		Signal.valueOf = valueOf
+		//Signal.toString = toString
+		//Signal.valueOf = valueOf
 		Signal.then = then
+		Signal.bind = bind
 	}
-
+/*
 	function toString(){
 		return String(this.value)
 	}
@@ -591,7 +614,7 @@ ONE.base_ = function(){
 	// valueOf aliases signals to values
 	function valueOf(){
 		return this.value
-	}
+	}*/
 
 	// subscription classes
 	function cancel_subscription(){
@@ -616,7 +639,7 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.removeListener = function( cb, set ){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 
 		set = set || 'set_list'
 		var arr = this[set]
@@ -633,7 +656,7 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.enumListeners = function( set, cb ){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 
 		var chain = this
  		while(chain){
@@ -650,7 +673,7 @@ ONE.base_ = function(){
 	
 	// call all set listeners
 	Function.prototype.callListeners = function( _value ){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 
 		var value = _value === undefined? this.value: this.value = _value
 		var owner = this.owner
@@ -672,18 +695,18 @@ ONE.base_ = function(){
 	// signal wrapper
 	this.wrapSignal = function( wrap ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.toString = toString
-		Signal.valueOf = valueOf
+
 		Signal.then = then
+		Signal.bind = bind
 		wrap(Signal)
 		return Signal
 	}
 
 	this.allSignals = function( array ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.toString = toString
-		Signal.valueOf = valueOf
+
 		Signal.then = then
+		Signal.bind = bind
 		var obj = Signal
 		if(!array || !array.length){
 			obj.end()
@@ -711,10 +734,9 @@ ONE.base_ = function(){
 
 	this.propSignal = function( key, setter ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.toString = toString
-		Signal.valueOf = valueOf
-		Signal.then = then
 
+		Signal.then = then
+		Signal.bind = bind
 		Signal.owner = this
 		Signal.key = key
 		Signal.setter = setter
@@ -725,9 +747,9 @@ ONE.base_ = function(){
 	// fork a signal
 	this.forkSignal = function( signal ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.toString = toString
-		Signal.valueOf = valueOf
+
 		Signal.then = then
+		Signal.bind = bind
 		Signal.chain = signal
 		Signal.owner = this
 		Signal.value = signal.value
@@ -738,7 +760,7 @@ ONE.base_ = function(){
 
 	// listen to the end  / error
 	function then( end_cb, error_cb ){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		if(this.ended){
 			if(this.errored) window.setTimeout(function(){
 					error_cb.call(this, this.exception)	
@@ -764,7 +786,7 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.mergeSignal = function(other){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		var _this = this
 		other.enumListeners('set_list', function(v){
 			_this.onSet(v)
@@ -778,7 +800,7 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.unmergeSignal = function(other){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		var _this = this
 		other.enumListeners('set_list', function(v){
 			_this.removeListener(v, 'set_list')
@@ -792,9 +814,9 @@ ONE.base_ = function(){
 	}
 
 	// listen to set
-	Function.prototype.onSet =
-	Function.prototype.on = function( set_cb ){
-		if(this.toString != toString) throw new Error('Not a signal')
+	var bind = 
+	Function.prototype.onSet = function( set_cb ){
+		if(this.bind != bind) throw new Error('Not a signal')
 		if(!this.hasOwnProperty('set_list')) this.set_list = set_cb
 		else if(!Array.isArray(this.set_list)) this.set_list = [this.set_list, set_cb]
 		else this.set_list.push(set_cb)
@@ -808,19 +830,19 @@ ONE.base_ = function(){
 	}
 
 	Function.prototype.__defineGetter__('_signal_', function(){
-		return this.toString === toString
+		return this.bind === bind
 	})
 
 	// set the signal value
 	Function.prototype.set = function(value){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		if(this.ended) throw new Error('Cant set an ended signal')
 		
 		if(typeof value == 'function'){
 			if(value._signal_){
 				value = value.value
 			}
-			else return this.on(value)
+			else return this.bind(value)
 		}
 
 		this.value = value
@@ -840,156 +862,9 @@ ONE.base_ = function(){
 		}
 	}
 
-	// forwarding api for strings
-	Function.prototype.replace = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.replace.apply(this.value, arguments)
-	}
-
-	Function.prototype.match = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.match.apply(this.value, arguments)
-	}
-
-	Function.prototype.charAt = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.charAt.apply(this.value, arguments)
-	}
-
-	Function.prototype.charCodeAt = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.charCodeAt.apply(this.value, arguments)
-	}
-
-	Function.prototype.split = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.split.apply(this.value, arguments)
-	}
-
-	Function.prototype.substr = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.substr.apply(this.value, arguments)
-	}
-
-	Function.prototype.substring = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.substring.apply(this.value, arguments)
-	}
-
-	Function.prototype.trim = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.trim.apply(this.value, arguments)
-	}
-
-	Function.prototype.toLowerCase = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.toLowerCase.apply(this.value, arguments)
-	}
-
-	Function.prototype.toLocaleUpperCase = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.toLocaleUpperCase.apply(this.value, arguments)
-	}
-
-	Function.prototype.toLocaleLowerCase = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.toLocaleLowerCase.apply(this.value, arguments)
-	}
-
-	Function.prototype.toUpperCase = function(){
-		if(this.toString != toString || typeof this.value != 'string') throw new Error('Invalid operation')
-		return this.value.toUpperCase.apply(this.value, arguments)
-	}
-
-	// forwarding api for arrays
-	Function.prototype.push = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.push.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.pop = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.pop.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.setAt = function(idx, value){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		this.value[idx] = value
-		this.set(this.value)
-	}
-
-	Function.prototype.getAt = function(idx){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		return this.value[idx]
-	}
-
-	Function.prototype.shift = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.shift.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.unshift = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.unshift.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.reverse = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.reverse.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.sort = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.sort.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.splice = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		var ret = this.value.splice.apply(this.value, arguments)
-		this.set(this.value)
-		return ret
-	}
-
-	Function.prototype.concat = function(){
-		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
-		return this.value.concat.apply(this.value, arguments)
-	}
-
-	Function.prototype.indexOf = function(){
-		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
-		return this.value.indexOf.apply(this.value, arguments)
-	}
-
-	Function.prototype.lastIndexOf = function(){
-		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
-		return this.value.lastIndexOf.apply(this.value, arguments)
-	}
-
-	Function.prototype.join = function(){
-		if(this.toString != toString || !Array.isArray(this.value)) throw new Error('Invalid operation')
-		return this.value.join.apply(this.value, arguments)
-	}
-
-	Function.prototype.slice = function(){
-		if(this.toString != toString || (typeof this.value != 'string' && !Array.isArray(this.value))) throw new Error('Invalid operation')
-		return this.value.slice.apply(this.value, arguments)
-	}
-
 	// listen to the end signal
 	Function.prototype.onEnd = function(end_cb){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		if(!this.hasOwnProperty('end_list')) this.end_list = end_cb
 		else if(!Array.isArray(this.end_list)) this.end_list = [this.end_list, end_cb]
 		else this.end_list.push(end_cb)
@@ -1005,7 +880,7 @@ ONE.base_ = function(){
 
 	// end the signal
 	Function.prototype.end = function(value){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		this.set(value)
 		this.ended = true
 		// call end
@@ -1025,7 +900,7 @@ ONE.base_ = function(){
 	
 	// default allows a throw to be transformed to a value
 	Function.prototype.default = function(default_cb){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		if('default_cb' in this) throw new Error('Cannot overload defaults')
 		this.default_cb = default_cb
 		return this
@@ -1033,7 +908,7 @@ ONE.base_ = function(){
 	
 	// called when signal errors
 	Function.prototype.onError = function(error_cb){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		if(!this.hasOwnProperty('error_list')) this.error_list = error_cb
 		else if(!Array.isArray(this.onThrow)) this.error_list = [this.error_list, error_cb]
 		else this.error_list.push( error_cb )
@@ -1049,7 +924,7 @@ ONE.base_ = function(){
 	
 	// make the signal error
 	Function.prototype.error = function(value, next){
-		if(this.toString != toString) throw new Error('Not a signal')
+		if(this.bind != bind) throw new Error('Not a signal')
 		if(this.ended) throw new Error('Cant error ended signal')
 		if(this.default_cb) return this.end( this.default_cb(value) )
 		

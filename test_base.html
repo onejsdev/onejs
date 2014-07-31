@@ -55,31 +55,31 @@
 				var b = Bt.new()
 
 				state = 0
-				b.click()
+				b.on_click()
 
 				assert(state == 1)
 
 				b.learn(Sig2)
 				state = 0
-				b.click()
+				b.on_click()
 
 				assert(state == 4)
 				b.forget(Sig2)
 				state = 0
-				b.click()
+				b.on_click()
 				assert(state == 1)
 
 				Bt.forget(Sig1)
 				state = 0
-				b.click()
+				b.on_click()
 				assert(state == 0)
 
-				b.x.on(function(){
+				b.on_x.bind(function(){
 					state = 1
 				})
 				b.x = 10
 				assert(state == 1)
-				b.x(20)
+				b.on_x(20)
 				assert(b.x == 20)
 				console.log('Signals OK')
 			})
