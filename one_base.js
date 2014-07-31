@@ -12,7 +12,6 @@ ONE.init = function(){
 	// create base class
 	this.base_.call(this.Base = {})
 	this.Base.Base = this.Base
-	this.signal_()
 
 	// make ONE the new root scope
 	this.Base.$ = this.$ = Object.create(this)
@@ -586,20 +585,16 @@ ONE.base_ = function(){
 	}
 
 	this.trace = function(){ console.log.apply(console, arguments); return arguments[0];}
-}
 
-// the Signal class
-// the union of a computed propery, an event, a promise and an Observable
-ONE.signal_ = function(){
-
-	this.Base.createSignal = function(){
+	this.createSignal = function(){
 		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
+		Signal.then = then
 	}
 
 	function toString(){
-		return 'Signal:' + String(this.value)
+		return String(this.value)
 	}
 
 	// valueOf aliases signals to values
@@ -666,7 +661,7 @@ ONE.signal_ = function(){
 	Function.prototype.callListeners = function( sthis, _value ){
 		if(this.toString != toString) throw new Error('Not a signal')
 
-		var value = _value === undefined? this.value: _value
+		var value = _value === undefined? this.value: this.value = _value
 		var owner = this.owner
 		var chain = this
 		var list
@@ -683,21 +678,21 @@ ONE.signal_ = function(){
 		return ret
 	}
 
-	if(!this.Base) throw new Error('no base')
-
 	// signal wrapper
-	this.Base.wrapSignal = function( wrap ){
+	this.wrapSignal = function( wrap ){
 		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
+		Signal.then = then
 		wrap(Signal)
 		return Signal
 	}
 
-	this.Base.allSignals = function( array ){
+	this.allSignals = function( array ){
 		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
+		Signal.then = then
 		var obj = Signal
 		if(!array || !array.length){
 			obj.end()
@@ -723,10 +718,11 @@ ONE.signal_ = function(){
 		return obj
 	}
 
-	this.Base.propSignal = function( key, setter ){
+	this.propSignal = function( key, setter ){
 		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
+		Signal.then = then
 
 		Signal.owner = this
 		Signal.key = key
@@ -736,10 +732,11 @@ ONE.signal_ = function(){
 	}
 
 	// fork a signal
-	this.Base.forkSignal = function( signal ){
+	this.forkSignal = function( signal ){
 		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
 		Signal.toString = toString
 		Signal.valueOf = valueOf
+		Signal.then = then
 		Signal.chain = signal
 		Signal.owner = this
 		Signal.value = signal.value
@@ -749,7 +746,7 @@ ONE.signal_ = function(){
 	}
 
 	// listen to the end  / error
-	Function.prototype.then = function( end_cb, error_cb ){
+	function then( end_cb, error_cb ){
 		if(this.toString != toString) throw new Error('Not a signal')
 		if(this.ended){
 			if(this.errored) window.setTimeout(function(){

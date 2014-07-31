@@ -161,7 +161,6 @@ ONE._createWorker = function(){
 		'\nONE.init = ' + ONE.init.toString() +
 		'\nONE.init_ast = ' + ONE.init_ast.toString() +
 		'\nONE.base_ = ' + ONE.base_.toString() +
-		'\nONE.signal_ = ' + ONE.signal_.toString() +
 		'\nONE.proxy_ = ' + ONE.proxy_.toString() +
 		'\nONE.ast_ = ' + ONE.ast_.toString() +
 		'\nONE.genjs_ = ' + ONE.genjs_.toString() +

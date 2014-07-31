@@ -20,8 +20,6 @@ class Rect extends GLNode{
 	bgcolor: #yellow
 	p:pixel mesh[]
 	
-	out(vertex)
-
 	mul2:(x){
 		var y = x
 		//test_t v;
