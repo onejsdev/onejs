@@ -119,12 +119,12 @@ ONE.proxy_ = function(){
 		this.proxy = function( ){
 			var arg = arguments
 			var len = arguments.length
-			if(!len) arg = [this.init], len = 1
+			if(!len) arg = [this.on_init], len = 1
 			var code = ''
 			for(var i = 0; i < len; i++){
 				var signal = arg[i]
 				if(!signal) continue
-								
+				
 				var key = signal.key
 
 				var proxy_code = signal.proxy_code

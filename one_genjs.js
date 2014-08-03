@@ -430,7 +430,7 @@ ONE.genjs_ = function(modules, parserCache){
 					}
 					else{
 						// check
-						base = this.resolve(node.name)
+						base = this.expand(node, node.parent)
 						type = this.scope[base]
 					}
 					// lookup type on context object
@@ -462,9 +462,11 @@ ONE.genjs_ = function(modules, parserCache){
 								else idx += '('+this.expand(node.index, n) + ')'
 							}
 							else {
-								field = field.fields[node.key && node.key.name || node.name]
+								var fname = node.key && node.key.name || node.name
+								field = field.fields[fname]
 								if(!field){
-									throw new Error('Invalid field')
+									console.log(node)
+									throw new Error('Invalid field '+ fname)
 									return
 								}
 								off += field.off
@@ -1515,7 +1517,8 @@ ONE.genjs_ = function(modules, parserCache){
 		}
 
 		this.bin_op_table = {
-			'*':'mul'
+			'*':'mul',
+			'+':'add'
 		}
 
 		this.Binary = function( n ){
@@ -1532,7 +1535,7 @@ ONE.genjs_ = function(modules, parserCache){
 				var right_name = right_t.name
 				var name = this.bin_op_table[n.op]
 				var type = this.find_type(left_name)
-				if(!name) throw new Error('operator '+n.op+' not supported for type '+left_name)
+				if(!name) throw new Error('operator '+n.op+' not supported for type '+left_name + ' on ' + right_name)
 				// operators are static struct calls
 				return this.struct_method(n, type, left_name +'_'+ name + '_' + right_name, [n.left, n.right])
 			}
@@ -1562,8 +1565,10 @@ ONE.genjs_ = function(modules, parserCache){
 			if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' ||
 				(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio)
 				right = '(' + right + ')'
-			
-			return left + this.space + n.op + this.space + right
+
+			var ret = left + this.space + n.op + this.space + right
+			if(n.op == '+' && n.parens) ret = '(' + ret + ')'
+			return ret
 		}
 		
 		this.Logic = function( n ){
@@ -1712,9 +1717,16 @@ ONE.genjs_ = function(modules, parserCache){
 				//if(dims) ret += '(' + this.expand(dims, n) + ')*' + nslots + ')}'
 				//else ret += nslots + ')}'
 				
-				if(dims) ret += '(' + this.expand(dims, n) + ')*' + nslots + ')'
-				else ret += nslots + ')'
-				ret += ',' + output + '.t = module.' + type.name
+				if(dims){
+					var dim_code = this.expand(dims, n) 
+					ret += '(' + dim_code + ')*' + nslots + ')' +
+						',' + output + '.t = Object.create(module.' + type.name + '), ' +
+						output + '.t.dim = ' + dim_code 
+				}
+				else{
+					ret += nslots + ')' +
+						',' + output + '.t = module.' + type.name
+				}
 			}
 			var slot = 0
 
@@ -1817,12 +1829,12 @@ ONE.genjs_ = function(modules, parserCache){
 		this.find_macro = function( n, name, args ){
 			var macro
 			var found
-			
+
 			if(this.context){ // support for context macros
 				var obj = this.context[name]
-				if(obj && obj.value && obj.value._ast_){
+				if(obj && obj._ast_){
 					var ret
-					if(ret = this.macro_match_args(n, name, obj.value, args)) return [obj.value, ret]
+					if(ret = this.macro_match_args(n, name, obj, args)) return [obj, ret]
 					found = true
 				}
 			}
@@ -1962,7 +1974,7 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			var arglen = args.length
 			
-			if(fn.type == 'Id' || fn.type == 'Index'){
+			if(fn.type == 'Id' || (fn.type == 'Index' && fn.object.type == 'Id')){
 				
 				var name
 				var dims

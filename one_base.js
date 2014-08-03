@@ -557,13 +557,7 @@ ONE.base_ = function(){
 					return sig
 				},
 				set:function(value){
-					var sig = this[signalStore]
-					// make instance copy if needed
-					if(sig.owner != this){
-						sig = this[signalStore] = this.forkSignal(sig)
-						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
-					}
-					sig.set(value)
+					throw new Error('Cant assign to on_' + key + ', assign to ' + key + ' instead')
 				}
 			})
 			Object.defineProperty(this, key, {
@@ -571,11 +565,6 @@ ONE.base_ = function(){
 				enumerable:true,
 				get:function(){
 					var sig = this[signalStore]					
-					// make an instance copy if needed
-					if(sig.owner != this){
-						sig = this[signalStore] = this.forkSignal(sig)
-						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
-					}
 					return sig.value
 				},
 				set:function(value){
@@ -695,7 +684,6 @@ ONE.base_ = function(){
 	// signal wrapper
 	this.wrapSignal = function( wrap ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-
 		Signal.then = then
 		Signal.bind = bind
 		wrap(Signal)
@@ -704,7 +692,6 @@ ONE.base_ = function(){
 
 	this.allSignals = function( array ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-
 		Signal.then = then
 		Signal.bind = bind
 		var obj = Signal
@@ -734,7 +721,6 @@ ONE.base_ = function(){
 
 	this.propSignal = function( key, setter ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-
 		Signal.then = then
 		Signal.bind = bind
 		Signal.owner = this
@@ -747,7 +733,6 @@ ONE.base_ = function(){
 	// fork a signal
 	this.forkSignal = function( signal ){
 		function Signal(v){ Signal.callListeners.call(Signal, v) }
-
 		Signal.then = then
 		Signal.bind = bind
 		Signal.chain = signal
@@ -897,7 +882,7 @@ ONE.base_ = function(){
 			chain = chain.chain
 		}
 	}
-	
+
 	// default allows a throw to be transformed to a value
 	Function.prototype.default = function(default_cb){
 		if(this.bind != bind) throw new Error('Not a signal')

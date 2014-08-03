@@ -46,7 +46,7 @@ class GLNode extends Proxy{
 
 		code = ''
 
-		var ast = draw.value
+		var ast = draw
 		// make a fresh scope and signals store
 		var js = this.GenDrawJS
 		js.new_state()
@@ -86,6 +86,8 @@ class GLNode extends Proxy{
 		}
 
 		draw.proxy_remote = code
+
+		if(dump) console.log(code)
 
 		return Proxy::proxy() + code
 	}
@@ -274,7 +276,7 @@ class GLNode extends Proxy{
 		vec4: 'uniform4f'
 	}
 	
-	var glsl_uniform_ismat = {
+	var glsl_uniform_matrix = {
 		mat2: 'uniformMatrix2fv'
 		mat3: 'uniformMatrix3fv'
 		mat4: 'uniformMatrix4fv'
@@ -312,7 +314,16 @@ class GLNode extends Proxy{
 			// fuse mark properly
 			if(n.arg.mark > n.call.mark) n.call.mark = n.arg.mark
 		}
-		
+
+		Value( n, parent ){
+			n.parent = parent
+			Pre(n)
+			if(n.kind != 'num') throw new Error('Only numeric values supported')
+			n.infer = float
+			Post(n)
+		}
+
+
 		Id( n, parent ){
 			n.parent = parent
 			Pre(n)
@@ -331,6 +342,7 @@ class GLNode extends Proxy{
 			if(scope && scope[name]){
 				var type = scope[name]
 				n.infer = type
+				n.mark = marks[name]
 				return Post(n)
 			}
 
@@ -371,11 +383,11 @@ class GLNode extends Proxy{
 				// we have a bind
 				// check if its a value, or a fully static type constructor
 				if(prop.type == 'Value'){
-					if(prop.kind != 'num') throw new Error('invalid type in DepTraceGLSL ' + prop.value.kind)
+					if(prop.kind != 'num') throw new Error('invalid type in DepTraceGLSL ' + prop.kind)
 					n.mark = prop.mark = 1
 					n.infer = prop.infer = float
 					// lets replace the property with the actual value.
-					context[name] = prop.value//prop.value = prop.value.value
+					context[name] = prop//prop.value = prop.value.value
 					// unbind the expression
 					//prop.value = undefined
 				}
@@ -429,10 +441,12 @@ class GLNode extends Proxy{
 		Def( n, parent ){
 			n.parent = parent
 			var type
+			var mark
 			// dont let the mark travel up
 			var oldmark = n.mark
 			if(n.init) this[n.init.type](n.init, n)
-			n.mark = oldmark
+			if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
+
 			if(n.parent.type == 'Var'){
 				if(!n.init) throw new Error('Cannot use uninitialized var')
 				type = n.init.infer
@@ -452,6 +466,7 @@ class GLNode extends Proxy{
 			}
 			else throw new Error('Unsupported Def encountered')
 			n.infer = scope[n.id.name] = type
+			marks[n.id.name] = n.mark
 		}
 
 		Return( n, parent ){
@@ -459,7 +474,9 @@ class GLNode extends Proxy{
 			n.parent = parent
 			Pre(n)
 			if(n.arg){
+				var oldmark = n.mark
 				this[n.arg.type](n.arg, n)
+				if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
 			}
 			if(return_type && return_type != n.infer){
 				throw new Error('Multiple returntypes detected '+return_type.name + ' and ' + n.infer)
@@ -504,10 +521,13 @@ class GLNode extends Proxy{
 						return_type = undefined
 						var mparams = macro.params
 						scope = Object.create(null)
+						marks = Object.create(null)
 						if(macro.module) this.module = macro.module
 						for(var i, arg from n.args){
 							if(!arg.infer) throw new Error('Cannot infer arg in macro '+name)
-							scope[mparams[i].id.name] = arg.infer
+							var name = mparams[i].id.name
+							scope[name] = arg.infer
+							marks[name] = arg.mark
 						}
 						// lets set the arguments on the scope
 						this[macro.type](macro, n)
@@ -515,7 +535,8 @@ class GLNode extends Proxy{
 						generics = old_generics
 						scope = old_scope
 						n.infer = return_type
-						n.mark = macro.mark
+						// bubble up mark from function
+						if(n.mark === undefined || n.mark < macro.mark) n.mark = macro.mark
 						return_type = old_return
 					}
 					else if(macro.type == 'Call'){
@@ -572,6 +593,15 @@ class GLNode extends Proxy{
 				n.infer = attrib.t
 				return Post(n, nmark)
 			}
+			else{ // we are an index
+				// resolve the object
+				this[n.object.type](n.object, n)
+
+				// we have to have an inferred type on object now
+				if(!n.infer) throw new Error('index access without type')
+
+				return Post(n)
+			}
 			return AST.Walk::Index(n)
 		}
 		
@@ -592,18 +622,19 @@ class GLNode extends Proxy{
 						var prop = obj[propname]
 
 						// mark signal in our proxy table
-						n.infer = prop.value && prop.value.t || float
+						n.infer = prop && prop.t || float
 						n.mark = 1 // uniform
 						proxy_refs[objname] = 1
 						var bind = proxy_bind[objname] || (proxy_bind[objname] = {})
 						bind[propname] = 1
 						return Post(n)
 					}
+					//else
 					//else if(obj._signal_){
 						// we might want the other one
 						// okay so. 
 					//}
-					else throw new Error('Dont know what to do in key deptrace with  '+objname)
+					//else throw new Error('Dont know what to do in key deptrace with  '+objname)
 				}
 			}
 
@@ -634,7 +665,6 @@ class GLNode extends Proxy{
 		skip = 1
 		Id( n ){
 			var name = n.name
-			
 			if(n.flag == 35){ // is a color
 				return 'this.color("' + name + '")'
 			}
@@ -647,10 +677,10 @@ class GLNode extends Proxy{
 			
 			if(prop === undefined || this.scope[name]) return this.resolve(n.name, n)
 			
-			if(prop.value && prop.value._ast_){
+			if(prop && prop._ast_){
 				var mod = this.module
-				this.module = prop.value.module
-				var ret = expand(prop.value, n)
+				this.module = prop.module
+				var ret = expand(prop, n)
 				this.module = mod
 				return ret
 			}
@@ -736,14 +766,14 @@ class GLNode extends Proxy{
 			// temporary variable generation
 			if(prop._ast_){
 
-				var node = prop.value
+				var node = prop
 				var type = node.type
 				var old_module = this.module
 				if(type == 'Id' || type == 'Value' || 
 					type == 'Key' || (type == 'Index' &&
 						(!node.index || node.index.type == 'Value'))){
-					this.module = prop.value.module
-					var ret = expand(prop.value, n)
+					this.module = prop.module
+					var ret = expand(prop, n)
 					this.module = old_module
 					return ret
 				}
@@ -759,14 +789,14 @@ class GLNode extends Proxy{
 					var tmp = {
 						name:'tmp_' + n.infer.name + '_' + (uniform_id++),
 						type:n.infer.name,
-						value:expand(prop.value, n)
+						value:expand(prop, n)
 					}
 					refcount[name] = tmp
 					tmpvars.push(tmp)
 					return tmp.name
 				}
-				this.module = prop.value.module
-				var ret = expand(prop.value, n)
+				this.module = prop.module
+				var ret = expand(prop, n)
 				this.module = old_module
 				return ret
 			}
@@ -849,13 +879,16 @@ class GLNode extends Proxy{
 			var name = n.id.name
 			scope[name] = n.infer
 
+			var dim = ''
+			if(n.infer.dim) dim = '[' + n.infer.dim + ']'
+
 			if(n.parent.type == 'Var'){
-				return n.infer.name + ' ' + name + ' = ' + this.expand(n.init, n) + this.term + this.newline + this.indent
+				return n.infer.name + ' ' + name + dim +' = ' + this.expand(n.init, n) + this.term + this.newline + this.indent
 				if(!n.init) throw new Error('Cannot use uninitialized var')
 				type = n.init.infer
 			}
 			else if(n.parent.type === 'TypeVar'){
-				if(n.init) return name + ' = ' +  this.expand(n.init, n)
+				if(n.init) return name + dim + ' = ' +  this.expand(n.init, n)
 				return name
 			}
 			else throw new Error('Unsupported Def encountered')
@@ -976,55 +1009,70 @@ class GLNode extends Proxy{
 				type_flatten[fname] = 1
 				ret = StructToGLSL(tabs, field, type_flatten) + ret
 			}
-			ret += tabs + '\t' + fname + ' ' + name + ';\n'  
+			out(field)
+			ret += tabs + '\t' + fname + ' ' + name  
+			if(field.dim) ret += '[' + field.dim + '];\n'
+			else ret += ';\n'
 		}  
 		ret += tabs + '};'
 		return ret
 	}
 
 	// uniform type expander
-	function UniformTypeExpander( type, parts, base, glname, depth ){
+	function UniformTypeExpander( type, parts, base, glname, offset ){
 
 		// lets check if our type is in the mappings
-		var map = glsl_uniform_map[type.name]
+		var ismat
+		var map = glsl_uniform_map[type.name] || (ismat = glsl_uniform_matrix[type.name])
 		if(map){ // unroll it
-			// check if we are a matrix
-			var off = type.off / AST.viewSize[type.view]
-			parts.init += `
-				shader.ul_${base} = gl.getUniformLocation(shader, "${glname}");
-			`
-			var if_v = ''
-			var arg_v = ''
-			for(var i = 0; i < type.slots; i++){
-				if(i) if_v += ' || ', arg_v += ', '
-				if_v += 'shader.uv_' + base + '_' + i + '!==v[' + off + i + ']'
-				arg_v += 'shader.uv_' + base + '_' + i + ' = v[' + off + i + ']'
-			}
+			var viewsize =  AST.viewSize[type.view] 
+			var off = ((type.off || 0) + offset) / viewsize
 
-			parts.setters += `
-			if(${if_v}){
-				gl.${map}()
-				/*parts.setters +=`
-				if(shader.uv_${uni.name} !== v){
-					shader.uv_${uni.name} = v
-					gl.${map(`shader.${uid}_ul_${uni.name}`)}
-				}
-				`*/
-			}
-			// if we have offset 0, we can use an array call
-			// if we have offset, we have to call it with arguments
-		}
-		else {
-			map = glsl_uniform_matrix[type.name]
-			if(map){
-
+			parts.init += `\t\t\t\t\t\tshader.ul_${base} = gl.getUniformLocation(shader, "${glname}");\n`
+			var call = 'gl.' + map 
+			if(ismat){
+				call += '(shader.ul_' + base + ',false'
+				var last = off + ((type.dim || 1 ) * type.size) / viewsize 
+				if(off) call += ',v.subarray(' + off + ',' + last +')'
+				else call += ',v'
 			}
 			else{
-				// lets set all the fields
-				for(var name in type.fields){
-					var field = type.fields[name]
+				if(type.dim){
+					call += 'v(shader.ul_' + base
+					if(off){ // subarray
+						var last = off + (type.dim * type.size) / viewsize 
+						call += ',v.subarray(' + off + ',' + last + ')'
+					}
+					else{
+						call += ',v'
+					}
+				}
+				else{
+					call += '(shader.ul_' + base
+					if(type.slots == 1){
+						call += ',v'
+					}
+					else for(var i = 0; i < type.slots; i++){
+						call += ',v[' + (off + i) + ']'
+					}
+				}
+			}
+			call += ')'
+			parts.setters += '\t\t\t\t\t' + call + '\n'
+		}
+		else {
+			// lets set all the fields
+			for(var name in type.fields){
+				var field = type.fields[name]
+				var isprim = glsl_uniform_map[field.name] || (ismat = glsl_uniform_matrix[field.name])
+				if(!isprim && field.dim){
+					for(var i = 0;i<field.dim;i++){
+						UniformTypeExpander(field, parts, base + '_' + name + '_' + i, glname + '.' + name + '[' + i + ']', offset + i * field.size)
+					}
+				}
+				else{
 					// calc the offset
-					UniformTypeExpander(field, parts, base + '_' + name, glname + '.' + name, depth + 1)
+					UniformTypeExpander(field, parts, base + '_' + name, glname + '.' + name, offset)
 				}
 			}
 		}
@@ -1050,16 +1098,16 @@ class GLNode extends Proxy{
 			DepTraceGLSL.context = context
 			
 			var pix = context.pixel
-			if(!pix.value || !pix.value._ast_) throw new Error('Unexpected pixel type')
+			if(!pix || !pix._ast_) throw new Error('Unexpected pixel type')
 			
 			// deptrace the pixelshader
 			GenGLSL.pixel = DepTraceGLSL.pixel = 1
 			DepTraceGLSL.proxy_bind = proxy_bind
 			DepTraceGLSL.proxy_refs = proxy_refs
-			DepTraceGLSL.module = pix.value.module
+			DepTraceGLSL.module = pix.module
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
-			GenGLSL.module = pix.value.module
-			DepTraceGLSL[pix.value.type](pix.value)
+			GenGLSL.module = pix.module
+			DepTraceGLSL[pix.type](pix)
 			//log(pix.bind.toDump())
 			
 			// codegen the pixelshader
@@ -1073,24 +1121,24 @@ class GLNode extends Proxy{
 			var pix_tmpvars = GenGLSL.tmpvars = []
 			var pix_types = GenGLSL.types = {}
 			var signal_deps = GenGLSL.sigdeps = []
-			var pix_expr = GenGLSL.expand(pix.value)
+			var pix_expr = GenGLSL.expand(pix)
 			
 			// pull the vertex property from our context
 			var vtx = context.vertex
-			if(!vtx.value || !vtx.value._ast_) throw new Error('Unexpected vertex type')
+			if(!vtx || !vtx._ast_) throw new Error('Unexpected vertex type')
 			// dependency trace vertex shader
 			GenGLSL.pixel = DepTraceGLSL.pixel = 0
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
-			GenGLSL.module = vtx.value.module
+			GenGLSL.module = vtx.module
 			GenGLSL.types = vtx_types
-			DepTraceGLSL.module = vtx.value.module
-			DepTraceGLSL[vtx.value.type](vtx.value)
+			DepTraceGLSL.module = vtx.module
+			DepTraceGLSL[vtx.type](vtx)
 
 			var vtx_type_methods = GenGLSL.type_methods = {}
 			var vtx_uniforms = GenGLSL.uniforms = []
 			var vtx_tmpvars = GenGLSL.tmpvars = []
 			var vtx_types = GenGLSL.types = {}
-			var vtx_expr = GenGLSL.expand(vtx.value)
+			var vtx_expr = GenGLSL.expand(vtx)
 			
 			var vary_merged = ''
 			var vary_decl = ''
@@ -1127,15 +1175,21 @@ class GLNode extends Proxy{
 			
 			// generate pixel uniform
 			for(var uni from pix_uniforms){
+				var type = uni.node.infer
+				var dim = ''
+				if(type.dim) dim = '[' + type.dim + ']'
 				pix_uni_decl += `
-				uniform ${uni.node.infer.name} ${uni.name};
+				uniform ${type.name} ${uni.name}${dim};
 				`
 			}
 			
 			// generate vertex uniform
 			for(var uni from vtx_uniforms){
+				var type = uni.node.infer
+				var dim = ''
+				if(type.dim) dim = '[' + type.dim + ']'
 				vtx_uni_decl += `
-				uniform ${uni.node.infer.name} ${uni.name};
+				uniform ${type.name} ${uni.name}${dim};
 				`
 			}
 			
@@ -1266,41 +1320,21 @@ class GLNode extends Proxy{
 				GenUniformJS.module = uni.module
 				GenUniformJS.context = context
 				GenUniformJS.proxy_props = proxy_props
-
 				var js = GenUniformJS.expand(uni.node, n)
 				
 				uniform_parts.setters += `
 				var v = ${js}
 				if(shader.uv_${uni.name} !== v){
-					shader.uv_${uni.name} = v`
+					shader.uv_${uni.name} = v\n`
 
-				UniformTypeExpander(uni.node.infer, uniform_parts, uni.node.infer, uni.name)
+				UniformTypeExpander(uni.node.infer, uniform_parts, uni.name, uni.name, 0)
 
 				uniform_parts.setters += `
 				}`
 
-				var map = glsl_uniform_map[uni.node.infer.name]
-
-				if(!map){ // oh god no we need to deconstruct the type
-					// so what do we do hmm?
-					console.log(uni.node.infer)
-					// into a shitfuckpile of uniform sets
-					map = glsl_uniform_map.uni
-				} 
-				//throw new Error('unsupported uniform type ' + uni.node.infer.name)
-				ret += `
-						shader.${uid}_ul_${uni.name} = gl.getUniformLocation(shader, "${uni.name}");`
-
-				uniform_setters +=`
-				var v = ${js}
-				if(shader.uv_${uni.name} !== v){
-					shader.uv_${uni.name} = v
-					gl.${map(`shader.${uid}_ul_${uni.name}`)}
-				}
-				`
 			}
 
-			ret += uniform_parts.init
+			ret += '\n'+uniform_parts.init
 
 			for(var name in attribs)ret += `
 						this.${uid}_al_${name} = gl.getAttribLocation(shader, "${name}");`
@@ -1342,7 +1376,6 @@ class GLNode extends Proxy{
 			`
 			// correctly indent the code
 			ret = ret.replace(/\n\t\t\t\t/g, '\n' + this.indent)
-			if(context.dump) console.log(ret)
 			return ret
 		}
 	}

@@ -1,5 +1,7 @@
 // OneJS math types
 define out(x)         console.log(x)
+define out(x,y)       console.log(x, y)
+define out(x,y,z)     console.log(x, y, z)
 
 define sin(vec2 v)    vec2.sin(v)
 define sin(vec3 v)    vec3.sin(v)
@@ -514,6 +516,18 @@ struct vec3 extends vec{
 		x = ay * bz - az * by
 		y = az * bx - ax * bz
 		z = ax * by - ay * bx
+	}
+
+	vec3_add_vec3( vec3 a, vec3 b ){
+		x = a.x + b.x
+		y = a.y + b.y
+		z = a.z + b.z
+	}
+
+	vec3_mul_float( vec3 a, float v ){
+		x = a.x * v
+		y = a.y * v
+		z = a.z * v
 	}
 }
 
