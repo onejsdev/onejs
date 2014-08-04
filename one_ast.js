@@ -258,7 +258,7 @@ ONE.ast_ = function(){
 			For: { init:1, test:1, update:1, loop:1, compr:0 },
 			ForIn: { left:1, right:1, loop:1, compr:0 },
 			ForOf: { left:1, right:1, loop:1, compr:0 },
-			ForFrom: { left:1, right:1, loop:1, compr:0 },
+			ForFrom: { right:1, left:1, loop:1, compr:0 }, // right comes first for type inference
 			ForTo: { left:1, right:1, loop:1, in:1, compr:0 },
 
 			Var: { defs:2, const:0 },
@@ -549,6 +549,7 @@ ONE.ast_ = function(){
 				for( var i = 0; i < n.length; i++ ){
 					var node = n[ i ]
 					var blk = this.expand(node, parent)
+					if(blk === undefined) throw new Error('ast node ' + node.type + ' returned undefined in block')
 					if(blk[0] == '(' || blk[0] == '[') ret += this.depth + ';' + blk
 					else ret += this.depth + blk
 					if(this.term) ret += this.term

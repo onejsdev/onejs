@@ -8,29 +8,30 @@ class Rect extends GLNode{
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
 	objmtx: mat4.RT(30deg,  30deg + param1*10,0, 0,0,3)
 
-	struct light{
-		vec3 pos
-		float radius
-		float active
+	struct myvtx{
+		vec4 pos
+		float extra
 	}
 
-	lights = light[1](
-		0,0,0, 10, 1 // light 1
-	)
+	vec4MyVtx( x, y, w, h, z = 0, ww = 1 ){
+		return myvtx[6](
+			x,y,z,ww,0,   x+w,y,z,ww,0,   x,y+h,z,ww,0
+			x+w,y,z,ww,0, x+w,y+h,z,ww,0, x,y+h,z,ww,0
+		)
+	}
+
+	mesh = vec4MyVtx(-1,-1,2,2,0)
+	flags = float[6](1,2,3,4,5,6)
+
 	dump = 1
-	vertex: mesh[] * (objmtx * viewmtx)
+	vertex: mesh[].pos * (objmtx * viewmtx)
 	param1 = 1
 	bgcolor: #yellow
-	p:pixel mesh[]
+	p:pixel mesh[].pos
+
 	mul2:(x){
 		var y = x
-		for(var l from lights) if(l.active!=0.){
-			y = y * l.radius
-		}
 		return y
-	}
-	test2:(){
-		return thing1
 	}
 
 	pixel:
@@ -39,7 +40,8 @@ class Rect extends GLNode{
 			abs(sin(param1 * atan(p.x, p.y))))
 		+ 
 		mix(#green, #purple) do
-			sin(sin(param1) * 2 * param1 * p.x * p.y)
+			sin(sin(param1) *  param1 * p.x * p.y)
+
 }
 
 

@@ -667,10 +667,13 @@ class GLNode extends Proxy{
 				var nmark = n.mark = 2 // mark as attribute
 				if(n.object.kind && n.object.kind.name == 'pixel')
 					nmark = 3
+
 				// what is our our type however?..
 				var attrib = context[n.object.name]
 				if(!attrib) throw new Error('cannot fetch attribute '+n.object.name)
+
 				n.infer = attrib.t
+
 				return Post(n, nmark)
 			}
 			else{ // we are an index
@@ -723,6 +726,12 @@ class GLNode extends Proxy{
 
 			// only try to walk/resolve the object
 			this[n.object.type](n.object, n)
+			var nmark = n.mark
+
+			if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
+				// extend our vertex shader mark upwards one step, since we are not splittable here
+				if(n.mark == 3) nmark = 3, n.mark = 2
+			}
 
 			// we have to have an inferred type on object now
 			if(!n.infer) throw new Error('key access without type')
@@ -742,7 +751,7 @@ class GLNode extends Proxy{
 			
 			n.infer = type
 			
-			return Post(n)
+			return Post(n, nmark)
 		}
 		find_define = AST.ToJS.find_define
 		find_type = AST.ToJS.find_type
@@ -915,11 +924,14 @@ class GLNode extends Proxy{
 				var name = n.object.name
 				var obj = context[name]
 				
+				if(!(n.infer.name in glsl_types)){
+					throw new Error('Dont support plain struct attributes('+n.infer.name+'), access the primitive properties')
+				}
 				if(!obj) throw new Error('Cannot find vertex attribute[] ' + name)
 				
 				var attr = attribs[name]
 				if(attr && attr !== obj) throw new Error('Cannot redefine vertex attribute[] ' + name)
-				
+
 				attribs[name] = obj
 				
 				return name // return name
@@ -931,6 +943,20 @@ class GLNode extends Proxy{
 		Key( n ){
 			if(n.const_length){
 				return n.const_length
+			}
+			if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
+				// we have to create a sub attribute mapping
+				var name = n.object.object.name
+				var obj = context[name]
+				if(!obj) throw new Error('Cannot find vertex attribute[] ' + name)
+
+				var sub = sub_attribs[name] || (sub_attribs[name] = Object.create(null))
+				
+				sub[n.key.name] = obj
+
+				name += '_' + n.key.name
+				attribs[name] = {sub: obj.t.fields[n.key.name]}
+				return name
 			}
 			if(n.object.type == 'Id'){
 				var objname = n.object.name  
@@ -1246,7 +1272,8 @@ class GLNode extends Proxy{
 			// forward module and context
 			GenGLSL.context = context
 			var attribs = GenGLSL.attribs = Object.create(null)
-			
+			var sub_attribs = GenGLSL.sub_attribs = Object.create(null)
+
 			DepTraceGLSL.context = context
 			
 			var pix = context.pixel
@@ -1348,9 +1375,16 @@ class GLNode extends Proxy{
 			// generate attribute declarations
 			for(var name in attribs){
 				var attr = attribs[name]
-				attr_decl += `
+				if(attr.sub){ // sub attribute
+					attr_decl += `
+				attribute ${attr.sub.name} ${name};
+				`
+				}
+				else{
+					attr_decl += `
 				attribute ${attr.t.name} ${name};
 				`
+				}
 			}
 
 			var pix_tmpcode = ''
@@ -1372,7 +1406,6 @@ class GLNode extends Proxy{
 					${tmp.type} ${tmp.name} = ${tmp.value};
 				`
 			}
-
 			// generate pixelshader methods
 			var pix_method_decl = ''
 			for(var method in pix_type_methods){
@@ -1480,30 +1513,78 @@ class GLNode extends Proxy{
 
 				uniform_parts.setters += `
 				}`
-
 			}
 
 			ret += '\n'+uniform_parts.init
 
 			for(var name in attribs)ret += `
-						this.${uid}_al_${name} = gl.getAttribLocation(shader, "${name}");`
+						shader.al_${name} = gl.getAttribLocation(shader, "${name}");`
 	
 			ret += 	`
 					}
 					this.${uid}_shader = shader`
 
-			for(var name in attribs)ret += `
-					this.${uid}_vb_${name} = gl.createBuffer()`					
-			ret += `
 
+			for(var name in sub_attribs){
+				ret += `
+					this.${uid}_vb_${name} = gl.createBuffer()`					
+			}
+
+			for(var name in attribs){
+				if(attribs[name].sub) continue
+				ret += `
+					this.${uid}_vb_${name} = gl.createBuffer()`					
+			}
+
+			ret += `
 				}
 				gl.useProgram(shader)
 			`
 			var len = 0
+
+			// sub attributes
+			for(var name in sub_attribs){
+				var sub_attr = sub_attribs[name]
+
+				proxy_props[name] = 1
+
+				var data = context[name]
+				var newlen = data.buffer.byteLength / data.t.size
+				if(len && newlen && len != newlen) throw new Error('Attribute arrays are not of the same length '+len+' and '+newlen)
+				len = newlen
+
+				ret += `
+				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
+				var arr_buf = this.${name}.buffer
+				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
+					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
+					arr_buf.clean = this.${uid}_vb_${name}.clean = true
+				}
+				`
+				for(var sub in sub_attr){
+					var type = sub_attr[sub].t
+					var sub_type = type.fields[sub]
+					var full_name = name + '_' + sub
+
+					ret +=`
+				var al = shader.al_${full_name}
+				gl.enableVertexAttribArray(al)
+				gl.vertexAttribPointer(al, ${sub_type.slots}, ${glc.FLOAT}, false, ${type.size}, ${sub_type.off})
+				`
+				}
+			}
+
+			// plain attributes
 			for(var name in attribs){
 				var attr = attribs[name]
-				
-				len = attr.buffer.byteLength / attr.t.size
+				if(attr.sub) continue
+				var type = attr.t
+
+				var newlen
+				newlen = attr.buffer.byteLength / attr.t.size
+				if(len && newlen && len != newlen) throw new Error('Attribute arrays are not of the same length '+len+' and '+newlen)
+				len = newlen
+
 				proxy_props[name] = 1
 				ret += `
 				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
@@ -1512,9 +1593,9 @@ class GLNode extends Proxy{
 					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
 					arr_buf.clean = this.${uid}_vb_${name}.clean = true
 				}
-				var al = this.${uid}_al_${name}
+				var al = shader.al_${name}
 				gl.enableVertexAttribArray(al)
-				gl.vertexAttribPointer(al, ${attr.t.slots}, ${glc.FLOAT}, false, ${attr.t.size}, 0)
+				gl.vertexAttribPointer(al, ${type.slots}, ${glc.FLOAT}, false, ${type.size}, 0)
 				`
 			}
 			
