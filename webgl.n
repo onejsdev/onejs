@@ -114,7 +114,7 @@ class GLNode extends Proxy{
 	}
 
 	enum glsl_types{
-		half, float, double, short, long
+		half, float, double, short, long, int
 		mat2, mat3, mat4
 		vec2, vec3, vec4
 		ivec2, ivec3, ivec4
@@ -271,9 +271,10 @@ class GLNode extends Proxy{
 	
 	var glsl_uniform_map = {
 		float: 'uniform1f'
-		vec2: 'uniform2f'
-		vec3: 'uniform3f'
-		vec4: 'uniform4f'
+		int:   'uniform1i'
+		vec2:  'uniform2f'
+		vec3:  'uniform3f'
+		vec4:  'uniform4f'
 	}
 	
 	var glsl_uniform_matrix = {
@@ -283,6 +284,27 @@ class GLNode extends Proxy{
 	}
 
 	class DepTraceGLSL extends AST.Walk{
+
+		// unsupported keys
+		ForIn( n ){ throw new Error('Cannot use for in in a shader, use for from') }
+		ForOf( n ){ throw new Error('Cannot use for of in a shader, use for from') }
+		Struct( n ){ throw new Error('Cannot use struct in a shader function') }
+		Comprehension( n ){ throw new Error('Cannot use a comprehension in a shader function') }
+		ThisCall( n ){ throw new Error('Cannot use this in a shader function') }
+		Template( n ){ throw new Error('Cannot use templates in a shader function') }
+		Throw( n ){ throw new Error('Cannot use throw in a shader function') }
+		Try( n ){ throw new Error('Cannot use try in a shader function') }
+		Enum( n ){ throw new Error('Cannot use enum in a shader function') }
+		Define( n ){ throw new Error('Cannot define in a shader function') }
+		New( n ){ throw new Error('Cannot use new in a shader function') }
+		Nest( n ){ throw new Error('Cannot use nesting syntax in a shader function') }
+		Class( n ){ throw new Error('Cannot define a class in a shader function') }
+		Quote( n ){ throw new Error('Cannot use quote in a shader function') }
+		Rest( n ){ throw new Error('Cannot use rest ... in a shader function') }
+		Then( n ){ throw new Error('Cannot use then in a shader function') }
+		Debugger( n ){ throw new Error('Cannot use debuger in a shader function') }
+		With( n ){ throw new Error('Cannot use with in a shader function') }
+
 		// causes dependency marks to travel up the tree
 		// uniform has mark 1
 		// attribute has mark 2
@@ -323,6 +345,42 @@ class GLNode extends Proxy{
 			Post(n)
 		}
 
+		For( n, parent ){
+			var old_scope = scope
+			var old_marks = marks
+			scope = Object.create(scope)
+			marks = Object.create(marks)
+			AST.Walk::For(n, parent)
+			scope = old_scope
+			marks = old_marks
+			n.for_mark = n.mark
+			AST.Walk::For(n, parent)
+		}
+
+		ForTo( n, parent ){
+			var old_scope = scope
+			var old_marks = marks
+			scope = Object.create(scope)
+			marks = Object.create(marks)
+			AST.Walk::ForTo(n, parent) // first walk
+			scope = old_scope
+			marks = old_marks
+			n.for_mark = n.mark // store mark
+			AST.Walk::ForTo(n, parent) // second walk
+		}
+
+		ForFrom( n, parent ){
+			if(n.left.type != 'Var' || n.left.defs.length != 1) throw new Error('Shaders only support for(var value from fixedarray)')
+			var old_scope = scope
+			var old_marks = marks
+			scope = Object.create(scope)
+			marks = Object.create(marks)
+			AST.Walk::ForFrom(n, parent)
+			scope = old_scope
+			marks = old_marks
+			n.for_mark = n.mark
+			AST.Walk::ForFrom(n, parent)
+		}
 
 		Id( n, parent ){
 			n.parent = parent
@@ -447,9 +505,31 @@ class GLNode extends Proxy{
 			if(n.init) this[n.init.type](n.init, n)
 			if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
 
+			// fetch our mark from for loop
+			var in_for
+			var for_node
+			if(for_node = n.parent.parent){
+				if(for_node.type == 'ForFrom' || for_node.type == 'ForTo' || for_node.type == 'For'){
+					if(n.parent.defs.length > 1) throw new Error('Cannot define more than one var in a for')
+					if(for_node.for_mark) n.mark = for_node.for_mark
+					in_for = true
+				}
+			}
+
 			if(n.parent.type == 'Var'){
-				if(!n.init) throw new Error('Cannot use uninitialized var')
-				type = n.init.infer
+				if(!n.init){
+					if(for_node && for_node.type == 'ForFrom'){
+						// the type is inferred from the right hand side
+						type = for_node.right.infer
+						if(!type.dim) throw new Error('Cannot for from over dimensionless type ' + type.name)
+						type = Object.getPrototypeOf(type)
+					}
+					else throw new Error('Cannot use uninitialized var')
+				}
+				else{
+					type = n.init.infer
+					if(in_for && type.name == 'float') type = int
+				}
 			}
 			else if(n.parent.type === 'TypeVar'){
 				var kind = n.parent.kind
@@ -597,6 +677,9 @@ class GLNode extends Proxy{
 				// resolve the object
 				this[n.object.type](n.object, n)
 
+				// resolve the index
+				this[n.index.type](n.index, n)
+
 				// we have to have an inferred type on object now
 				if(!n.infer) throw new Error('index access without type')
 
@@ -646,6 +729,13 @@ class GLNode extends Proxy{
 			
 			var fields = n.infer.fields
 			if(!fields) throw new Error('key access on type without fields')
+
+			if(n.key.name == 'length' && n.infer.dim){
+				n.const_length = n.infer.dim
+				n.mark = undefined
+				n.infer = int
+				return Post(n)
+			}
 
 			var type = fields[n.key.name]
 			if(!type) throw new Error('type '+n.infer.name+' has no field '+n.key.name)
@@ -707,6 +797,7 @@ class GLNode extends Proxy{
 	// generate the GLSL
 	class GenGLSL extends AST.ToCode{
 		term = ';'
+
 		// otherwise if we are not 'pixel' we need to spit out varyings.
 		expand( n, parent ){
 			//log(n.type)
@@ -715,22 +806,27 @@ class GLNode extends Proxy{
 				if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
 				// okay so, we are a uniform. we splice in
 				// a temp uniform, and we define it
+				var type_name = n.infer.name
 				var uni = {
 					module: this.module
-					name: (pixel?'pix_':'vtx_') + n.infer.name + '_' + (uniform_id++)
+					name: (pixel?'pix_':'vtx_') + type_name + '_' + (uniform_id++)
 					node: n
 				}
+				if(!(type_name in glsl_types)) this.types[type_name] = n.infer
 				uniforms.push(uni)
 				return uni.name
 			}
 			// output vertex varying
 			if(pixel && n.mark == 2){
 				// alright we need to output a vertex varying
+				var type_name = n.infer.name
 				var vary = {
-					name: 'var_'+n.infer.name+'_' + (varying_id++)
+					name: 'var_' + type_name + '_' + (varying_id++)
 					node: n
 				}
 				varyings.push(vary)
+				if(!(type_name in glsl_types)) this.types[type_name] = n.infer
+
 				return vary.name
 				//log('here', n.toDump())
 			}
@@ -754,6 +850,10 @@ class GLNode extends Proxy{
 			// check macro args
 			if(macro_args && name in macro_args){
 				return '('+macro_args[name]+')'
+			}
+
+			if(iterators && name in iterators){
+				return iterators[name]
 			}
 
 			if(scope && name in scope){
@@ -829,6 +929,9 @@ class GLNode extends Proxy{
 		
 		// we have to resolve Id's
 		Key( n ){
+			if(n.const_length){
+				return n.const_length
+			}
 			if(n.object.type == 'Id'){
 				var objname = n.object.name  
 				if(objname in glsl_variables){
@@ -836,7 +939,7 @@ class GLNode extends Proxy{
 				}
 			}
 			// lets only resolve the object, en just postfix the key
-			return this.expand(n.object, n) + '.' + n.key.name
+			return expand(n.object, n) + '.' + n.key.name
 		}
 
 		// type infer int * float
@@ -859,20 +962,48 @@ class GLNode extends Proxy{
 		Var( n ){
 			var ret = ''
 			for(var v from n.defs){
-				ret += this.Def(v)
+				if(ret) ret +=  term + newline + depth
+				ret += Def(v)
 			}
 			return ret
 		}
 
 		// typevar needs its struct definitions
 		TypeVar( n ){
-			var name = n.kind.infer.name
-			if(!(name in glsl_types)){
-				// we have to export our type
-				this.types[name] = n.kind.infer
-				//console.log(name)
+			var type_name = n.kind.infer.name
+			if(!(type_name in glsl_types)) types[type_name] = n.kind.infer
+			return type_name + ' ' + flat(n.defs, n)
+		}
+
+		ForTo = AST.ToJS.ForTo
+
+		ForFrom( n ){
+			// supporting the most simple for from over a known type size
+			var type = n.right.infer
+			var value_name 
+			if(n.right.type != 'Id') throw new Error('For from right hand type not a basic identifier')
+			var array_name = expand(n.right, n)
+			if(n.left.type == 'TypeVar' || n.left.type == 'Var'){
+				var value_id = n.left.defs[0]
+				value_name = value_id.id.name
+				if(type.name !== value_id.infer.name) throw new Error('For From left hand type not equal to right hand, use var')
+				if(!(type.name in glsl_types)) types[type.name] = type
 			}
-			return name + ' ' + this.flat(n.defs, n)
+			else if(n.left.type == 'Id'){
+				value_name = n.left
+				if(type.name !== n.left.infer.name) throw new Error('For From left hand type not equal to right hand, use var')
+			}
+			else throw new Error('Unusable left hand side in for from')
+			var iter_name = alloc_var(n)
+
+			if(!iterators) iterators = Object.create(null)
+			iterators[value_name] = array_name + '[' + iter_name + ']'
+
+			// lets define our loop variable
+			var ret = 'for(int ' + iter_name +' = 0;' + iter_name + '<' + n.right.infer.dim + ';' + iter_name + '++)' + 
+				expand(n.loop, n)
+
+			return ret
 		}
 
 		Def( n ){
@@ -883,27 +1014,48 @@ class GLNode extends Proxy{
 			if(n.infer.dim) dim = '[' + n.infer.dim + ']'
 
 			if(n.parent.type == 'Var'){
-				return n.infer.name + ' ' + name + dim +' = ' + this.expand(n.init, n) + this.term + this.newline + this.indent
-				if(!n.init) throw new Error('Cannot use uninitialized var')
-				type = n.init.infer
+				var type_name = n.infer.name
+				if(!(type_name in glsl_types)) types[type_name] = n.infer
+				if(!n.init){ // dont init
+					return n.infer.name + ' ' + name + dim
+				} 
+				return n.infer.name + ' ' + name + dim +' = ' + expand(n.init, n)
 			}
 			else if(n.parent.type === 'TypeVar'){
-				if(n.init) return name + dim + ' = ' +  this.expand(n.init, n)
-				return name
+				if(n.init) return name + dim + ' = ' + expand(n.init, n)
+				return name + dim
 			}
 			else throw new Error('Unsupported Def encountered')
 		}
 
+		alloc_var( n ){
+			while(n && n.var_alloc_id === undefined){
+				n = n.parent
+			}
+			return name = 'tmp_' + (n.var_alloc_id++)
+		}
+
 		// Function!
 		this.Function( n, name, argdef, ret_type ){
+			n.var_alloc_id = 0
+
 			// allright lets generate a function!
 			var ret = ret_type.name + ' ' + name + '(' + argdef + ')'
-			var old_depth = this.depth
-			this.depth += this.indent
-			ret += this.expand(n.body, n)
-			this.depth = old_depth
+
+			var old_depth = depth
+			depth += indent
+
+			var old_iterators = iterators
+			iterators = undefined
+
+			var body =  expand(n.body, n)
+			
+			ret += body
+		
+			depth = old_depth
+			iterators = old_iterators
+
 			return ret
-			return AST.ToCode::Function(n)
 		}
 
 		// Do calls
@@ -1009,7 +1161,6 @@ class GLNode extends Proxy{
 				type_flatten[fname] = 1
 				ret = StructToGLSL(tabs, field, type_flatten) + ret
 			}
-			out(field)
 			ret += tabs + '\t' + fname + ' ' + name  
 			if(field.dim) ret += '[' + field.dim + '];\n'
 			else ret += ';\n'
@@ -1050,7 +1201,8 @@ class GLNode extends Proxy{
 				else{
 					call += '(shader.ul_' + base
 					if(type.slots == 1){
-						call += ',v'
+						if(off) call += ',v[' + off + ']'
+						else call += ',v'
 					}
 					else for(var i = 0; i < type.slots; i++){
 						call += ',v[' + (off + i) + ']'
@@ -1061,17 +1213,17 @@ class GLNode extends Proxy{
 			parts.setters += '\t\t\t\t\t' + call + '\n'
 		}
 		else {
-			// lets set all the fields
-			for(var name in type.fields){
-				var field = type.fields[name]
-				var isprim = glsl_uniform_map[field.name] || (ismat = glsl_uniform_matrix[field.name])
-				if(!isprim && field.dim){
-					for(var i = 0;i<field.dim;i++){
-						UniformTypeExpander(field, parts, base + '_' + name + '_' + i, glname + '.' + name + '[' + i + ']', offset + i * field.size)
+			if(type.dim){
+				for(var i = 0; i < type.dim; i++){
+					for(var name in type.fields){
+						UniformTypeExpander(type.fields[name], parts, base + '_'  + i + '_' + name, glname + '[' + i + '].' + name , offset + i * type.size)
 					}
 				}
-				else{
-					// calc the offset
+			}
+			else{
+				// lets set all the fields
+				for(var name in type.fields){
+					var field = type.fields[name]
 					UniformTypeExpander(field, parts, base + '_' + name, glname + '.' + name, offset)
 				}
 			}
@@ -1306,9 +1458,6 @@ class GLNode extends Proxy{
 						gl._shadercache[cache_key] = shader
 			`
 
-			// okay we need to do uniforms differently.
-			// we need to 
-			// generate uniform setting
 			GenUniformJS.store_tempid = 1000*uid + 1
 			GenUniformJS.type_methods = type_methods
 			var uniform_parts = {

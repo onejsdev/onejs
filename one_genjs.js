@@ -463,9 +463,11 @@ ONE.genjs_ = function(modules, parserCache){
 							}
 							else {
 								var fname = node.key && node.key.name || node.name
+								if(fname == 'length' && field.dim){
+									return field.dim
+								}
 								field = field.fields[fname]
 								if(!field){
-									console.log(node)
 									throw new Error('Invalid field '+ fname)
 									return
 								}
@@ -869,7 +871,7 @@ ONE.genjs_ = function(modules, parserCache){
 			// lets find the iterator
 			var left = n.left
 			var iter
-			if(left.type == 'Var'){
+			if(left.type == 'TypeVar' || left.type == 'Var'){
 				if(left.defs.length != 1) throw new Error("for to only supports one argument")
 				iter = left.defs[0].id.name
 			}

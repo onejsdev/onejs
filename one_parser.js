@@ -1850,11 +1850,20 @@ ONE.parser_strict_ = function(){
 		this.expect(this._parenL)
 
 		if (this.tokType === this._semi) return this.parseFor(node, null, compr)
-		if (this.tokType === this._var || this.tokType.isType) {
+		// its either a var, or the next token starts with an id
+		var is_typed
+		if (this.tokType === this._var || (is_typed=this.isIdentifierStart(this.input.charCodeAt(this.tokPos)))){
 			var init = this.startNode()
-			this.next()
-			this.parseVar(init, true)
-			this.finishNode(init, "Var")
+			if(is_typed){
+				init.kind = this.parseIdent()
+				init.defs = this.parseDefs(true)
+				this.finishNode(init, "TypeVar")
+			}
+			else{
+				this.next()
+				this.parseVar(init, true)
+				this.finishNode(init, "Var")
+			}
 
 			if (this.eat(this._of)) return this.parseForOf(node, init, compr)
 			if (this.eat(this._from)) return this.parseForFrom(node, init, compr)

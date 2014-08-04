@@ -4,21 +4,31 @@ import webgl
 class Rect extends GLNode{
 
 	mesh = webgl.vec4Rect(-1, -1, 2, 2, 0)
-	
+
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
 	objmtx: mat4.RT(30deg,  30deg + param1*10,0, 0,0,3)
 
-	thing1 = vec2[3](2,0,1,1,2,2)
+	struct light{
+		vec3 pos
+		float radius
+		float active
+	}
 
+	lights = light[1](
+		0,0,0, 10, 1 // light 1
+	)
+	dump = 1
 	vertex: mesh[] * (objmtx * viewmtx)
 	param1 = 1
 	bgcolor: #yellow
 	p:pixel mesh[]
 	mul2:(x){
 		var y = x
-		return y * thing1[2].x 
+		for(var l from lights) if(l.active!=0.){
+			y = y * l.radius
+		}
+		return y
 	}
-	dump = 1
 	test2:(){
 		return thing1
 	}
