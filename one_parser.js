@@ -1774,6 +1774,20 @@ ONE.parser_strict_ = function(){
 				if(this.tokType != this._braceR){//} && !this.lastSkippedNewlines){
 					node.right = this.parseNoCommaExpression()
 				}
+
+				// parse signal metadata
+				while(this.tokType == this._name && this.containsFlag == 35){
+					// parse metadata on our signal
+					var meta = node.meta || (node.meta = [])
+					var meta_node = this.startNode()
+					meta_node.id = this.parseIdent()
+					if(this.eat(this._colon)){
+						meta_node.init = this.parseNoCommaExpression()
+						this.eat(this._comma)
+					}
+					meta.push(this.finishNode(meta_node, "Def"))
+				}
+
 				this.eat(this._comma)
 				return this.finishNode(node, "Signal")
 			} 
@@ -2216,9 +2230,7 @@ ONE.parser_strict_ = function(){
 		case this._string:
 		case this._name:
 			if( this.lastSkippedNewlines ) return base
-			// alright we might be a type annotation.
-			// we only support a base which is a Id
-			// or an Index or a Key
+
 			if(base.type !== 'Id' && base.type !== 'Index' && base.type !== 'Key')
 				return base
 			if(base.kind) this.raise(base.start, "Chaining multiple types has no purpose(yet)")

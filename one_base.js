@@ -588,47 +588,15 @@ ONE.base_ = function(){
 
 	this.trace = function(){ console.log.apply(console, arguments); return arguments[0];}
 
-	this.createSignal = function(){
-		function Signal(){ Signal.callListeners.apply(Signal, arguments) }
-		//Signal.toString = toString
-		//Signal.valueOf = valueOf
-		Signal.then = then
-		Signal.bind = bind
-	}
-/*
-	function toString(){
-		return String(this.value)
+	this.Signal = {}
+
+	this.Signal.new = function(owner){
+		var sig = Object.create(this)
+		sig.owner = owner
+		return sig
 	}
 
-	// valueOf aliases signals to values
-	function valueOf(){
-		return this.value
-	}*/
-
-	// subscription classes
-	function cancel_subscription(){
-		if(!this.signal) return
-		this.signal.removeListener(this.cb, this.set)
-		this.signal = undefined
-	}
-
-	var SetSubscription = {
-		set: 'set_list',
-		cancel: cancel_subscription
-	}
-
-	var ErrorSubscription = {
-		set: 'error_list',
-		cancel: cancel_subscription
-	}
-
-	var EndSubscription = {
-		set: 'end_list',
-		cancel: cancel_subscription
-	}
-
-	Function.prototype.removeListener = function( cb, set ){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.removeListener = function( cb, set ){
 
 		set = set || 'set_list'
 		var arr = this[set]
@@ -644,108 +612,44 @@ ONE.base_ = function(){
 		else if(arr.length == 0) this[set] = undefined
 	}
 
-	Function.prototype.enumListeners = function( set, cb ){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.enumListeners = function( set, cb ){
 
-		var chain = this
- 		while(chain){
- 			if(chain.hasOwnProperty(set)){
- 				var list = chain[set]
+		var proto = this
+ 		while(proto){
+ 			if(proto.hasOwnProperty(set)){
+ 				var list = proto[set]
 				if(!Array.isArray(list)) cb(list)
 				else for(var i = 0, l = list.length; i < l; i++){
 					cb(list[i])
 				}
 			}
-			chain = chain.chain
+			proto = Object.getPrototypeOf(proto)
 		}
 	}
 	
 	// call all set listeners
-	Function.prototype.callListeners = function( _value ){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.callListeners = function( _value ){
 
 		var value = _value === undefined? this.value: this.value = _value
 		var owner = this.owner
-		var chain = this
+		var proto = this
 		var list
 		var ret
-		while(chain){
-			if(chain.hasOwnProperty('set_list') && (list = chain.set_list)){
+		while(proto){
+			if(proto.hasOwnProperty('set_list') && (list = proto.set_list)){
 				if(!Array.isArray(list)) ret = list.call(owner, value, this)
 				else for(var i = 0, l = list.length; i < l; i++){
 					ret = list[i].call(owner, value, this)
 				}
 			}
-			chain = chain.chain
+			proto = Object.getPrototypeOf(proto)
 		}
 		return ret
 	}
 
-	// signal wrapper
-	this.wrapSignal = function( wrap ){
-		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.then = then
-		Signal.bind = bind
-		wrap(Signal)
-		return Signal
-	}
-
-	this.allSignals = function( array ){
-		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.then = then
-		Signal.bind = bind
-		var obj = Signal
-		if(!array || !array.length){
-			obj.end()
-			return obj
-		}
-		var deps = array.length
-		var res = []
-		for(var i = 0, l = deps; i < l; i++){
-			array[i].then(function(value){
-				if(obj){
-					res[this] = value
-					if(!--deps){
-						obj.end(res)
-						obj = null
-					}
-				}
-			}.bind(i),
-			function(err){
-				if(obj) obj.error(err)
-				obj = null
-			})
-		}
-		return obj
-	}
-
-	this.propSignal = function( key, setter ){
-		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.then = then
-		Signal.bind = bind
-		Signal.owner = this
-		Signal.key = key
-		Signal.setter = setter
-
-		return Signal
-	}
-
-	// fork a signal
-	this.forkSignal = function( signal ){
-		function Signal(v){ Signal.callListeners.call(Signal, v) }
-		Signal.then = then
-		Signal.bind = bind
-		Signal.chain = signal
-		Signal.owner = this
-		Signal.value = signal.value
-		Signal.key = signal.key
-		Signal.setter = signal.setter
-		return Signal
-	}
 
 	// listen to the end  / error
-	function then( end_cb, error_cb ){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.then = function( end_cb, error_cb ){
 		if(this.ended){
 			if(this.errored) window.setTimeout(function(){
 					error_cb.call(this, this.exception)	
@@ -770,8 +674,7 @@ ONE.base_ = function(){
 		}
 	}
 
-	Function.prototype.mergeSignal = function(other){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.mergeSignal = function(other){
 		var _this = this
 		other.enumListeners('set_list', function(v){
 			_this.onSet(v)
@@ -784,8 +687,7 @@ ONE.base_ = function(){
 		})
 	}
 
-	Function.prototype.unmergeSignal = function(other){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.unmergeSignal = function(other){
 		var _this = this
 		other.enumListeners('set_list', function(v){
 			_this.removeListener(v, 'set_list')
@@ -799,9 +701,8 @@ ONE.base_ = function(){
 	}
 
 	// listen to set
-	var bind = 
-	Function.prototype.onSet = function( set_cb ){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.bind = 
+	this.Signal.onSet = function( set_cb ){
 		if(!this.hasOwnProperty('set_list')) this.set_list = set_cb
 		else if(!Array.isArray(this.set_list)) this.set_list = [this.set_list, set_cb]
 		else this.set_list.push(set_cb)
@@ -814,13 +715,8 @@ ONE.base_ = function(){
 		return sub
 	}
 
-	Function.prototype.__defineGetter__('_signal_', function(){
-		return this.bind === bind
-	})
-
 	// set the signal value
-	Function.prototype.set = function(value){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.set = function(value){
 		if(this.ended) throw new Error('Cant set an ended signal')
 		
 		if(typeof value == 'function'){
@@ -832,24 +728,23 @@ ONE.base_ = function(){
 
 		this.value = value
 		// call all our listeners
-		var chain = this 
+		var proto = this 
 		var owner = this.owner
 		if(this.setter) this.setter.call(owner, value)
 		var list
-		while(chain){
-			if(chain.hasOwnProperty('set_list') && (list = chain.set_list)){
+		while(proto){
+			if(proto.hasOwnProperty('set_list') && (list = proto.set_list)){
 				if(!Array.isArray(list)) list.call(owner, value)
 				else for(var i = 0, l = list.length; i < l; i++){
 					list[i].call(owner, value)
 				}
 			}
-			chain = chain.chain
+			proto = Object.getPrototypeOf(proto)
 		}
 	}
 
 	// listen to the end signal
-	Function.prototype.onEnd = function(end_cb){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.onEnd = function(end_cb){
 		if(!this.hasOwnProperty('end_list')) this.end_list = end_cb
 		else if(!Array.isArray(this.end_list)) this.end_list = [this.end_list, end_cb]
 		else this.end_list.push(end_cb)
@@ -864,36 +759,33 @@ ONE.base_ = function(){
 	}
 
 	// end the signal
-	Function.prototype.end = function(value){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.end = function(value){
 		this.set(value)
 		this.ended = true
 		// call end
-		var chain = this 
+		var proto = this 
 		var owner = this.owner
 		var list
-		while(chain){
-			if(chain.hasOwnProperty('end_list') && (list = chain.end_list)){
+		while(proto){
+			if(proto.hasOwnProperty('end_list') && (list = proto.end_list)){
 				if(!Array.isArray(list)) list.call( owner, value, this )
 				else for(var i = 0, l = list.length; i < l; i++){
 					list[i].call( owner, value, this )
 				}
 			}
-			chain = chain.chain
+			proto = Object.getPrototypeOf(proto)
 		}
 	}
 
 	// default allows a throw to be transformed to a value
-	Function.prototype.default = function(default_cb){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.default = function(default_cb){
 		if('default_cb' in this) throw new Error('Cannot overload defaults')
 		this.default_cb = default_cb
 		return this
 	}
 	
 	// called when signal errors
-	Function.prototype.onError = function(error_cb){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.onError = function(error_cb){
 		if(!this.hasOwnProperty('error_list')) this.error_list = error_cb
 		else if(!Array.isArray(this.onThrow)) this.error_list = [this.error_list, error_cb]
 		else this.error_list.push( error_cb )
@@ -908,28 +800,109 @@ ONE.base_ = function(){
 	}
 	
 	// make the signal error
-	Function.prototype.error = function(value, next){
-		if(this.bind != bind) throw new Error('Not a signal')
+	this.Signal.error = function(value, next){
 		if(this.ended) throw new Error('Cant error ended signal')
 		if(this.default_cb) return this.end( this.default_cb(value) )
 		
 		this.ended = true
 		this.errored = value
 		// call error
-		var chain = this 
+		var proto = this 
 		var owner = this.owner
 		var handled
 		var list
-		while(chain){
-			if(chain.hasOwnProperty('error_list') && (list = chain.error_list)){
+		while(proto){
+			if(proto.hasOwnProperty('error_list') && (list = proto.error_list)){
 				handled = true
 				if(!Array.isArray(list)) list.call(owner, value, next, this)	
 				else for(var i = 0, l = list.length; i < l; i++){
 					list[i].call(owner, value, next, this)
 				}
 			}
-			chain = chain.chain
+			proto = Object.getPrototypeOf(proto)
 		}			
 		return handled
 	}
+
+	this.createSignal = function(){
+		var sig = Object.create(this.Signal)
+		sig.owner = this
+		return sig
+	}
+
+	// subscription classes
+	function cancel_subscription(){
+		if(!this.signal) return
+		this.signal.removeListener(this.cb, this.set)
+		this.signal = undefined
+	}
+
+	var SetSubscription = {
+		set: 'set_list',
+		cancel: cancel_subscription
+	}
+
+	var ErrorSubscription = {
+		set: 'error_list',
+		cancel: cancel_subscription
+	}
+
+	var EndSubscription = {
+		set: 'end_list',
+		cancel: cancel_subscription
+	}
+
+	
+	// signal wrapper
+	this.wrapSignal = function( wrap ){
+		var sig = Object.create(this.Signal)
+		sig.owner = this
+		wrap(sig)
+		return sig
+	}
+
+	this.allSignals = function( array ){
+		var sig = Object.create(this.Signal)
+		sig.owner = this
+		if(!array || !array.length){
+			sig.end()
+			return sig
+		}
+		var deps = array.length
+		var res = []
+		for(var i = 0, l = deps; i < l; i++){
+			array[i].then(function(value){
+				if(sig){
+					res[this] = value
+					if(!--deps){
+						sig.end(res)
+						sig = null
+					}
+				}
+			}.bind(i),
+			function(err){
+				if(sig) sig.error(err)
+				sig = null
+			})
+		}
+		return sig
+	}
+
+	this.propSignal = function( key, setter ){
+		var sig = Object.create(this.Signal)
+
+		sig.owner = this
+		sig.key = key
+		sig.setter = setter
+
+		return sig
+	}
+
+	// fork a signal
+	this.forkSignal = function( signal ){
+		var sig  = Object.create(signal)
+		sig.owner = this
+		return sig
+	}
+
 }

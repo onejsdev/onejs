@@ -278,7 +278,7 @@ ONE.ast_ = function(){
 			Unary: { op:0, prefix:0, arg:1 },
 			Binary: { op:0, prio:0, left:1, right:1 },
 			Logic: { op:0, prio:0, left:1, right:1 },
-			Signal: { left:1, right:1, lazy:0 },
+			Signal: { left:1, right:1, lazy:0, meta:2 },
 			Assign: { op:0, prio:0, left:1, right:1 },
 			Update: { op:0, prio:0, arg:1, prefix:0 },
 			Condition: { test:1, then:1, else:1 },

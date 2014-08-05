@@ -17,7 +17,10 @@ class Rect extends GLNode{
 	mesh = genmesh(-1,-1,2,2,0)
 	dump = 1
 	vertex: mesh[] * (objmtx * viewmtx) 
-	param1 = 1
+
+	// the compiler pulls out type def chains as metadata on the zignal
+	param1 := 1 #min:0 #max:10 #step:0.1 #title:'Hello'
+	
 	bgcolor: #yellow
 	p:pixel mesh[]
 
@@ -33,10 +36,14 @@ class Rect extends GLNode{
 		+ 
 		mix(#green, #purple) do
 			sin(sin(param1) *  param1 * p.x * p.y)
+
+	//pixel:image('texture1.jpg')
 }
 
+// define a procedural texture?
 
 var ref = GLView{
+
 	fill = #aero
 	Rect{
 		param1 = 10

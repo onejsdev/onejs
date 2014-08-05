@@ -1518,41 +1518,55 @@ ONE.genjs_ = function(modules, parserCache){
 			var ret
 			
 			ret = 'this.signal("'+id+'",'
-			
-			// and it also supports local vars
-			// we need to check for % vars and pass them into parse.
-			var esc = outer.ToEscaped
-			var tpl = esc.templates = {}
-			var locals = esc.locals = {}
-			
-			// if we have a variable in scope, we need to bind the expression to it
-			esc.scope = this.scope
-			
-			esc.depth = this.depth
-			var body = esc.expand(n.right, n)
-			
-			// cache the AST for parse()
-			parserCache[body] = n.right
-			
-			var obj = ''
-			for( var name in tpl ){
-				if(obj) obj += ','
-				obj += name+':'+(name in this.scope?name:'this.'+name)
+
+			if(!n.lazy){
+				ret += this.expand(n.right, n)
+				ret += ')'
 			}
-			var localstr = ''
-			for( var local in locals ){
-				if(local) obj += ','
-				localstr += name+':'+name
+			else{
+				// and it also supports local vars
+				// we need to check for % vars and pass them into parse.
+				var esc = outer.ToEscaped
+				var tpl = esc.templates = {}
+				var locals = esc.locals = {}
+				
+				// if we have a variable in scope, we need to bind the expression to it
+				esc.scope = this.scope
+				
+				esc.depth = this.depth
+				var body = esc.expand(n.right, n)
+				
+				// cache the AST for parse()
+				parserCache[body] = n.right
+				
+				var obj = ''
+				for( var name in tpl ){
+					if(obj) obj += ','
+					obj += name+':'+(name in this.scope?name:'this.'+name)
+				}
+				var localstr = ''
+				for( var local in locals ){
+					if(local) obj += ','
+					localstr += name+':'+name
+				}
+				
+				ret +=  'this._parse("' + body + '",module'
+				if( localstr ) ret += ',{' + localstr + '}'
+				if( obj ){
+					if(!localstr) ret += ',null'
+					ret += ',{' + obj + '}'
+				}
+				ret += '))'
 			}
-			
-			ret +=  'this._parse("' + body + '",module'
-			if( localstr ) ret += ',{' + localstr + '}'
-			if( obj ){
-				if(!localstr) ret += ',null'
-				ret += ',{' + obj + '}'
+			if(n.meta){
+				for(var i = 0;i<n.meta.length;i++){
+					var meta = n.meta[i]
+					ret += this.newline + this.indent
+					ret += 'this.on_' + id + '.' + meta.id.name + ' = ' 
+					if(meta.init) ret += this.expand(meta.init, n)
+					else ret += 'true'
+				}
 			}
-			ret += '))'
-			
 			return ret
 		}
 		
