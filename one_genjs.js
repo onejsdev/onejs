@@ -63,6 +63,84 @@ ONE.genjs_ = function(modules, parserCache){
 			}
 			return ''
 		}
+
+		this.check_swizzle = function( key_name, slots ){
+			if(key_name.length <= 1 && key_name.length > 4) return
+			var i = 0
+			var ch
+			var l = key_name.length
+			var out = []
+			if(slots == 2){
+				while(i < l){ // xy
+					ch = key_name.charCodeAt(i++)
+					if(ch == 120) out.push(0)
+					else if(ch == 121) out.push(1)
+					else {i = 0;break}
+				}
+				while(i < l){ // rg
+					ch = key_name.charCodeAt(i++)
+					if(ch == 114) out.push(0)
+					else if(ch == 103) out.push(1)
+					else {i = 0;break}
+				}
+				while(i < l){ // st
+					ch = key_name.charCodeAt(i++)
+					if(ch == 115) out.push(0)
+					else if(ch == 116) out.push(1)
+					else {i = 0;break}
+				}
+			}
+			else if(slots == 3){
+				while(i < l){ // xyz
+					ch = key_name.charCodeAt(i++)
+					if(ch == 120) out.push(0)
+					else if(ch == 121) out.push(1)
+					else if(ch == 122) out.push(2)
+					else {i = 0;break}
+				}
+				while(i < l){ // rgb
+					ch = key_name.charCodeAt(i++)
+					if(ch == 114) out.push(0)
+					else if(ch == 103) out.push(1)
+					else if(ch == 98) out.push(2)
+					else {i = 0;break}
+				}
+				while(i < l){ // stp
+					ch = key_name.charCodeAt(i++)
+					if(ch == 115) out.push(0)
+					else if(ch == 116) out.push(1)
+					else if(ch == 112) out.push(2)
+					else {i = 0;break}
+				}
+			}
+			else if(slots == 4){
+				while(i < l){ // xyzw
+					ch = key_name.charCodeAt(i++)
+					if(ch == 120) out.push(0)
+					else if(ch == 121) out.push(1)
+					else if(ch == 122) out.push(2)
+					else if(ch == 119) out.push(3)
+					else {i = 0;break}
+				}
+				while(i < l){ // rgba
+					ch = key_name.charCodeAt(i++)
+					if(ch == 114) out.push(0)
+					else if(ch == 103) out.push(1)
+					else if(ch == 98) out.push(2)
+					else if(ch == 97) out.push(3)
+					else {i = 0;break}
+				}
+				while(i < l){ // stpq
+					ch = key_name.charCodeAt(i++)
+					if(ch == 115) out.push(0)
+					else if(ch == 116) out.push(1)
+					else if(ch == 112) out.push(2)
+					else if(ch == 113) out.push(3)
+					else {i = 0;break}
+				}				
+			}
+			if(i == l) return out
+		}
 		
 		var globals = this.globals = Object.create(null)
 		globals.Object = 1
@@ -122,7 +200,7 @@ ONE.genjs_ = function(modules, parserCache){
 		globals.__dirname = 1
 		globals.ONE = 1
 		globals.self = 1
-		
+
 		this.find_type = function( name ){
 			var type
 			if(this.generics){
@@ -426,7 +504,6 @@ ONE.genjs_ = function(modules, parserCache){
 						if(!node.infer) return
 						base = this.expand(node, node.parent)
 						type = node.infer
-						calldebug = 1
 					}
 					else{
 						// check
@@ -447,6 +524,7 @@ ONE.genjs_ = function(modules, parserCache){
 						if(type.size == 0) throw new Error("Trying to access member on abstract value")
 						var off = 0, field = type
 						var idx = ''
+						var swiz
 						for(;;){
 							// if we are doing an index, we have to have an array type
 							if(node.index){
@@ -466,11 +544,15 @@ ONE.genjs_ = function(modules, parserCache){
 								if(fname == 'length' && field.dim){
 									return field.dim
 								}
-								field = field.fields[fname]
-								if(!field){
+								var next_field = field.fields[fname]
+								if(!next_field){
+									// what i want is an array saying
+									// check for swizzling.
+									var swiz = this.check_swizzle( fname, field.slots )
+									if(swiz) break
 									throw new Error('Invalid field '+ fname)
-									return
 								}
+								field = next_field
 								off += field.off
 							}
 							if(node == n) break
@@ -485,18 +567,44 @@ ONE.genjs_ = function(modules, parserCache){
 							else voff = dt
 						}
 						else if(voff == '') voff = '0'
-						
+
+						if(swiz && n.parent && n.parent.type != 'Assign'){
+							var ret_type = this.find_type('vec'+swiz.length)
+							// pick the return type
+							this.find_function(n).call_var = 1
+							var output = this.call_tmpvar
+							
+							this.module[ret_type.name] = ret_type
+							var ret = '('+output+'= new '+ret_type.view+'Array(' + swiz.length + '),' + 
+										output + '.t=module.' + ret_type.name
+
+							for(var i = 0;i<swiz.length;i++){
+								ret += ','+output+'['+i+'] = ' + base + '[' + voff + '+' + swiz[i] + ']'
+							}
+							ret += ',' + output + ')'
+							return ret
+						}
+
 						if((!node.index || field.dim) && !field.prim){
 							n.infer = field
 							n.inferptr = 1
+							if(swiz){
+								// lets check the swizzle againt duplicates
+								for(var i = 0;i<swiz.length;i++){
+									for(var j = 0;j<swiz.length;j++){
+										if(i!=j && swiz[i] == swiz[j]){
+											throw new Error('Cannot assign to duplicate swizzle field')
+										}
+									}
+								}
+								n.swiz = swiz
+							}
 							// translate this to a new Array
-							if(calldebug) console.log(node)
 							this.find_function(n).call_var = 1
+							if(voff == '0') return base
 							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + '),'+
 								this.call_tmpvar+'.t=module.'+type.name+','+this.call_tmpvar+')'
-							//return '{o:' + voff + ', ' + type.arr + ':' + base + '.' + type.arr + '}'
 						}
-						//return base + '.'+type.arr+'[' + voff+ ']'
 						return base + '[' + voff+ ']'
 					}
 				}
@@ -1469,6 +1577,7 @@ ONE.genjs_ = function(modules, parserCache){
 				if(n.left.inferptr){ // we are an assign to a struct type
 					// we need to know what the rhs is.
 					n.right.assign_type = n.left.infer
+					n.right.assign_swiz = n.left.swiz
 					n.right.assign_left = left
 					n.right.assign_op = n.op
 					var right = this.expand(n.right, n)
@@ -1491,12 +1600,18 @@ ONE.genjs_ = function(modules, parserCache){
 						var nslots = n.left.infer.slots
 						//var arr = n.left.infer.arr
 						var ret = '(' + tmp_l + '=' + left + ',' + tmp_r + '=' + right
-						for(var i = 0;i<nslots;i++){
-							//ret += ',' + tmp_l + '.' + arr + '[' + tmp_l +'.o+'+ i + ']'+
-							//	n.op + tmp_r + '.' + arr + '[' + tmp_r +'.o+'+ i + ']'
-							ret += ',' + tmp_l + '[' + i + ']'+
-								n.op + tmp_r + '[' + i + ']'
-							
+						var swiz = n.left.swiz
+						if(swiz){
+							for(var i = 0;i<nslots;i++){
+								ret += ',' + tmp_l + '[' + swiz[i] + ']'+
+									n.op + tmp_r + '[' + i + ']'
+							}
+						}
+						else{
+							for(var i = 0;i<nslots;i++){
+								ret += ',' + tmp_l + '[' + i + ']'+
+									n.op + tmp_r + '[' + i + ']'
+							}
 						}
 						func.type_nesting -=2
 						ret += ','+tmp_r+')'
@@ -1701,11 +1816,13 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			var nslots = type.slots
 			var ret
+			var swiz
 			var op = '='
 			var off
 			// consume a targetptr
 			if(n.assign_left){
 				ret = '('+output+' = '+n.assign_left
+				swiz = n.assign_swiz
 				//off = 1
 				n.assign_left = undefined
 				op = n.assign_op
@@ -1750,8 +1867,9 @@ ONE.genjs_ = function(modules, parserCache){
 					for(var i = 0, l = issingle?type.slots:1; i < l; i++){
 						//ret += output+'.'+type.arr+'['
 						//if(off) ret += output+'.o+'
-						
-						ret += output+'['+ (slot++) +']'+op
+						var out_slot = slot++
+						if(swiz) out_slot = swiz[out_slot]
+						ret += output+'['+ out_slot +']'+op
 					}
 					ret += val
 				}
@@ -1763,7 +1881,9 @@ ONE.genjs_ = function(modules, parserCache){
 						for(var i = 0, l = issingle?type.slots:1; i < l; i++){
 							//ret += output+'.'+type.arr+'['
 							//if(off) ret += output+'.o+'
-							ret += output+'[' + (slot++) +']' + op
+							var out_slot = slot++
+							if(swiz) out_slot = swiz[out_slot]
+							ret += output+'[' + out_slot +']' + op
 						}
 						ret += val
 					}

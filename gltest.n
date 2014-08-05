@@ -15,7 +15,7 @@ class Rect extends GLNode{
 		)
 	}
 	mesh = genmesh(-1,-1,2,2,0)
-
+	dump = 1
 	vertex: mesh[] * (objmtx * viewmtx) 
 	param1 = 1
 	bgcolor: #yellow
@@ -33,7 +33,6 @@ class Rect extends GLNode{
 		+ 
 		mix(#green, #purple) do
 			sin(sin(param1) *  param1 * p.x * p.y)
-
 }
 
 

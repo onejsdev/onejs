@@ -61,7 +61,7 @@ class GLNode extends Proxy{
 		if(ast.type != 'Function') throw new Error('GL Draw not a function')
 		
 		var flags = js.pull_flags(ast)
-
+		profile(1) do ->
 		code += 'this.draw = ' + js.Function(ast, undefined, ['gl']) + '\n'
 
 		// we have to generate redraw binding code for proxy_bind
@@ -479,6 +479,9 @@ class GLNode extends Proxy{
 				if(n.kind.name == 'pixel'){
 					n.mark = 3	// mark us as pixel
 				}
+				else if(n.kind.name == 'vertex'){
+					n.mark = 2
+				} 
 				else {
 					// where do we get our typemap?
 					n.infer = module.types[n.kind.name]
@@ -486,6 +489,102 @@ class GLNode extends Proxy{
 				}
 			}
 			Post(n)
+		}
+
+		Index( n, parent ){
+			n.parent = parent
+			Pre(n)
+			if(!n.index){
+				var nmark = n.mark = 2 // mark as attribute
+				if(n.object.kind && n.object.kind.name == 'pixel')
+					nmark = 3
+
+				// what is our our type however?..
+				var attrib = context[n.object.name]
+				if(!attrib) throw new Error('cannot fetch attribute '+n.object.name)
+
+				n.infer = attrib.t
+
+				return Post(n, nmark)
+			}
+			else{ // we are an index
+				// resolve the object
+				this[n.object.type](n.object, n)
+
+				// resolve the index
+				this[n.index.type](n.index, n)
+
+				// we have to have an inferred type on object now
+				if(!n.infer) throw new Error('index access without type')
+				if(!n.infer.dim) throw new Error('index access on type without dimensions')
+				n.infer = Object.getPrototypeOf(n.infer) // rip off dimensions
+
+				return Post(n)
+			}
+			return AST.Walk::Index(n)
+		}
+		
+		Key( n, parent ){
+			n.parent = parent
+			Pre(n)
+
+			// we only want to walk the object.
+			if(n.object.type == 'Id'){
+				var objname = n.object.name
+				// check if we are a different object
+				var obj = context[objname]
+				if(typeof obj == 'object' && !obj.t && obj.proxy_uid){
+					// we are depending on another object
+					var propname = n.key.name
+					var prop = obj[propname]
+
+					// mark signal in our proxy table
+					n.infer = prop && prop.t || float
+					n.mark = 1 // uniform
+					proxy_refs[objname] = 1
+					var bind = proxy_bind[objname] || (proxy_bind[objname] = {})
+					bind[propname] = 1
+					return Post(n)
+				}
+			}
+
+			// only try to walk/resolve the object
+			this[n.object.type](n.object, n)
+			var nmark = n.mark
+
+			if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
+				// extend our vertex shader mark upwards one step, since we are not splittable here
+				if(n.mark == 3) nmark = 3, n.mark = 2
+			}
+
+			// we have to have an inferred type on object now
+			if(!n.infer) throw new Error('key access without type')
+			
+			var fields = n.infer.fields
+			if(!fields) throw new Error('key access on type without fields')
+
+			var key_name = n.key.name
+
+			if(key_name == 'length' && n.infer.dim){
+				n.const_length = n.infer.dim
+				n.mark = undefined
+				n.infer = int
+				return Post(n)
+			}
+			var type = fields[key_name]
+			if(!type && n.object.infer.name in glsl_types){
+				var slots = n.object.infer.slots
+				// validate swizzlingl. this code must deserve a prize.
+				var swiz = check_swizzle( key_name, n.object.infer.slots )
+				if(swiz.length == 2) type = vec2
+				else if(swiz.length  == 3) type = vec3
+				else if(swiz.length  == 4) type = vec4
+			}
+			if(!type) throw new Error('type '+n.object.infer.name+' has no field ' + key_name)
+
+			n.infer = type
+			
+			return Post(n, nmark)
 		}
 
 		this.Function( n, parent ){
@@ -560,7 +659,7 @@ class GLNode extends Proxy{
 				if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
 			}
 			if(return_type && return_type != n.infer){
-				throw new Error('Multiple returntypes detected '+return_type.name + ' and ' + n.infer)
+				throw new Error('Multiple return types detected '+return_type.name + ' and ' + n.infer)
 			}
 			return_type = n.infer
 			Post(n)
@@ -684,102 +783,7 @@ class GLNode extends Proxy{
 			Post(n)
 		}
 
-
-		Index( n, parent ){
-			n.parent = parent
-			Pre(n)
-			if(!n.index){
-				var nmark = n.mark = 2 // mark as attribute
-				if(n.object.kind && n.object.kind.name == 'pixel')
-					nmark = 3
-
-				// what is our our type however?..
-				var attrib = context[n.object.name]
-				if(!attrib) throw new Error('cannot fetch attribute '+n.object.name)
-
-				n.infer = attrib.t
-
-				return Post(n, nmark)
-			}
-			else{ // we are an index
-				// resolve the object
-				this[n.object.type](n.object, n)
-
-				// resolve the index
-				this[n.index.type](n.index, n)
-
-				// we have to have an inferred type on object now
-				if(!n.infer) throw new Error('index access without type')
-				if(!n.infer.dim) throw new Error('index access on type without dimensions')
-				n.infer = Object.getPrototypeOf(n.infer) // rip off dimensions
-
-				return Post(n)
-			}
-			return AST.Walk::Index(n)
-		}
-		
-		Key( n, parent ){
-			n.parent = parent
-			Pre(n)
-			// we are a *.key
-			// what we dont want to do is resolve the key.
-			// we only want to walk the object.
-			if(n.object.type == 'Id'){
-				var objname = n.object.name
-				// check if we are a different object
-				var obj = context[objname]
-				if(typeof obj == 'object' && !obj.t){
-					if(obj.proxy_uid){
-						// we are depending on another object
-						var propname = n.key.name
-						var prop = obj[propname]
-
-						// mark signal in our proxy table
-						n.infer = prop && prop.t || float
-						n.mark = 1 // uniform
-						proxy_refs[objname] = 1
-						var bind = proxy_bind[objname] || (proxy_bind[objname] = {})
-						bind[propname] = 1
-						return Post(n)
-					}
-					//else
-					//else if(obj._signal_){
-						// we might want the other one
-						// okay so. 
-					//}
-					//else throw new Error('Dont know what to do in key deptrace with  '+objname)
-				}
-			}
-
-			// only try to walk/resolve the object
-			this[n.object.type](n.object, n)
-			var nmark = n.mark
-
-			if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
-				// extend our vertex shader mark upwards one step, since we are not splittable here
-				if(n.mark == 3) nmark = 3, n.mark = 2
-			}
-
-			// we have to have an inferred type on object now
-			if(!n.infer) throw new Error('key access without type')
-			
-			var fields = n.infer.fields
-			if(!fields) throw new Error('key access on type without fields')
-
-			if(n.key.name == 'length' && n.infer.dim){
-				n.const_length = n.infer.dim
-				n.mark = undefined
-				n.infer = int
-				return Post(n)
-			}
-
-			var type = fields[n.key.name]
-			if(!type) throw new Error('type '+n.infer.name+' has no field '+n.key.name)
-			
-			n.infer = type
-			
-			return Post(n, nmark)
-		}
+		check_swizzle = AST.ToJS.check_swizzle
 		find_define = AST.ToJS.find_define
 		find_type = AST.ToJS.find_type
 		find_macro = AST.ToJS.find_macro
@@ -788,7 +792,6 @@ class GLNode extends Proxy{
 
 	// generate the uniform computation JS
 	class GenUniformJS extends AST.ToJS{
-		skip = 1
 		Id( n ){
 			var name = n.name
 			if(n.flag == 35){ // is a color
@@ -813,12 +816,12 @@ class GLNode extends Proxy{
 			
 			if(typeof prop == 'object'){
 				//!TODO convert to signal
-				proxy_props[name] = 1
+				deps[name] = proxy_props[name] = 1
 				return 'this.' + name
 			} 
 			else if(typeof prop == 'number'){
 				//!TODO convert to signal
-				proxy_props[name] = 1
+				deps[name] = proxy_props[name] = 1
 				return 'this.' + name
 			}
 			else throw new Error('Cant generate uniformJS for '+name)
@@ -875,7 +878,7 @@ class GLNode extends Proxy{
 			var name = n.name
 			// if we are # bla lets resolve the color and inline.
 			if(n.flag == 35){ // is a color
-				vec4 col = ONE.color(name)
+				vec3 col = ONE.color(name)
 				return 'vec3(' + col.x + ',' + col.y + ',' + col.z + ')'
 			}
 			
@@ -885,7 +888,7 @@ class GLNode extends Proxy{
 			
 			// check macro args
 			if(macro_args && name in macro_args){
-				return '('+macro_args[name]+')'
+				return '(' + macro_args[name] + ')'
 			}
 
 			if(iterators && name in iterators){
@@ -995,8 +998,6 @@ class GLNode extends Proxy{
 			return expand(n.object, n) + '.' + n.key.name
 		}
 
-		// type infer int * float
-
 		Unary( n, parent ){
 			if(n.op.length != 1) throw new Error('Unary '+n.op+' not supported in shaders')
 			return AST.ToCode::Unary( n. parent)
@@ -1038,7 +1039,7 @@ class GLNode extends Proxy{
 				(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio) 
 				right = '(' + right + ')'
 
-			return left + this.space + n.op + this.space + right
+			return left + space + n.op + space + right
 		}
 
 		Var( n ){
@@ -1164,8 +1165,7 @@ class GLNode extends Proxy{
 				var [macro, macro_generics] = find_macro(n, name, n.args)
 				if(macro){
 					if(macro.type == 'Function'){
-						// alright! we are going to generate an actual
-						// GLSL function!. huzzah.
+						// generate GLSL function
 						var params = macro.params
 						var gen = 'macro_' + name
 						var args = ''
@@ -1558,12 +1558,22 @@ class GLNode extends Proxy{
 				GenUniformJS.module = uni.module
 				GenUniformJS.context = context
 				GenUniformJS.proxy_props = proxy_props
+				var deps = GenUniformJS.deps = Object.create(null)
+
 				var js = GenUniformJS.expand(uni.node, n)
 				
+				var if_str = ''
+				var as_str = ''
+				for(var k in deps){
+					if(if_str)if_str += ' || ', as_str += ', '
+					if_str += `shader.uv_${uni.name}_${k} !== this.${k}`
+					as_str += `shader.uv_${uni.name}_${k} = this.${k}`
+				}
+
 				uniform_parts.setters += `
-				var v = ${js}
-				if(shader.uv_${uni.name} !== v){
-					shader.uv_${uni.name} = v\n`
+				if(${if_str}){
+					${as_str}
+					var v = ${js}\n`
 
 				UniformTypeExpander(uni.node.infer, uniform_parts, uni.name, uni.name, 0)
 

@@ -369,7 +369,6 @@ struct vec{
 		_[#] = v[#] < min[#]? min[#]: v[#] > max[#]? max[#]: v[#]
 	}
 
-
 	normalize( vec v ){
 		var d = 0
 		d += v[#] ** 2
@@ -428,7 +427,6 @@ struct bvec4{
 	bool x, y, z, w
 }
 
-
 struct vec2 extends vec{
 	float x, y
 
@@ -480,7 +478,6 @@ struct vec2 extends vec{
 		return bvec( x != b.x, y != b.y )
 	}
 }
-
 
 struct vec3 extends vec{
 	float x, y, z
