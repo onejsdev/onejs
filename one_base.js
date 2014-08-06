@@ -716,6 +716,7 @@ ONE.base_ = function(){
 	}
 
 	// set the signal value
+	this.Signal.call = 
 	this.Signal.set = function(value){
 		if(this.ended) throw new Error('Cant set an ended signal')
 		

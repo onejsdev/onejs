@@ -1,27 +1,18 @@
 import math
 import webgl
 
-class Rect extends GLNode{
-
-	mesh = webgl.vec4Rect(-1, -1, 2, 2, 0)
+class Rect extends Node{
 
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(30deg,  30deg + param1*10,0, 0,0,3)
+	objmtx: mat4.RT(30deg,  1deg*param1 + Time.sec,0, 0,0,3)
 
-	genmesh( x, y, w, h){
-		return vec2[6](
-			x,y,   x+w,y,   x,y+h
-			x+w,y, x+w,y+h, x,y+h
-		)
-	}
-	mesh = genmesh(-1,-1,2,2,0)
+	mesh = webgl.vec2Rect(-1,-1,2,2,0)
+	vertex: mesh[] * (objmtx * viewmtx)
+
 	dump = 1
-	vertex: mesh[] * (objmtx * viewmtx) 
+	// signal ready!
+	param1 = 1
 
-	// the compiler pulls out type def chains as metadata on the zignal
-	param1 := 1 #min:0 #max:10 #step:0.1 #title:'Hello'
-	
-	bgcolor: #yellow
 	p:pixel mesh[]
 
 	mul2:(x){
@@ -29,23 +20,27 @@ class Rect extends GLNode{
 		return y
 	}
 
+	bg = Image.new('texture1.jpg')
+	bgcolor:#orange
 	pixel:
-		mul2 on
 		(mix(bgcolor, #black) do 
-			abs(sin(param1 * 1 * atan(p.x, p.y))))
-		+ 
+			abs(sin(param1 * 1. * atan(p.x, p.y))))
+		+
 		mix(#green, #purple) do
-			sin(sin(param1) *  param1 * p.x * p.y)
+			sin(sin(param1) * param1 * p.x * p.y)
 
-	//pixel:image('texture1.jpg')
+	pixel: texture2D(bg, 0.5*p+0.5, {
+		MIN_FILTER:LINEAR
+		MAG_FILTER:LINEAR
+		WRAP_S:CLAMP_TO_EDGE
+		WRAP_T:CLAMP_TO_EDGE
+	})
 }
 
 // define a procedural texture?
-
-var ref = GLView{
-
+var ref = View{
 	fill = #aero
-	Rect{
-		param1 = 10
-	}
+	for(var i = 0 to 10)
+		Rect{ param1 = i*1 }
+
 }

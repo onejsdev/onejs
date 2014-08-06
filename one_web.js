@@ -8,14 +8,18 @@ ONE.worker_boot_ = function(host){
 		var msg = event.data
 		if(msg._id == 'eval'){ // lets parse and eval a module
 			var ast = ONE.root.$['_' + msg.module]
+			var dt = Date.now()
 			if(!ast){
 				return console.log('Module ' + msg.module + ' not parsed')
 			}
 			ONE.root.$[msg.module] = ONE.root.eval(ast, msg.module)
+			//console.log('eval '+msg.module+' '+(Date.now()-dt)+'ms')
 			return
 		}
 		if(msg._id == 'parse'){
+			var dt = Date.now()
 			ONE.root.$['_' + msg.module] = ONE.root.parse('->{' + msg.value + '\n}', msg.module)
+			//console.log('parse '+msg.module+' '+(Date.now()-dt)+'ms')
 			return
 		}
 		if(msg._id == 'run'){

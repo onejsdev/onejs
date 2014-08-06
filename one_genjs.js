@@ -1561,7 +1561,7 @@ ONE.genjs_ = function(modules, parserCache){
 			if(n.meta){
 				for(var i = 0;i<n.meta.length;i++){
 					var meta = n.meta[i]
-					ret += this.newline + this.indent
+					ret += this.newline + this.depth 
 					ret += 'this.on_' + id + '.' + meta.id.name + ' = ' 
 					if(meta.init) ret += this.expand(meta.init, n)
 					else ret += 'true'
@@ -1747,15 +1747,13 @@ ONE.genjs_ = function(modules, parserCache){
 			if(fn_t == 'Assign' || fn_t == 'Logic' || fn_t == 'Condition')
 				fn = '(' + fn + ')'
 			
-			if(this.globals[fn]){
-				var arg = this.list(n.args, n)
-				return 'new ' + fn + '(' + arg + ')'
-			}
+			var arg = this.list(n.args, n)
+			return 'new ' + fn + '(' + arg + ')'
 			// forward to Call
 			// WARNING we might have double calls if you fetch
 			// the class via functioncall.
-			n.isnew = true
-			return this.expand(n, n.parent, 'Call')
+			//n.isnew = true
+			//return this.expand(n, n.parent, 'Call')
 			//return this.Call( n, undefined, undefined, true )
 			//return  fn + '.new(this'+(arg?', '+arg:arg)+')'
 		}
@@ -2163,8 +2161,12 @@ ONE.genjs_ = function(modules, parserCache){
 						if(args){
 							args = args.slice(0)
 							args.unshift('this')
+							arglen = args.length
 						}
-						else args = ['this']
+						else {
+							args = ['this']
+							arglen = 1
+						}
 					}
 					// else dont mess with it
 					else if(name == 'call' || name == 'apply' || name == 'bind'){
@@ -2244,7 +2246,6 @@ ONE.genjs_ = function(modules, parserCache){
 					}
 				}
 			}
-			
 			// so if we are a single Id, we call using .call(this')
 			var cthis = ''
 			var call = ''

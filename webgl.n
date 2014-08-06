@@ -1,6 +1,18 @@
 import math
 import track
 
+struct sampler2D{
+	int id
+}
+
+// super basic meshgens
+vec2Rect( x, y, w, h ){
+	return vec2[6](
+		x,y,   x+w,y,   x,y+h
+		x+w,y, x+w,y+h, x,y+h
+	)
+}
+
 vec3Rect( x, y, w, h, z = 0 ){
 	return vec3[6](
 		x,y,z,   x+w,y,z,   x,y+h,z
@@ -15,7 +27,7 @@ vec4Rect( x, y, w, h, z = 0, ww = 1 ){
 	)
 }
 
-class GLNode extends Proxy{
+class Node extends Proxy{
 
 	// make a singleton copy of Time
 	this.Time = Time{}
@@ -340,6 +352,10 @@ class GLNode extends Proxy{
 		Value( n, parent ){
 			n.parent = parent
 			Pre(n)
+			if(n.kind == 'string'){ // image
+
+			}
+			else
 			if(n.kind != 'num') throw new Error('Only numeric values supported')
 			if(n.raw.indexOf('.') != -1) n.infer = float
 			else n.infer = int
@@ -432,6 +448,12 @@ class GLNode extends Proxy{
 			
 			// we are a reference to a remote object
 			if(prop.proxy_uid){
+				// what if we reference a texture here?
+				if(prop.infer == sampler2D){
+					n.mark = 2 // atleast a vertex shader
+					n.infer = sampler2D
+					return
+				}
 				throw new Error('Cannot reference bare remote objects in GLSL')
 			}
 
@@ -544,6 +566,9 @@ class GLNode extends Proxy{
 					proxy_refs[objname] = 1
 					var bind = proxy_bind[objname] || (proxy_bind[objname] = {})
 					bind[propname] = 1
+
+					// flag it for the dependency codegen
+					n.remote = 1
 					return Post(n)
 				}
 			}
@@ -664,8 +689,37 @@ class GLNode extends Proxy{
 			return_type = n.infer
 			Post(n)
 		}
-		// if we get a return
-		// we should 
+
+		// type inference implementation of texture2D
+		macro_texture2D( n, parent ){
+			
+			var args = n.args
+			if(args.length < 2) throw new Error('texture2D not enough arguments')
+			// the first arg is the sampler2D we are going to need.
+
+			var sampler = args[0]
+			this[sampler.type](sampler, n)
+
+			if(sampler.infer.name != 'sampler2D')
+				throw new Error('texture2D invalid first argument type ' + sampler.infer.name)
+
+			var pos = args[1]
+			this[pos.type](pos, n)
+			if(pos.infer.name != 'vec2')
+				throw new Error('texture2D invalid second argument type ' + pos.infer.name)
+
+			// optional 3rd arg
+			var bias = n.args[2]
+			if(bias && bias.type != 'Object'){
+				this[bias.type](bias, n)
+			}
+			
+			proxy_refs[sampler.name] = 1
+
+			if(n.mark != 3) n.mark = 2
+			n.infer = vec4
+			Post(n)
+		}
 
 		// type inference calls		
 		Call( n, parent ){
@@ -676,6 +730,12 @@ class GLNode extends Proxy{
 			if(n.fn.type == 'Id'){
 				// check 
 				var name = n.fn.name
+
+				var macro = 'macro_' + name
+				if(this[macro]){
+					return this[macro](n, parent)
+				}
+
 				var type = find_type(name)
 				// type infer the args
 				for(var arg from n.args) this[arg.type](arg, n)
@@ -788,49 +848,6 @@ class GLNode extends Proxy{
 		find_type = AST.ToJS.find_type
 		find_macro = AST.ToJS.find_macro
 		macro_match_args = AST.ToJS.macro_match_args
-	}
-
-	// generate the uniform computation JS
-	class GenUniformJS extends AST.ToJS{
-		Id( n ){
-			var name = n.name
-			if(n.flag == 35){ // is a color
-				return 'this.color("' + name + '")'
-			}
-			
-			if(name in glsl_functions || name in glsl_variables){
-				return name
-			}
-			
-			var prop = context[name]
-			
-			if(prop === undefined || this.scope[name]) return this.resolve(n.name, n)
-			
-			if(prop && prop._ast_){
-				var mod = this.module
-				this.module = prop.module
-				var ret = expand(prop, n)
-				this.module = mod
-				return ret
-			}
-			
-			if(typeof prop == 'object'){
-				//!TODO convert to signal
-				deps[name] = proxy_props[name] = 1
-				return 'this.' + name
-			} 
-			else if(typeof prop == 'number'){
-				//!TODO convert to signal
-				deps[name] = proxy_props[name] = 1
-				return 'this.' + name
-			}
-			else throw new Error('Cant generate uniformJS for '+name)
-		}
-		// what if we are a Key and its another objects' signal we need to depend on?
-		// we need to send over a dependency list
-		Key( n ){
-			return AST.ToJS::Key(n)
-		}
 	}
 
 	// generate the GLSL
@@ -1141,11 +1158,100 @@ class GLNode extends Proxy{
 			return ret
 		}
 
+		var filter_shorten = {
+			NEAREST:'N'
+			LINEAR:'L'
+			NEAREST_MIPMAP_NEAREST:'NN'
+			LINEAR_MIPMAP_NEAREST:'LN'
+			NEAREST_MIPMAP_LINEAR:'NL'
+			LINEAR_MIPMAP_LINEAR:'LL'
+			REPEAT:'R'
+			CLAMP_TO_EDGE:'C'
+			MIRRORED_REPEAT:'M'
+		}
+
+		// texture2D implementation
+		macro_texture2D( n ){
+			// alright we have to concat the sampler flags
+			var args = n.args
+			var node = args[args.length - 1]
+			var state = {}
+			if(node.type == 'Object'){
+				for(var tag from node.keys) state[tag.key.name] = tag.value.name
+			}
+			state.MIN_FILTER ?= 'LINEAR'
+			state.MAG_FILTER ?= 'LINEAR'
+			state.WRAP_S ?= 'REPEAT'
+			state.WRAP_T ?= 'REPEAT'
+			var hash = 
+				filter_shorten[state.MIN_FILTER]+'_'+
+				filter_shorten[state.MAG_FILTER]+'_'+
+				filter_shorten[state.WRAP_S]+'_'+
+				filter_shorten[state.WRAP_T]
+
+			// fetch image object
+			var source = args[0].name
+			var image = context[source]
+			
+			// construct a sampler uid
+			var sampler_id = 'sam_'+image.proxy_uid + '_' + hash
+
+			// store the sampler, with a
+			var sam
+			if(sam = samplers[sampler_id]){
+				sam.target |= pixel?1:2
+			}
+			else{
+				samplers[sampler_id] = {
+					type:   'sampler2D'
+					source: source
+					image:  image
+					ismip:  filter_shorten[state.MIN_FILTER].length == 2
+					state:  state
+					target: pixel?1:2
+				}
+			}
+
+			var ret = 'texture2D('
+
+			ret += sampler_id + ', '  +
+				this.expand(args[1], n) 
+
+			if(args.length > 2 && args[2].type != 'Object'){
+				ret += ', ' + this.expand(args[2], n) 
+			}
+			ret += ')'
+
+			return ret
+			// so whats going to happen?
+			// first we are going to write into the samplers
+			// alright so we have to output a sampler.
+			// samplers can be shared too
+			// ok so how will we do it.
+
+			// we need textures to be shared
+			// based on Image object
+			// and then the texture object
+			// will be stored on the Image object
+			// based on the sampler flags.
+
+			// in the shader, the sampler
+			// is compiled against the image object
+			// also fingerprinted against 
+			// image object, and sampler state
+
+		}
+
 		// Do calls
 		Call( n ){
 			if(n.fn.type == 'Id'){
 				// check 
 				var name = n.fn.name
+
+				var macro_name = 'macro_' + name
+				if(this[macro_name]){
+					return this[macro_name](n)
+				}
 
 				var type = find_type(name)
 				// type constructor
@@ -1229,6 +1335,56 @@ class GLNode extends Proxy{
 		find_macro = AST.ToJS.find_macro
 		find_define = AST.ToJS.find_define
 		find_type = AST.ToJS.find_type
+	}
+
+
+	// generate the uniform computation JS
+	class GenUniformJS extends AST.ToJS{
+		Id( n ){
+			var name = n.name
+			if(n.flag == 35){ // is a color
+				return 'this.color("' + name + '")'
+			}
+			
+			if(name in glsl_functions || name in glsl_variables){
+				return name
+			}
+			
+			var prop = context[name]
+			
+			if(prop === undefined || this.scope[name]) return this.resolve(n.name, n)
+			
+			if(prop && prop._ast_){
+				var mod = this.module
+				this.module = prop.module
+				var ret = expand(prop, n)
+				this.module = mod
+				return ret
+			}
+			
+			if(typeof prop == 'object'){
+				//!TODO convert to signal
+				deps[name] = proxy_props[name] = 1
+				return 'this.' + name
+			} 
+			else if(typeof prop == 'number'){
+				//!TODO convert to signal
+				deps[name] = proxy_props[name] = 1
+				return 'this.' + name
+			}
+			else throw new Error('Cant generate uniformJS for '+name)
+		}
+		// ok so if we depend on a subobject
+		Key( n ){
+			if(n.remote){
+				var prop_name = n.object.name
+				var dep_name = n.object.name + '.' + n.key.name
+				deps[dep_name] = 1
+				proxy_props[prop_name] = 1
+				return 'this.'+dep_name
+			}
+			return AST.ToJS::Key(n)
+		}
 	}
 
 	// type serializer
@@ -1325,6 +1481,9 @@ class GLNode extends Proxy{
 		_compile_draw( n ){
 		
 			var uid = 'd' + this.uid++
+
+			var samplers = GenGLSL.samplers = {}
+
 			// forward module and context
 			GenGLSL.context = context
 			var attribs = GenGLSL.attribs = Object.create(null)
@@ -1356,8 +1515,10 @@ class GLNode extends Proxy{
 			var pix_tmpvars = GenGLSL.tmpvars = []
 			var pix_types = GenGLSL.types = {}
 			var signal_deps = GenGLSL.sigdeps = []
+			// generate pixel shader GLSL
 			var pix_expr = GenGLSL.expand(pix)
-			
+			if(pix.infer.name == 'vec3') pix_expr = 'vec4(' + pix_expr + ',1.)'
+
 			// pull the vertex property from our context
 			var vtx = context.vertex
 			if(!vtx || !vtx._ast_) throw new Error('Unexpected vertex type')
@@ -1366,6 +1527,7 @@ class GLNode extends Proxy{
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
 			GenGLSL.module = vtx.module
 			GenGLSL.types = vtx_types
+
 			DepTraceGLSL.module = vtx.module
 			DepTraceGLSL[vtx.type](vtx)
 
@@ -1373,8 +1535,9 @@ class GLNode extends Proxy{
 			var vtx_uniforms = GenGLSL.uniforms = []
 			var vtx_tmpvars = GenGLSL.tmpvars = []
 			var vtx_types = GenGLSL.types = {}
+			// generate vertex shader GLSL
 			var vtx_expr = GenGLSL.expand(vtx)
-			
+
 			var vary_merged = ''
 			var vary_decl = ''
 			var vary_assign = ''
@@ -1428,6 +1591,21 @@ class GLNode extends Proxy{
 				`
 			}
 			
+			// generate samplers
+			for(var sam_name in samplers){
+				var sam = samplers[sam_name]
+				if(sam.target&1){ // pixelshader
+					pix_uni_decl += `
+				uniform ${sam.type} ${sam_name};
+					`
+				}
+				if(sam.target&2){ // vertexshader
+					vtx_uni_decl += `
+				uniform ${sam.type} ${sam_name};
+					`
+				}
+			}
+
 			// generate attribute declarations
 			for(var name in attribs){
 				var attr = attribs[name]
@@ -1498,7 +1676,7 @@ class GLNode extends Proxy{
 				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
 				void main(){
 					${pix_tmpcode}
-					gl_FragColor = vec4(${pix_expr}, 1.);
+					gl_FragColor = ${pix_expr};
 				}
 			`
 
@@ -1512,7 +1690,7 @@ class GLNode extends Proxy{
 					${vary_assign}
 				}
 			`
-			// we have to get a unique draw ID
+			// the shader compiler code body
 			ret += `
 				var shader = this.${uid}_shader
 				if(!shader){
@@ -1547,6 +1725,13 @@ class GLNode extends Proxy{
 						gl._shadercache[cache_key] = shader
 			`
 
+			// generate sampler uniform fetch
+			for(var sam_name in samplers){
+				ret += `
+						shader.ul_${sam_name} = gl.getUniformLocation(shader, "${sam_name}")`
+			}
+
+			// uniform expander helpers
 			GenUniformJS.store_tempid = 1000*uid + 1
 			GenUniformJS.type_methods = type_methods
 			var uniform_parts = {
@@ -1554,6 +1739,7 @@ class GLNode extends Proxy{
 				setters:''
 			}
 
+			// generate uniform setters
 			for(var uni from pix_uniforms.concat(vtx_uniforms)){
 				GenUniformJS.module = uni.module
 				GenUniformJS.context = context
@@ -1565,9 +1751,10 @@ class GLNode extends Proxy{
 				var if_str = ''
 				var as_str = ''
 				for(var k in deps){
+					var store = k.replace('.','_')
 					if(if_str)if_str += ' || ', as_str += ', '
-					if_str += `shader.uv_${uni.name}_${k} !== this.${k}`
-					as_str += `shader.uv_${uni.name}_${k} = this.${k}`
+					if_str += `shader.uv_${uni.name}_${store} !== this.${k}`
+					as_str += `shader.uv_${uni.name}_${store} = this.${k}`
 				}
 
 				uniform_parts.setters += `
@@ -1583,25 +1770,30 @@ class GLNode extends Proxy{
 
 			ret += '\n'+uniform_parts.init
 
+			// fetch attribute locations
 			for(var name in attribs)ret += `
-						shader.al_${name} = gl.getAttribLocation(shader, "${name}");`
-	
+						shader.al_${name} = gl.getAttribLocation(shader, "${name}")`
+		
+			// cache shader
 			ret += 	`
 					}
 					this.${uid}_shader = shader`
 
 
+			// create sub attribute buffers
 			for(var name in sub_attribs){
 				ret += `
 					this.${uid}_vb_${name} = gl.createBuffer()`					
 			}
 
+			// create attribute buffers
 			for(var name in attribs){
 				if(attribs[name].sub) continue
 				ret += `
 					this.${uid}_vb_${name} = gl.createBuffer()`					
 			}
 
+			// done with the shader compile
 			ret += `
 				}
 				gl.useProgram(shader)
@@ -1665,6 +1857,38 @@ class GLNode extends Proxy{
 				`
 			}
 			
+			// samplers
+			var tex_id = 0
+			for(var sam_name in samplers){
+				var sam = samplers[sam_name]
+				var state = sam.state
+				// alright we now have to set up the texture.
+				ret += `
+				if(this.${sam.source}.loaded){
+					var tex
+					if(!(tex = this.${sam.source}.${sam_name})){
+						this.${sam.source}.${sam_name} = tex = gl.createTexture()
+						gl.bindTexture(${glc.TEXTURE_2D}, tex)
+						gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, this.${sam.source}.img)
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_MAG_FILTER}, ${glc[state.MAG_FILTER]})
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_S}, ${glc[state.WRAP_S]})
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_T}, ${glc[state.WRAP_T]})
+					`
+					if(sam.ismip) ret += `
+						gl.generateMipmap(${glc.TEXTURE_2D})
+					`
+					ret +=`
+						gl.bindTexture(${glc.TEXTURE_2D}, null)
+					}
+					gl.activeTexture(${glc.TEXTURE0 + tex_id})
+					gl.bindTexture(${glc.TEXTURE_2D}, tex)
+					gl.uniform1i(shader.ul_${sam_name}, ${tex_id})
+				}
+				`
+				tex_id ++ 
+			}
+
 			// drawing function
 			ret += `
 				${uniform_parts.setters}
@@ -1677,7 +1901,51 @@ class GLNode extends Proxy{
 	}
 }
 
-class GLView extends GLNode{
+// framebuffer class
+class Frame extends Node{
+}
+
+// lets first load up the image somehow
+class Image extends Proxy{
+	
+	infer = sampler2D
+
+	_init(url){
+		Proxy::_init()
+		this._image_ = 1
+		this.url = url
+		proxy_props = {url:1}
+	}
+
+	init:(parent){
+		// lets load up the Image
+		img = new window.Image()
+		img.onload = function() {
+			this.loaded = true
+		}.bind(this)
+		img.src = url
+	}
+
+	call:(float x, float y){
+		return texture2D(this, vec2(x, y), {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	call_:(vec2 p){
+		return texture2D(this, p, {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+}
+
+class View extends Node{
 
 	fill = #black
 
@@ -1716,7 +1984,7 @@ class GLView extends GLNode{
 			canvas.height = sh
 			canvas.style.width = w + 'px'
 			canvas.style.height = h + 'px'
-			if(_gl)_gl.viewport(0,0, sw, sh)
+			if(_gl)_gl.viewport(0, 0, sw, sh)
 		}
 		window.onresize()
 		gl._shadercache = {}
