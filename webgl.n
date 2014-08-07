@@ -66,8 +66,7 @@ class Node extends Proxy{
 		js.module = ast.module
 		js.context = this
 		js.proxy_props = proxy_props = {}
-		js.proxy_refs = proxy_refs = {'owner':1}
-		var proxy_bind = js.proxy_bind = {}
+		js.proxy_refs = proxy_refs = {'owner':{}}
 
 		js.uid = 0
 		if(ast.type != 'Function') throw new Error('GL Draw not a function')
@@ -79,8 +78,8 @@ class Node extends Proxy{
 		// we have to generate redraw binding code for proxy_bind
 		var rem = 'this.remove = function(){\n'
 
-		for(var obj in proxy_bind){
-			var objprops = proxy_bind[obj]
+		for(var obj in proxy_refs){
+			var objprops = proxy_refs[obj]
 			for(var prop in objprops){
 				var pname = 'this.' + obj + '.' + prop
 				code += 'if(' + pname + '_hook)' + pname + '_hook(this)\n'
@@ -326,10 +325,10 @@ class Node extends Proxy{
 			n.mark = undefined
 		}
 
-		Post( n, omark ){
-			// lets propagate up our mark to our parent
+		Post( n, overload_mark ){
+			// propagate mark and inference up the chain
 			var parent = n.parent
-			var nmark = omark || n.mark
+			var nmark = overload_mark || n.mark
 			if(parent){
 				if(nmark){
 					var pmark = parent.mark
@@ -448,13 +447,16 @@ class Node extends Proxy{
 			
 			// we are a reference to a remote object
 			if(prop.proxy_uid){
+
 				// what if we reference a texture here?
-				if(prop.infer == sampler2D){
+				if(prop._sampler2D_){
 					n.mark = 2 // atleast a vertex shader
-					n.infer = sampler2D
-					return
 				}
-				throw new Error('Cannot reference bare remote objects in GLSL')
+				n.infer = {
+					name:'object'
+					ref:prop
+				}
+				return Post(n)
 			}
 
 			if(prop._ast_){
@@ -503,7 +505,7 @@ class Node extends Proxy{
 				}
 				else if(n.kind.name == 'vertex'){
 					n.mark = 2
-				} 
+				}
 				else {
 					// where do we get our typemap?
 					n.infer = module.types[n.kind.name]
@@ -550,32 +552,33 @@ class Node extends Proxy{
 			n.parent = parent
 			Pre(n)
 
-			// we only want to walk the object.
-			if(n.object.type == 'Id'){
-				var objname = n.object.name
-				// check if we are a different object
-				var obj = context[objname]
-				if(typeof obj == 'object' && !obj.t && obj.proxy_uid){
-					// we are depending on another object
-					var propname = n.key.name
-					var prop = obj[propname]
-
-					// mark signal in our proxy table
-					n.infer = prop && prop.t || float
-					n.mark = 1 // uniform
-					proxy_refs[objname] = 1
-					var bind = proxy_bind[objname] || (proxy_bind[objname] = {})
-					bind[propname] = 1
-
-					// flag it for the dependency codegen
-					n.remote = 1
-					return Post(n)
-				}
-			}
-
 			// only try to walk/resolve the object
 			this[n.object.type](n.object, n)
 			var nmark = n.mark
+
+			// remote object
+			if(n.object.infer.name == 'object'){
+
+				var obj = n.object.infer.ref
+				// make a reference to another object.key
+				var propname = n.key.name
+				var prop = obj[propname]
+
+				if(prop === undefined) throw new Error('Cannot find ' + n.object.name + '.' + propname)
+
+				// mark signal in our proxy table
+				n.infer = prop && prop.t || float
+				n.mark = 1 // uniform
+
+				// flag ourself in proxy_refs
+				var objname = n.object.name
+				var bind = proxy_refs[objname] || (proxy_refs[objname] = {})
+				bind[propname] = 1
+
+				// flag it for the dependency codegen
+				n.remote = 1
+				return Post(n)
+			}
 
 			if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
 				// extend our vertex shader mark upwards one step, since we are not splittable here
@@ -691,17 +694,28 @@ class Node extends Proxy{
 		}
 
 		// type inference implementation of texture2D
-		macro_texture2D( n, parent ){
+		compiler_texture2D( n, parent ){
 			
 			var args = n.args
 			if(args.length < 2) throw new Error('texture2D not enough arguments')
 			// the first arg is the sampler2D we are going to need.
 
 			var sampler = args[0]
-			this[sampler.type](sampler, n)
+			var sampler_name 
+			if(sampler.type == 'This'){
+				sampler_name = context_name
+				sampler.infer = {
+					object:context,
+					name:'object'
+				}
+			}
+			else{
+				sampler_name = sampler.name
+				this[sampler.type](sampler, n)
 
-			if(sampler.infer.name != 'sampler2D')
-				throw new Error('texture2D invalid first argument type ' + sampler.infer.name)
+				if(sampler.infer.name != 'object' || !sampler.infer.ref._sampler2D_)
+					throw new Error('texture2D invalid first argument type ' + sampler.infer.name)
+			}
 
 			var pos = args[1]
 			this[pos.type](pos, n)
@@ -714,7 +728,7 @@ class Node extends Proxy{
 				this[bias.type](bias, n)
 			}
 			
-			proxy_refs[sampler.name] = 1
+			proxy_refs[sampler_name] = {}
 
 			if(n.mark != 3) n.mark = 2
 			n.infer = vec4
@@ -726,29 +740,86 @@ class Node extends Proxy{
 			n.parent = parent
 			Pre(n)
 
-			// alright. lets check if we have a type Id
-			if(n.fn.type == 'Id'){
-				// check 
-				var name = n.fn.name
+			// static type methods
+			if(n.fn.type == 'Key'){
+				var obj = n.fn.object
+				if(obj.type == 'Id'){
+					var name = obj.name
+					if(name == 'Math'){
+						n.infer = float
+						return Post(n)
+					}
+					var type = this.find_type(name)
+					if(type){
+						// static method call
+						for(var arg from n.args) this[arg.type](arg, n)
+						n.infer = type
+						return Post(n)
+					}
+				}
+			}
 
-				var macro = 'macro_' + name
-				if(this[macro]){
-					return this[macro](n, parent)
+			if(n.fn.type == 'Key'){ // type infer the object
+				n.fn.parent = n
+				this[n.fn.object.type](n.fn.object, n.fn)
+			}
+			else if(context[n.fn.name]){
+				this[n.fn.type](n.fn, n)
+			}
+			// we are an id, or an id on an object.
+			if(n.fn.type == 'Id' || n.fn.type == 'Key' && n.fn.object.infer && n.fn.object.infer.name == 'object'){
+				// check 
+				var name
+				var new_context
+				if(n.fn.type == 'Id'){
+					name = n.fn.name
+					// we can call objects directly
+					if(n.fn.infer && n.fn.infer.name == 'object'){
+						new_context = n.fn.infer.ref
+						context_name = n.fn.name
+						name = 'call'
+					}
+					else{
+						// 
+						var compiler = 'compiler_' + name
+						if(this[compiler]){
+							return this[compiler](n, parent)
+						}
+
+						var type = find_type(name)
+
+						// type infer the args
+						for(var arg from n.args) this[arg.type](arg, n)
+
+						// type constructor
+						if(type){
+							n.infer = type
+							// lets do the args
+							return Post(n)
+						}
+					}
+				}
+				else{
+					// we are a function on another object
+					new_context = n.fn.object.infer.ref
+					context_name = n.fn.object.name
+					name = n.fn.key.name
 				}
 
-				var type = find_type(name)
 				// type infer the args
 				for(var arg from n.args) this[arg.type](arg, n)
 
-				if(type){
-					n.infer = type
-					// lets do the args
-					return Post(n)
-				}
 				// lets check if we are calling a macro
-				n.args.expanded = true
+				
 				//console.log(n.args, name)
+
+				// calls on other objects provide a new context
+				// i know. i need to refactor this to be nicer. or learn to program
+				var old_context = context
+				if(new_context) context = new_context
+				n.args.expanded = true
 				var [macro, macro_generics] = find_macro(n, name, n.args)
+
 				if(macro){
 					// we are a macro
 					if(macro.type == 'Function'){
@@ -795,27 +866,12 @@ class Node extends Proxy{
 					}
 					else throw new Error('Macro called but not a function '+name)
 					// we have to figure out a return-type trace on our macro
+					if(new_context) context = old_context
 					return Post(n)
 				}
+				if(new_context) context = old_context
 			}
-			// static type methods
-			if(n.fn.type == 'Key'){
-				var obj = n.fn.object
-				if(obj.type == 'Id'){
-					var name = obj.name
-					if(name == 'Math'){
-						n.infer = float
-						return Post(n)
-					}
-					var type = this.find_type(name)
-					if(type){
-						// static method call
-						for(var arg from n.args) this[arg.type](arg, n)
-						n.infer = type
-						return Post(n)
-					}
-				}
-			}
+			
 			// otherwise it may be a type method, we need to trace it
 			return AST.Walk::Call(n, parent)
 		}
@@ -1171,7 +1227,7 @@ class Node extends Proxy{
 		}
 
 		// texture2D implementation
-		macro_texture2D( n ){
+		compiler_texture2D( n ){
 			// alright we have to concat the sampler flags
 			var args = n.args
 			var node = args[args.length - 1]
@@ -1189,10 +1245,19 @@ class Node extends Proxy{
 				filter_shorten[state.WRAP_S]+'_'+
 				filter_shorten[state.WRAP_T]
 
+			var source
+			var image
+
 			// fetch image object
-			var source = args[0].name
-			var image = context[source]
-			
+			if(args[0].type == 'This'){
+				source = context_name
+				image = context
+			}	
+			else{
+				source = args[0].name
+				image = context[source]
+			}
+
 			// construct a sampler uid
 			var sampler_id = 'sam_'+image.proxy_uid + '_' + hash
 
@@ -1223,34 +1288,35 @@ class Node extends Proxy{
 			ret += ')'
 
 			return ret
-			// so whats going to happen?
-			// first we are going to write into the samplers
-			// alright so we have to output a sampler.
-			// samplers can be shared too
-			// ok so how will we do it.
-
-			// we need textures to be shared
-			// based on Image object
-			// and then the texture object
-			// will be stored on the Image object
-			// based on the sampler flags.
-
-			// in the shader, the sampler
-			// is compiled against the image object
-			// also fingerprinted against 
-			// image object, and sampler state
-
 		}
 
 		// Do calls
 		Call( n ){
-			if(n.fn.type == 'Id'){
-				// check 
-				var name = n.fn.name
+			if(n.fn.type !== 'Id' && n.fn.type !== 'Key') 
+				return AST.ToCode::Call(n)
+			// check 
+			var name 
+			var new_context
 
-				var macro_name = 'macro_' + name
-				if(this[macro_name]){
-					return this[macro_name](n)
+			// its a call on another object
+			if(n.fn.type == 'Key' || n.fn.infer && n.fn.infer.name == 'object'){
+				if(n.fn.type == 'Key'){
+					new_context = n.fn.object.infer.ref
+					context_name = n.fn.object.name
+					name = n.fn.key.name
+				}
+				else{
+					new_context = n.fn.infer.ref
+					context_name = n.fn.name
+					name = 'call'
+				}
+			}
+			else{
+				name = n.fn.name
+
+				var compiler_name = 'compiler_' + name
+				if(this[compiler_name]){
+					return this[compiler_name](n)
 				}
 
 				var type = find_type(name)
@@ -1265,72 +1331,88 @@ class Node extends Proxy{
 					return ret
 				}
 				// lets check our name against built in
-				if(name in glsl_functions)
-					return AST.ToCode::Call(n)
+				if(name in glsl_functions) return AST.ToCode::Call(n)
+			}
+			var old_context = context
+			if(new_context) context = new_context
 
-				var [macro, macro_generics] = find_macro(n, name, n.args)
-				if(macro){
-					if(macro.type == 'Function'){
-						// generate GLSL function
-						var params = macro.params
-						var gen = 'macro_' + name
-						var args = ''
-						var argdef = ''
-						var old_scope = scope
-						scope = Object.create(null)
+			n.args.expanded = true // skip argument expansion in find_macro
+			var [macro, macro_generics] = find_macro(n, name, n.args)
+			if(macro){
+				if(macro.type == 'Function'){
+					// generate GLSL function
+					var params = macro.params
+					var gen = 'macro_' + name
+					var args = ''
+					var argdef = ''
+					var old_scope = scope
+					scope = Object.create(null)
+					
+					if(new_context) context = old_context
 
-						for(var i, arg from n.args){
-							if(i) args += ', ', argdef += ', '
-							args += this[arg.type](arg, n)
-							var type_name = arg.infer.name
-							var param_name = params[i].id.name
-							scope[param_name] = arg.infer
-							argdef += type_name + ' ' + param_name
-							gen += '_' + type_name
-						}
-
-						if(!type_methods[gen]){
-							var old_depth = depth
-							var old_args = macro_args
-							var old_module = module
-							var old_generics = generics
-							generics = macro_generics
-							macro_args = undefined
-							depth = '\t\t\t'
-							if(macro.module) this.module = macro.module
-							type_methods[gen] = this.Function(macro, gen, argdef, n.infer)
-							depth = old_depth
-							generics = old_generics
-							macro_args = old_args
-							this.module = old_module
-						}
-						scope = old_scope
-
-						return gen + '(' + args + ')'
+					for(var i, arg from n.args){
+						if(i) args += ', ', argdef += ', '
+						args += this[arg.type](arg, n)
+						var type_name = arg.infer.name
+						var param_name = params[i].id.name
+						scope[param_name] = arg.infer
+						argdef += type_name + ' ' + param_name
+						gen += '_' + type_name
 					}
-					else if(macro.type == 'Call'){
+					if(new_context) context = new_context
+
+					if(!type_methods[gen]){
+						var old_depth = depth
 						var old_args = macro_args
-						var old_module = this.module
+						var old_module = module
 						var old_generics = generics
+
 						generics = macro_generics
-						macro_args = Object.create(null)
-						var margs = macro.args
-						for(var i, arg from n.args){
-							macro_args[margs[i].name] = this[arg.type](arg, n)
-						}
-						var astnode = macro.parent.value
-						this.module = astnode.module
-						var ret = this[astnode.type](astnode, n)
-						this.module = old_module
+						macro_args = undefined
+						depth = '\t\t\t'
+						if(macro.module) this.module = macro.module
+
+						type_methods[gen] = this.Function(macro, gen, argdef, n.infer)
+
+						depth = old_depth
 						generics = old_generics
 						macro_args = old_args
-						return ret
+						this.module = old_module
 					}
-				}
-			}
+					scope = old_scope
+					if(new_context) context = old_context
 
-			return AST.ToCode::Call(n)
+					return gen + '(' + args + ')'
+				}
+				else if(macro.type == 'Call'){
+					var old_args = macro_args
+					var old_module = this.module
+					var old_generics = generics
+
+					generics = macro_generics
+					macro_args = Object.create(null)
+					var margs = macro.args
+					if(new_context) context = old_context
+					for(var i, arg from n.args){
+						macro_args[margs[i].name] = this[arg.type](arg, n)
+					}
+					if(new_context) context = new_context
+					var astnode = macro.parent.value
+					this.module = astnode.module
+
+					var ret = this[astnode.type](astnode, n)
+
+					this.module = old_module
+					generics = old_generics
+					macro_args = old_args
+					if(new_context) context = old_context
+
+					return ret
+				}
+				throw new Error('Call failure')
+			}
 		}
+
 		macro_match_args = AST.ToJS.macro_match_args
 		find_macro = AST.ToJS.find_macro
 		find_define = AST.ToJS.find_define
@@ -1496,7 +1578,6 @@ class Node extends Proxy{
 			
 			// deptrace the pixelshader
 			GenGLSL.pixel = DepTraceGLSL.pixel = 1
-			DepTraceGLSL.proxy_bind = proxy_bind
 			DepTraceGLSL.proxy_refs = proxy_refs
 			DepTraceGLSL.module = pix.module
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
@@ -1909,7 +1990,7 @@ class Frame extends Node{
 // lets first load up the image somehow
 class Image extends Proxy{
 	
-	infer = sampler2D
+	_sampler2D_ =  1
 
 	_init(url){
 		Proxy::_init()
@@ -1938,6 +2019,15 @@ class Image extends Proxy{
 
 	call_:(vec2 p){
 		return texture2D(this, p, {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	blit:(vec2 v){
+		return texture2D(this, v, {
 			MIN_FILTER:LINEAR
 			MAG_FILTER:LINEAR
 			WRAP_S:CLAMP_TO_EDGE

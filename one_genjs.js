@@ -1975,11 +1975,14 @@ ONE.genjs_ = function(modules, parserCache){
 			var found
 
 			if(this.context){ // support for context macros
-				var obj = this.context[name]
-				if(obj && obj._ast_){
+				var nm = name
+				macro = this.context[name]
+				while(macro && macro._ast_){
 					var ret
-					if(ret = this.macro_match_args(n, name, obj, args)) return [obj, ret]
+					if(ret = this.macro_match_args(n, name, macro, args)) return [macro, ret]
 					found = true
+					nm = nm + '_'
+					macro = this.context[nm]
 				}
 			}
 			

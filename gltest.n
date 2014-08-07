@@ -9,9 +9,10 @@ class Rect extends Node{
 	mesh = webgl.vec2Rect(-1,-1,2,2,0)
 	vertex: mesh[] * (objmtx * viewmtx)
 
+	dump = 1
 	// signal ready!
 	param1 = 1
-	dump = 1
+
 	p:pixel mesh[]
 
 	mul2:(x){
@@ -20,25 +21,20 @@ class Rect extends Node{
 	}
 
 	bg = Image.new('texture1.jpg')
+
 	bgcolor:#orange
 	pixel:
+		bg(0.5*p+0.5).rgb +(
 		(mix(bgcolor, #black) do 
 			abs(sin(param1 * 1. * atan(p.x, p.y))))
 		+
 		mix(#green, #purple) do
-			sin(sin(param1) * param1 * p.x * p.y)
-
-	pixel: texture2D(bg, 0.5*p+0.5, {
-		MIN_FILTER:LINEAR
-		MAG_FILTER:LINEAR
-		WRAP_S:CLAMP_TO_EDGE
-		WRAP_T:CLAMP_TO_EDGE
-	})
+			sin(sin(param1 + Time.sec) * param1 * p.x * p.y)
+		)
 }
 
 // define a procedural texture?
 var ref = View{
 	fill = #aero
-	Rect{ param1 = 1 }
-
+	Rect{ param1 = 10 }
 }
