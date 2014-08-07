@@ -1480,7 +1480,7 @@ class Node extends Proxy{
 
 		_compile_draw( n ){
 		
-			var uid = 'd' + this.uid++
+			var uid = 'd' + ++this.uid
 
 			var samplers = GenGLSL.samplers = {}
 
@@ -1732,7 +1732,8 @@ class Node extends Proxy{
 			}
 
 			// uniform expander helpers
-			GenUniformJS.store_tempid = 1000*uid + 1
+			GenUniformJS.store_tempid = 1000*this.uid + 1
+
 			GenUniformJS.type_methods = type_methods
 			var uniform_parts = {
 				init:'',
@@ -1751,7 +1752,7 @@ class Node extends Proxy{
 				var if_str = ''
 				var as_str = ''
 				for(var k in deps){
-					var store = k.replace('.','_')
+					var store = k.replace('.', '_')
 					if(if_str)if_str += ' || ', as_str += ', '
 					if_str += `shader.uv_${uni.name}_${store} !== this.${k}`
 					as_str += `shader.uv_${uni.name}_${store} = this.${k}`
@@ -1920,7 +1921,7 @@ class Image extends Proxy{
 	init:(parent){
 		// lets load up the Image
 		img = new window.Image()
-		img.onload = function() {
+		img.onload = function(){
 			this.loaded = true
 		}.bind(this)
 		img.src = url

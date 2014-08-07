@@ -4,15 +4,14 @@ import webgl
 class Rect extends Node{
 
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(30deg,  1deg*param1 + Time.sec,0, 0,0,3)
+	objmtx: mat4.RT(30deg,  1deg*param1 + Time.sec,0,0,0,3)
 
 	mesh = webgl.vec2Rect(-1,-1,2,2,0)
 	vertex: mesh[] * (objmtx * viewmtx)
 
-	dump = 1
 	// signal ready!
 	param1 = 1
-
+	dump = 1
 	p:pixel mesh[]
 
 	mul2:(x){
@@ -40,7 +39,6 @@ class Rect extends Node{
 // define a procedural texture?
 var ref = View{
 	fill = #aero
-	for(var i = 0 to 10)
-		Rect{ param1 = i*1 }
+	Rect{ param1 = 1 }
 
 }

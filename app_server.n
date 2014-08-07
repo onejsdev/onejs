@@ -160,4 +160,4 @@ class StaticServer extends HttpServer{
 	}
 }
 
-new StaticServer( port, addr )
+StaticServer.new( port, addr )

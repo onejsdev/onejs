@@ -171,7 +171,7 @@ class Node{
 				proto_css = proto.css_class_name
 			}
 
-			if(cls.hasOwnProperty('_css' )){
+			if(cls.hasOwnProperty('_css')){
 				var data = ''
 				var css = cls._css
 				for(var k from Object.keys(css)){

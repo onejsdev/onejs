@@ -1790,17 +1790,21 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			var ret = ''
 			ret += gen+'.call(this'
+
 			if(!sthis){
 				// lets allocate a tempvar
 				this.find_function(n).call_var = 1
 				this.module[type.name] = type
-				var alloc = 'new ' + type.view + 'Array(' + type.slots + ')'
+
+				var alloc = '(' + this.call_tmpvar+'= '+'new ' + type.view + 'Array(' + type.slots + ')'+',' +
+					this.call_tmpvar + '.t=module.' + type.name + ',' + this.call_tmpvar + ')'
+
 				if(this.store_tempid){
 					var store = 'this.struct_' + (this.store_tempid++)
 					alloc = store + '||(' + store + '=' + alloc + ')'
 				}
-				ret +=',(' + this.call_tmpvar+'= '+alloc+',' +
-					this.call_tmpvar + '.t=module.' + type.name + ',' + this.call_tmpvar + ')'
+				ret += ', ' + alloc
+
 				//ret += ',{o:0,t:module.'+type.name+','+type.arr+':new ' + type.view + 'Array(' + type.slots + ')}'
 			}
 			else ret += ', ' + sthis.name
@@ -1858,6 +1862,12 @@ ONE.genjs_ = function(modules, parserCache){
 					ret += nslots + ')' +
 						',' + output + '.t = module.' + type.name
 				}
+
+				if(this.store_tempid){
+					var store = 'this.struct_' + (this.store_tempid++)
+					ret = '((' + output + ' = ' +store +') || ' + ret + ')' 
+				}
+
 			}
 			var slot = 0
 
