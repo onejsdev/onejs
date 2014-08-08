@@ -9,7 +9,6 @@ class Rect extends Node{
 	mesh = webgl.vec2Rect(-1,-1,2,2,0)
 	vertex: mesh[] * (objmtx * viewmtx)
 
-	dump = 1
 	// signal ready!
 	param1 = 1
 
@@ -23,14 +22,17 @@ class Rect extends Node{
 	bg = Image.new('texture1.jpg')
 
 	bgcolor:#orange
+
 	pixel:
-		bg(0.5*p+0.5).rgb +(
+		bg.blit(0.5 * p + 0.5) ** (
 		(mix(bgcolor, #black) do 
 			abs(sin(param1 * 1. * atan(p.x, p.y))))
 		+
 		mix(#green, #purple) do
 			sin(sin(param1 + Time.sec) * param1 * p.x * p.y)
 		)
+	alpha: 1-length(p) ** 18.
+	//blend: alpha * pixel + (1-alpha) * frame
 }
 
 // define a procedural texture?

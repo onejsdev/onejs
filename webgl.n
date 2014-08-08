@@ -1,10 +1,6 @@
 import math
 import track
 
-struct sampler2D{
-	int id
-}
-
 // super basic meshgens
 vec2Rect( x, y, w, h ){
 	return vec2[6](
@@ -49,6 +45,8 @@ class Node extends Proxy{
 		if(!owner.child) owner.child = []
 		owner.child.push(this)
 	}
+
+	blend: alpha * pixel + (1 - alpha) * frame
 
 	// the proxy code generator
 	proxy(){
@@ -352,7 +350,12 @@ class Node extends Proxy{
 			n.parent = parent
 			Pre(n)
 			if(n.kind == 'string'){ // image
+				// load Image.new() and store it
+				var name = 'img_'+n.raw.replace(/[^\w]/g,'_')
+				if(!context[name]){
+					context[name] = Image.new(n.raw)
 
+				}
 			}
 			else
 			if(n.kind != 'num') throw new Error('Only numeric values supported')
@@ -454,6 +457,7 @@ class Node extends Proxy{
 				}
 				n.infer = {
 					name:'object'
+					ref_name: name
 					ref:prop
 				}
 				return Post(n)
@@ -601,12 +605,13 @@ class Node extends Proxy{
 			}
 			var type = fields[key_name]
 			if(!type && n.object.infer.name in glsl_types){
-				var slots = n.object.infer.slots
 				// validate swizzlingl. this code must deserve a prize.
 				var swiz = check_swizzle( key_name, n.object.infer.slots )
-				if(swiz.length == 2) type = vec2
-				else if(swiz.length  == 3) type = vec3
-				else if(swiz.length  == 4) type = vec4
+				if(swiz){
+					if(swiz.length == 2) type = vec2
+					else if(swiz.length  == 3) type = vec3
+					else if(swiz.length  == 4) type = vec4
+				}
 			}
 			if(!type) throw new Error('type '+n.object.infer.name+' has no field ' + key_name)
 
@@ -695,7 +700,7 @@ class Node extends Proxy{
 
 		// type inference implementation of texture2D
 		compiler_texture2D( n, parent ){
-			
+
 			var args = n.args
 			if(args.length < 2) throw new Error('texture2D not enough arguments')
 			// the first arg is the sampler2D we are going to need.
@@ -728,14 +733,14 @@ class Node extends Proxy{
 				this[bias.type](bias, n)
 			}
 			
-			proxy_refs[sampler_name] = {}
+			if(!proxy_refs[sampler_name]) proxy_refs[sampler_name] = {}
 
 			if(n.mark != 3) n.mark = 2
 			n.infer = vec4
 			Post(n)
 		}
 
-		// type inference calls		
+		// type inference calls
 		Call( n, parent ){
 			n.parent = parent
 			Pre(n)
@@ -763,20 +768,29 @@ class Node extends Proxy{
 				n.fn.parent = n
 				this[n.fn.object.type](n.fn.object, n.fn)
 			}
-			else if(context[n.fn.name]){
+			else if(context[n.fn.name] && !context[n.fn.name]._ast_){
 				this[n.fn.type](n.fn, n)
 			}
+
 			// we are an id, or an id on an object.
 			if(n.fn.type == 'Id' || n.fn.type == 'Key' && n.fn.object.infer && n.fn.object.infer.name == 'object'){
+
 				// check 
 				var name
 				var new_context
 				if(n.fn.type == 'Id'){
 					name = n.fn.name
+
+					//!HACK todo fix this
+					if(name == 'length'){
+						n.infer = float
+						return Post(n)
+					}
+
 					// we can call objects directly
 					if(n.fn.infer && n.fn.infer.name == 'object'){
 						new_context = n.fn.infer.ref
-						context_name = n.fn.name
+						context_name = n.fn.infer.ref_name
 						name = 'call'
 					}
 					else{
@@ -802,7 +816,7 @@ class Node extends Proxy{
 				else{
 					// we are a function on another object
 					new_context = n.fn.object.infer.ref
-					context_name = n.fn.object.name
+					context_name = n.fn.object.infer.ref_name
 					name = n.fn.key.name
 				}
 
@@ -836,6 +850,7 @@ class Node extends Proxy{
 						if(macro.module) this.module = macro.module
 						for(var i, arg from n.args){
 							if(!arg.infer) throw new Error('Cannot infer arg in macro '+name)
+							if(arg.infer.name == 'object') throw new Error('Object arguments to function not implemented yet')
 							var name = mparams[i].id.name
 							scope[name] = arg.infer
 							marks[name] = arg.mark
@@ -851,17 +866,20 @@ class Node extends Proxy{
 						return_type = old_return
 					}
 					else if(macro.type == 'Call'){
+
 						var old_args = macro_args
 						old_generics = generics
 						generics = macro_generics
 						macro_args = Object.create(null)
 						var margs = macro.args
 						for(var i, arg from n.args){
+							if(arg.infer.name == 'object') throw new Error('Object arguments to function not implemented yet')
 							macro_args[margs[i].name] = arg
 						}
 						var astnode = macro.parent.value
 						// type infer trace a macro!
 						this[astnode.type](astnode, n)
+						n.infer = astnode.infer
 						macro_args = old_args
 					}
 					else throw new Error('Macro called but not a function '+name)
@@ -894,6 +912,12 @@ class Node extends Proxy{
 			}
 			else if(right_i == 'mat4'){
 				if(left_i == 'vec2' || left_i == 'vec3' || left_i == 'vec4') n.infer = vec4
+			}
+			else if(left_i == 'vec3' && right_i == 'vec4'){
+				n.infer = vec4
+			}
+			else if(left_i == 'vec4' && right_i == 'vec3'){
+				n.infer = vec4
 			}
 
 			Post(n)
@@ -1102,7 +1126,14 @@ class Node extends Proxy{
 				if(left_i == 'vec2') left = 'vec4(' + left + ',0.,1.)'
 				else if(left_i == 'vec3') left = 'vec4(' + left + ',1.)'
 			}
-			
+			// auto expand vec3 to vec4
+			else if(left_i == 'vec3' && right_i == 'vec4'){
+				left = 'vec4(' + left + ',1.)'
+			}
+			else if(left_i == 'vec4' && right_i == 'vec3'){
+				right = 'vec4(' + right + ',1.)'
+			}
+
 			// paren detect
 			if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' || 
 				(left_t == 'Binary' || left_t == 'Logic') && n.left.prio < n.prio) 
@@ -1111,6 +1142,10 @@ class Node extends Proxy{
 			if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' || 
 				(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio) 
 				right = '(' + right + ')'
+			
+			if(n.op == '**'){
+				return 'pow(' + left + ',' + right + ')'
+			}
 
 			return left + space + n.op + space + right
 		}
@@ -1550,6 +1585,71 @@ class Node extends Proxy{
 		}
 	}
 
+	function DecodeBlend_factor( node, key ){
+		if(node.type == 'Id') return glc.ONE
+		if(node.type == 'Binary'){
+			var factor = node.left
+			if(node.right.name != key) throw new Error('Blend equation needs to have either pixel or frame on the right side of the *')
+			if(factor.type == 'Binary'){ // its a one minus situation
+				if(factor.op != '-' || factor.left.type != 'Value' || factor.left.value != 1) throw new Error('Invalid blending (only 1- supported)')
+				var name = factor.right.name
+				if(name == 'alpha') return glc.ONE_MINUS_SRC_ALPHA
+				if(name == 'pixel') return glc.ONE_MINUS_SRC_COLOR
+				if(name == 'frame') return glc.ONE_MINUS_DST_COLOR
+				if(name == 'frame_alpha') return glc.ONE_MINUS_DST_ALPHA
+				throw new Error('implement one minus mode')
+			}
+			if(factor.type != 'Id') throw new Error('Invalid blending (factor not an Id)')
+			var name = factor.name
+			if(name == 'alpha') return glc.SRC_ALPHA
+			if(name == 'pixel') return glc.SRC_COLOR
+			if(name == 'frame') return glc.DST_COLOR
+			if(name == 'frame_alpha') return glc.DST_ALPHA
+			// todo constant color and constant alpha
+		}
+		throw new Error('Invalid blending factor (node type invalid)')
+	}
+
+	function DecodeBlendEquation( eq ){
+		var out = {}
+		if(eq.type == 'Binary' && (eq.op == '+' || eq.op == '-')){ // its the main equation
+			var left = eq.left
+			var right = eq.right
+
+			if(eq.op == '+') out.op = glc.FUNC_ADD
+			else if(eq.op == '-') out.op = glc.FUNC_SUBTRACT
+
+			if(left.type == 'Id' && left.name == 'pixel' || 
+			   left.type == 'Binary' && left.right.name == 'pixel'){
+				left = eq.right, right = eq.left
+				if(eq.op == '-') out.op = glc.FUNC_REVERSE_SUBTRACT
+			}
+			// left should be frame, right should be pixel
+			out.dst = DecodeBlend_factor(left, 'frame')
+			out.src = DecodeBlend_factor(right, 'pixel')
+		}
+		else if(eq.type == 'Binary' && eq.op == '*'){ // its a single mul
+			out.op = glc.FUNC_ADD
+			// the right side needs to be either frame or pixel
+			if(eq.right.name == 'frame'){
+				out.src = glc.ZERO
+				out.dst = DecodeBlend_factor(eq, 'frame')
+			}
+			else if(eq.right.name == 'pixel'){
+				out.dst = glc.ZERO
+				out.src = DecodeBlend_factor(eq, 'pixel')
+			}
+			else throw new Error('Blend equation needs to have either pixel or frame on the right side of the *')
+		} 
+		else if(eq.type == 'Id'){
+			if(eq.name == 'frame') out.src = gl.ZERO, out.dst = gl.ONE
+			else if(eq.name == 'pixel') out.src = gl.ONE, out.dst = gl.ZERO
+			else throw new Error('Blend equation invalid (not frame or pixel)')
+		}
+		else throw new Error('Blend equation invalid (main type) ' + eq.type + ' ' + eq.op)
+		return out
+	}
+
 	class GenDrawJS extends AST.ToJS{
 		
 		context_resolve( name, n ){
@@ -1583,6 +1683,9 @@ class Node extends Proxy{
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
 			GenGLSL.module = pix.module
 			DepTraceGLSL[pix.type](pix)
+
+			var alpha = context.alpha
+			if(alpha) DepTraceGLSL[alpha.type](alpha)
 			//log(pix.bind.toDump())
 			
 			// codegen the pixelshader
@@ -1598,7 +1701,23 @@ class Node extends Proxy{
 			var signal_deps = GenGLSL.sigdeps = []
 			// generate pixel shader GLSL
 			var pix_expr = GenGLSL.expand(pix)
-			if(pix.infer.name == 'vec3') pix_expr = 'vec4(' + pix_expr + ',1.)'
+
+			var alpha_expr
+			if(alpha) alpha_expr = GenGLSL.expand(alpha)
+
+			var always_opaque
+			if(pix.infer.name == 'vec3'){
+				if(alpha){
+					pix_expr = 'vec4(' + pix_expr + ',' + alpha_expr + ')'
+				}
+				else{
+					always_opaque = true
+					pix_expr = 'vec4(' + pix_expr + ',1.)'
+				}
+			} 
+			else if(alpha){
+				pix_expr = 'vec4((' + pix_expr +').rgb,' + alpha_expr + ')' 
+			}
 
 			// pull the vertex property from our context
 			var vtx = context.vertex
@@ -1971,6 +2090,33 @@ class Node extends Proxy{
 				tex_id ++ 
 			}
 
+			// we have to figure out the source blend factor
+			// and dest blendfactor
+			var color_blend = DecodeBlendEquation(context.blend)
+			var alpha_blend
+			if(context.blend_alpha) alpha_blend = context.blend_alpha
+
+			if(alpha_blend){
+				ret += `
+				gl.enable(${glc.BLEND})
+				gl.blendEquationSeparate(${color_blend.op},${alpha_blend.op})
+				gl.blendFuncSeparate(${color_blend.src},${color_blend.dst},${alpha_blend.src},${alpha_blend.dst})
+				`
+			}
+			else{
+				if((always_opaque && color_blend.op == glc.FUNC_ADD && color_blend.dst == glc.ONE_MINUS_SRC_ALPHA && color_blend.src == glc.SRC_ALPHA) ||
+					color_blend.op == glc.FUNC_ADD && color_blend.dst == glc.ZERO && color_blend.src == glc.ONE){
+					ret += `
+				gl.disable(${glc.BLEND})
+				`
+				}
+				ret += `
+				gl.enable(${glc.BLEND})
+				gl.blendEquation(${color_blend.op})
+				gl.blendFunc(${color_blend.src},${color_blend.dst})
+				`
+			}
+
 			// drawing function
 			ret += `
 				${uniform_parts.setters}
@@ -1991,6 +2137,8 @@ class Frame extends Node{
 class Image extends Proxy{
 	
 	_sampler2D_ =  1
+	
+	size = vec2(0,0)
 
 	_init(url){
 		Proxy::_init()
@@ -2002,9 +2150,9 @@ class Image extends Proxy{
 	init:(parent){
 		// lets load up the Image
 		img = new window.Image()
-		img.onload = function(){
-			this.loaded = true
-		}.bind(this)
+		img.onload()=>{
+			loaded = true
+		}
 		img.src = url
 	}
 

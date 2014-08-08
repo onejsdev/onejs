@@ -231,7 +231,7 @@ struct vec{
 	}
 
 	len(){
-		var d = 0
+		float d = 0
 		d += _[#] * _[#]
 		return sqrt(d)
 	}

@@ -37,10 +37,10 @@ ONE.worker_boot_ = function(host){
 	ONE.proxy_init = function(){
 		var dt = Date.now()
 		var inits = ONE.proxy_inits
+		ONE.proxy_inits = []
 		for(var i = 0, l = inits.length; i<l; i++){
 			inits[i].proxy_init()
 		}
-		ONE.proxy_inits = []
 	}
 
 	ONE.proxy_inits = []
@@ -84,6 +84,16 @@ ONE.proxy_ = function(){
 
 			var src = this.proxy()
 
+			// if our compiler created any objects, lets init them first
+			// otherwise our dependencies cannot be met
+			if(ONE.proxy_inits.length){
+				var inits = ONE.proxy_inits
+				ONE.proxy_inits = []
+				for(var i = 0, l = inits.length; i<l; i++){
+					inits[i].proxy_init()
+				}
+			}
+
 			msg.proxy_code = src
 			// transfer proxied properties
 			var props = this.proxy_props
@@ -94,7 +104,6 @@ ONE.proxy_ = function(){
 					else msg[k] = v
 				}
 			}
-
 			// transfer proxied references
 			var refs = this.proxy_refs
 			if(refs){
@@ -102,7 +111,7 @@ ONE.proxy_ = function(){
 					msg[k] = this[k].proxy_uid
 				}
 			}
-
+			
 			if(this.proxy_dump) msg.proxy_dump = 1
 
 			// push the message in the queue
