@@ -2377,6 +2377,7 @@ ONE.genjs_compat_ = function(){
 				function next( value ){
 					var iterval = iter.next( value )
 					if(iterval.done === false){ // we have a promise
+						console.log(Object.keys(iterval.value))
 						iterval.value.then( next, error )
 					}
 					else{
