@@ -14,15 +14,8 @@ class Rect extends Node{
 
 	p:pixel mesh[]
 
-	mul2:(x){
-		var y = x
-		return y
-	}
-
 	bg = Image.new('texture1.jpg')
-
 	bgcolor:#orange
-
 	pixel:
 		bg.blit(0.5 * p + 0.5) ** (
 		(mix(bgcolor, #black) do 
@@ -31,8 +24,71 @@ class Rect extends Node{
 		mix(#green, #purple) do
 			sin(sin(param1 + Time.sec) * param1 * p.x * p.y)
 		)
-	alpha: 1-length(p) ** 18.
-	//blend: alpha * pixel + (1-alpha) * frame
+	alpha: 1-length(p)**8.
+
+	blend: alpha * pixel + (1-alpha) * frame
+	depth: pixel < frame
+/*
+	// we have to make the render nodes here
+	boxBlur = Rect{
+		src = Image // give it a slot to compile
+		depth: true
+		pixel: src.sample(here) + 
+			src.sample(there)
+	}
+
+	// something else	
+	frameFill = Rect{
+		src = Image
+		pixel: src.sample(bla)
+	}
+
+	// what if we want to readpixel?... run it in draw:()?
+	draw:(){
+		// draw something into a framebuffer
+		var buf1 = gl.lock() // lock a framebuffer 
+		// push the render target
+		gl.push(buf1)
+
+		// you can use .call interface and parameterise them
+		boxBlur.draw{
+			src = buf1
+		}
+
+		gl.push(buf1)
+
+		// draw children
+		for(var c from child) c.draw()
+
+		// create another buffer
+
+		// vertical pass
+		drawSelf{
+			pixel:...
+		}
+
+		// horizontal pass
+		drawSelf{
+			pixel:
+		}
+
+		// draw resulting blur
+
+
+		drawSelf()
+		
+		gl.pop()
+
+		frameFill.draw()
+
+		for(var c from child) c.draw()
+	}
+
+	output.readPixels(0,0) do(buf){
+
+	}
+	*/
+
 }
 
 // define a procedural texture?

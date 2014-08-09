@@ -48,6 +48,10 @@ class Node extends Proxy{
 
 	blend: alpha * pixel + (1 - alpha) * frame
 
+	depth: pixel < frame
+
+	stencil: true
+
 	// the proxy code generator
 	proxy(){
 		// so lets stringify it.
@@ -783,6 +787,7 @@ class Node extends Proxy{
 
 					//!HACK todo fix this
 					if(name == 'length'){
+						for(var arg from n.args) this[arg.type](arg, n)
 						n.infer = float
 						return Post(n)
 					}
@@ -1650,6 +1655,19 @@ class Node extends Proxy{
 		return out
 	}
 
+	var fake_module = {types:{},imports:[],defines:{}}
+	
+	var glsl_compare = {
+		'<':glc.LESS
+		'<=':glc.LEQUAL
+		'>':glc.GREATER
+		'>=':glc.GEQUAL
+		'!==':glc.NOTEQUAL
+		'!=':glc.NOTEQUAL
+		'==':glc.EQUAL
+		'===':glc.EQUAL
+	}
+
 	class GenDrawJS extends AST.ToJS{
 		
 		context_resolve( name, n ){
@@ -1674,18 +1692,26 @@ class Node extends Proxy{
 			DepTraceGLSL.context = context
 			
 			var pix = context.pixel
-			if(!pix || !pix._ast_) throw new Error('Unexpected pixel type')
+			// handle case where pixel is a plain value
+			if(pix !== undefined && !pix._ast_) pix = {type:'Id', name:'pixel', module:fake_module}
+			if(!pix) throw new Error('Unexpected pixel type')
 			
 			// deptrace the pixelshader
 			GenGLSL.pixel = DepTraceGLSL.pixel = 1
 			DepTraceGLSL.proxy_refs = proxy_refs
-			DepTraceGLSL.module = pix.module
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
-			GenGLSL.module = pix.module
+			
+			var alpha = context.alpha
+			if(alpha){
+				// alpha is a plain value
+				if(!alpha._ast_) alpha = {type:'Id', name:'alpha', module:fake_module}
+				DepTraceGLSL.module = alpha.module
+				DepTraceGLSL[alpha.type](alpha)
+			}
+
+			DepTraceGLSL.module = pix.module
 			DepTraceGLSL[pix.type](pix)
 
-			var alpha = context.alpha
-			if(alpha) DepTraceGLSL[alpha.type](alpha)
 			//log(pix.bind.toDump())
 			
 			// codegen the pixelshader
@@ -1700,10 +1726,15 @@ class Node extends Proxy{
 			var pix_types = GenGLSL.types = {}
 			var signal_deps = GenGLSL.sigdeps = []
 			// generate pixel shader GLSL
+			GenGLSL.module = pix.module
 			var pix_expr = GenGLSL.expand(pix)
 
 			var alpha_expr
-			if(alpha) alpha_expr = GenGLSL.expand(alpha)
+			
+			if(alpha){
+				GenGLSL.module = alpha.module
+				alpha_expr = GenGLSL.expand(alpha)
+			}
 
 			var always_opaque
 			if(pix.infer.name == 'vec3'){
@@ -2090,13 +2121,10 @@ class Node extends Proxy{
 				tex_id ++ 
 			}
 
-			// we have to figure out the source blend factor
-			// and dest blendfactor
+			// alpha blending decoding
 			var color_blend = DecodeBlendEquation(context.blend)
-			var alpha_blend
-			if(context.blend_alpha) alpha_blend = context.blend_alpha
-
-			if(alpha_blend){
+			if(context.blend_alpha){
+				var alpha_blend = context.blend_alpha
 				ret += `
 				gl.enable(${glc.BLEND})
 				gl.blendEquationSeparate(${color_blend.op},${alpha_blend.op})
@@ -2116,6 +2144,25 @@ class Node extends Proxy{
 				gl.blendFunc(${color_blend.src},${color_blend.dst})
 				`
 			}
+
+			// fix the depth check
+			var depth = context.depth
+			if(depth.type == 'Value' && (depth.value === true || depth.value === false)){
+				if(depth.value === true) ret += `
+				gl.disable(${glc.DEPTH_TEST})
+				`
+				else ret += `
+				gl.enable(${glc.DEPTH_TEST})
+				gl.depthFunc(${glc.NEVER})
+				`
+			} 
+			else if(depth.type == 'Logic' && depth.left.name == 'pixel' && depth.right.name == 'frame'){
+				ret +=`
+				gl.enable(${glc.DEPTH_TEST})
+				gl.depthFunc(${glsl_compare[depth.op]})
+				`
+			}
+			else throw new Error('Unsupported depth equation')
 
 			// drawing function
 			ret += `
