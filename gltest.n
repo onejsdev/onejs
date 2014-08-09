@@ -2,22 +2,57 @@ import math
 import webgl
 
 class Rect extends Node{
+	mesh = webgl.vec2Rect(-1,-1,2,2)
+	vertex: mesh[]
+	p:pixel mesh[] * 0.5 + 0.5
+	pixel: #red
+}
 
+class Blur extends Rect{
+
+	fb = Image // define a typed slot
+
+	blur:(){
+		var color = vec4(0,0,0,0)
+		for(int i = 0 to 30){	
+			color += fb.sample(p + i*vec2(0.002))
+		}
+		color /= 30.
+		return color
+	}
+
+	pixel: fb.sample(p) * 0.25 + 
+		   fb.sample(p * 1.01) * 0.25 + 
+		   fb.sample(p * 1.02) * 0.25 + 
+		   fb.sample(p * 1.03) * 0.25
+	pixel:blur()
+
+	draw:(){
+		fb = lockBuffer()
+		pushBuffer(fb)
+		clearAll(vec4(0,0,0,0))
+		drawChildren()
+		popBuffer()
+		drawSelf()
+		releaseBuffer(fb)
+	}
+}
+
+class Test extends Node{
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(30deg,  1deg*param1 + Time.sec,0,0,0,3)
+	objmtx: mat4.RT(30deg,  1deg*param1 + Time.sec,0,0,0,2)
 
-	mesh = webgl.vec2Rect(-1,-1,2,2,0)
+	mesh = webgl.vec2Rect(-2,-2,4,4)
 	vertex: mesh[] * (objmtx * viewmtx)
 
 	// signal ready!
 	param1 = 1
-
 	p:pixel mesh[]
 
 	bg = Image.new('texture1.jpg')
+
 	bgcolor:#orange
-	pixel:
-		bg.blit(0.5 * p + 0.5) ** (
+	pixel: bg.sample(0.5 * p + 0.5) ** (
 		(mix(bgcolor, #black) do 
 			abs(sin(param1 * 1. * atan(p.x, p.y))))
 		+
@@ -25,74 +60,13 @@ class Rect extends Node{
 			sin(sin(param1 + Time.sec) * param1 * p.x * p.y)
 		)
 	alpha: 1-length(p)**8.
-
-	blend: alpha * pixel + (1-alpha) * frame
-	depth: pixel < frame
-/*
-	// we have to make the render nodes here
-	boxBlur = Rect{
-		src = Image // give it a slot to compile
-		depth: true
-		pixel: src.sample(here) + 
-			src.sample(there)
-	}
-
-	// something else	
-	frameFill = Rect{
-		src = Image
-		pixel: src.sample(bla)
-	}
-
-	// what if we want to readpixel?... run it in draw:()?
-	draw:(){
-		// draw something into a framebuffer
-		var buf1 = gl.lock() // lock a framebuffer 
-		// push the render target
-		gl.push(buf1)
-
-		// you can use .call interface and parameterise them
-		boxBlur.draw{
-			src = buf1
-		}
-
-		gl.push(buf1)
-
-		// draw children
-		for(var c from child) c.draw()
-
-		// create another buffer
-
-		// vertical pass
-		drawSelf{
-			pixel:...
-		}
-
-		// horizontal pass
-		drawSelf{
-			pixel:
-		}
-
-		// draw resulting blur
-
-
-		drawSelf()
-		
-		gl.pop()
-
-		frameFill.draw()
-
-		for(var c from child) c.draw()
-	}
-
-	output.readPixels(0,0) do(buf){
-
-	}
-	*/
-
+	depth:true
 }
 
-// define a procedural texture?
-var ref = View{
-	fill = #aero
-	Rect{ param1 = 10 }
+// our petite scenegraph
+View{
+	fill = #333
+	Blur{
+		Test{ param1 = 10 }
+	}
 }

@@ -1249,7 +1249,7 @@ ONE.genjs_ = function(modules, parserCache){
 			return ret
 		}
 		
-		this.Function = function( n, nametag, extparams, type_method ){
+		this.Function = function( n, nametag, extparams, type_method, this_to_var ){
 			if(n.id) this.scope[n.id.name] = 1
 			// make a new scope
 			var scope = this.scope
@@ -1344,6 +1344,14 @@ ONE.genjs_ = function(modules, parserCache){
 					this.scope[name] = 1
 					if(str_param) str_param += split
 					str_param += name
+				}
+			}
+			if(this_to_var){
+				var ttlen = this_to_var.length
+				for(var i = 0;i<ttlen;i++){
+					var name = this_to_var[i]
+					this.scope[name] = 1
+					str_body += this.depth + 'var ' + name + ' = this.' + name + this.newline
 				}
 			}
 			
@@ -2330,7 +2338,7 @@ ONE.genjs_ = function(modules, parserCache){
 				}
 				// a signal block
 				if( fn.name == 'signal'){
-					return 'this.Signal.try(' + this.Function( n, null, ['end','fail'] ) +'.bind(this))'
+					return 'this.wrapSignal(' + this.Function( n, null, ['signal '] ) +'.bind(this))'
 				}
 			}
 			// just use the .call property

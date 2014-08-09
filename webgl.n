@@ -28,22 +28,90 @@ class Node extends Proxy{
 	// make a singleton copy of Time
 	this.Time = Time{}
 
+	// API available in draw
 	clearAll:( vec3 col ){
 		gl.clearColor(col[0], col[1], col[2], 1.0)
 		gl.colorMask(true, true, true, true)
 		gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT)
-		gl.enable(gl.DEPTH_TEST)
-		gl.depthFunc(gl.LESS)
+	}
+
+	clearAll_:( vec4 col ){
+		gl.clearColor(col[0], col[1], col[2], col[3])
+		gl.colorMask(true, true, true, true)
+		gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT)
+	}
+	
+	drawChildren:(){
+		if(child) for(var c from child) c.draw()
+	}
+	
+	
+	lockBuffer_:(){
+		return lockBuffer(gl.width, gl.height)
+	}
+
+	lockBuffer:(width, height){
+		var buffers = gl._buffers || (gl._buffers = {})
+		var id = '_' + width + '_' + height
+		var buf_array = buffers[id]
+		if(!buf_array) buf_array = buffers[id] = []
+	
+		var buf = buf_array.pop()
+		if(!buf){
+			buf = gl.createFramebuffer()
+			var tex = buf.tex = gl.createTexture()
+			gl.bindTexture(gl.TEXTURE_2D, tex)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+			buf.width = width
+			buf.height = height
+			buf.loaded = true
+		}
+		return buf
+	}
+
+	releaseBuffer:(buf){
+		var buffers = gl._buffers || (gl._buffers = {})
+		var id = '_' + buf.width + '_' + buf.height
+		var buf_array = buffers[id]
+		buf_array.push(buf)
+	}
+
+	pushBuffer:(buf){
+		if(!gl._bufstack) gl._bufstack = []
+		gl._bufstack.push(buf)
+		gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
+		gl.viewport(0, 0, buf.width, buf.height)
+	}
+
+	popBuffer:(){
+		gl._bufstack.pop()
+		if(gl._bufstack.length){
+			var buf = gl._bufstack[gl._bufstack.length - 1]
+			gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
+			gl.frameBufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
+			gl.viewport(0, 0, buf.width, buf.height)
+		}
+		else{
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+			gl.bindTexture(gl.TEXTURE_2D, null)
+			gl.viewport(0, 0, gl.width, gl.height)
+		}
 	}
 
 	// default draw
 	draw:(){
-		draw(this)
+		drawSelf()
 	}
 
 	init:(){
 		if(!owner.child) owner.child = []
 		owner.child.push(this)
+		gl = owner.gl
 	}
 
 	blend: alpha * pixel + (1 - alpha) * frame
@@ -75,15 +143,15 @@ class Node extends Proxy{
 		
 		var flags = js.pull_flags(ast)
 		profile(1) do ->
-		code += 'this.draw = ' + js.Function(ast, undefined, ['gl']) + '\n'
+		code += 'this.draw = ' + js.Function(ast, undefined, [], undefined, ['gl']) + '\n'
 
 		// we have to generate redraw binding code for proxy_bind
 		var rem = 'this.remove = function(){\n'
 
-		for(var obj in proxy_refs){
-			var objprops = proxy_refs[obj]
-			for(var prop in objprops){
-				var pname = 'this.' + obj + '.' + prop
+		for(var ref in proxy_refs){
+			var props = proxy_refs[ref]
+			for(var prop in props){
+				var pname = 'this.' + ref + '.' + prop
 				code += 'if(' + pname + '_hook)' + pname + '_hook(this)\n'
 				rem += '\tif(' + pname + '_unhook)' + pname + '_unhook(this)\n'
 			}
@@ -95,7 +163,7 @@ class Node extends Proxy{
 		
 		// prepend static type_methods
 		for(var k in js.type_methods){
-			code = js.type_methods[k] + code
+			code = js.type_methods[k] + '\n'+ code
 		}
 
 		draw.proxy_remote = code
@@ -295,6 +363,17 @@ class Node extends Proxy{
 		mat3: 'uniformMatrix3fv'
 		mat4: 'uniformMatrix4fv'
 	}
+	
+	var glsl_compare = {
+		'<':glc.LESS
+		'<=':glc.LEQUAL
+		'>':glc.GREATER
+		'>=':glc.GEQUAL
+		'!==':glc.NOTEQUAL
+		'!=':glc.NOTEQUAL
+		'==':glc.EQUAL
+		'===':glc.EQUAL
+	}
 
 	class DepTraceGLSL extends AST.Walk{
 
@@ -452,6 +531,7 @@ class Node extends Proxy{
 			var prop = context[name]
 			if(prop === undefined) throw new Error('Cannot resolve ' + name)
 			
+			// what if we are a type
 			// we are a reference to a remote object
 			if(prop.proxy_uid){
 
@@ -466,7 +546,6 @@ class Node extends Proxy{
 				}
 				return Post(n)
 			}
-
 			if(prop._ast_){
 				// what if we are a normal property with a value?..
 				// we will need to 
@@ -496,6 +575,17 @@ class Node extends Proxy{
 			else {
 				//TODO turn properties into signals here!
 				//log(prop)
+
+				// its a placeholder class
+				if(prop.hasOwnProperty('__class__')){
+					n.infer = {
+						name:'object'
+						ref_name: name
+						ref:prop
+					}
+					return Post(n)
+				}
+
 				if(typeof prop == 'object' && typeof prop.t == 'object'){
 					n.mark = 1
 					n.infer = prop.t
@@ -1299,7 +1389,7 @@ class Node extends Proxy{
 			}
 
 			// construct a sampler uid
-			var sampler_id = 'sam_'+image.proxy_uid + '_' + hash
+			var sampler_id = 'sam_'+(image.proxy_uid || context_name)+ '_' + hash
 
 			// store the sampler, with a
 			var sam
@@ -1386,8 +1476,7 @@ class Node extends Proxy{
 					var args = ''
 					var argdef = ''
 					var old_scope = scope
-					scope = Object.create(null)
-					
+					var new_scope = Object.create(null)
 					if(new_context) context = old_context
 
 					for(var i, arg from n.args){
@@ -1395,11 +1484,13 @@ class Node extends Proxy{
 						args += this[arg.type](arg, n)
 						var type_name = arg.infer.name
 						var param_name = params[i].id.name
-						scope[param_name] = arg.infer
+						new_scope[param_name] = arg.infer
 						argdef += type_name + ' ' + param_name
 						gen += '_' + type_name
 					}
 					if(new_context) context = new_context
+
+					scope = new_scope
 
 					if(!type_methods[gen]){
 						var old_depth = depth
@@ -1420,6 +1511,7 @@ class Node extends Proxy{
 						this.module = old_module
 					}
 					scope = old_scope
+
 					if(new_context) context = old_context
 
 					return gen + '(' + args + ')'
@@ -1458,7 +1550,6 @@ class Node extends Proxy{
 		find_define = AST.ToJS.find_define
 		find_type = AST.ToJS.find_type
 	}
-
 
 	// generate the uniform computation JS
 	class GenUniformJS extends AST.ToJS{
@@ -1647,8 +1738,15 @@ class Node extends Proxy{
 			else throw new Error('Blend equation needs to have either pixel or frame on the right side of the *')
 		} 
 		else if(eq.type == 'Id'){
-			if(eq.name == 'frame') out.src = gl.ZERO, out.dst = gl.ONE
-			else if(eq.name == 'pixel') out.src = gl.ONE, out.dst = gl.ZERO
+			out.op = glc.FUNC_ADD
+			if(eq.name == 'frame'){
+				out.src = glc.ZERO
+				out.dst = glc.ONE
+			}
+			else if(eq.name == 'pixel'){
+				out.src = glc.ONE
+				out.dst = glc.ZERO
+			}
 			else throw new Error('Blend equation invalid (not frame or pixel)')
 		}
 		else throw new Error('Blend equation invalid (main type) ' + eq.type + ' ' + eq.op)
@@ -1656,17 +1754,6 @@ class Node extends Proxy{
 	}
 
 	var fake_module = {types:{},imports:[],defines:{}}
-	
-	var glsl_compare = {
-		'<':glc.LESS
-		'<=':glc.LEQUAL
-		'>':glc.GREATER
-		'>=':glc.GEQUAL
-		'!==':glc.NOTEQUAL
-		'!=':glc.NOTEQUAL
-		'==':glc.EQUAL
-		'===':glc.EQUAL
-	}
 
 	class GenDrawJS extends AST.ToJS{
 		
@@ -1678,7 +1765,7 @@ class Node extends Proxy{
 			}
 		}
 
-		_compile_draw( n ){
+		_compile_drawSelf( n ){
 		
 			var uid = 'd' + ++this.uid
 
@@ -1743,7 +1830,7 @@ class Node extends Proxy{
 				}
 				else{
 					always_opaque = true
-					pix_expr = 'vec4(' + pix_expr + ',1.)'
+					pix_expr = 'vec4(' + pix_expr + ',' + '1.)'
 				}
 			} 
 			else if(alpha){
@@ -1768,6 +1855,14 @@ class Node extends Proxy{
 			var vtx_types = GenGLSL.types = {}
 			// generate vertex shader GLSL
 			var vtx_expr = GenGLSL.expand(vtx)
+			
+			// patch up vertex position types just like color
+			if(vtx.infer.name == 'vec3'){
+				vtx_expr = 'vec4(' + vtx_expr + ',1.)'
+			} 
+			else if(vtx.infer.name == 'vec2'){
+				vtx_expr = 'vec4(' + vtx_expr + ',0.,1.)'
+			} 
 
 			var vary_merged = ''
 			var vary_decl = ''
@@ -1857,8 +1952,11 @@ class Node extends Proxy{
 			// generate pixelshader tmpvars
 			for(var i = pix_tmpvars.length - 1; i >=0; i--){
 				var tmp = pix_tmpvars[i]
+				pix_uni_decl += `
+				${tmp.type} ${tmp.name};
+				`
 				pix_tmpcode += `
-					${tmp.type} ${tmp.name} = ${tmp.value};
+					${tmp.name} = ${tmp.value};
 				`
 			}
 
@@ -1867,8 +1965,11 @@ class Node extends Proxy{
 			// generate vertexshader tmpvars
 			for(var i = vtx_tmpvars.length - 1; i >=0; i--){
 				var tmp = vtx_tmpvars[i]
+				vtx_uni_decl += `
+				${tmp.type} ${tmp.name}
+				`
 				vtx_tmpcode += `
-					${tmp.type} ${tmp.name} = ${tmp.value};
+					${tmp.name} = ${tmp.value};
 				`
 			}
 			// generate pixelshader methods
@@ -1944,7 +2045,7 @@ class Node extends Proxy{
 						gl.shaderSource(vtx_shader, vtx_source)
 						gl.compileShader(vtx_shader)
 						if (!gl.getShaderParameter(vtx_shader, ${glc.COMPILE_STATUS})){
-							var err = gl.getShaderInfoLog(pix_shader)
+							var err = gl.getShaderInfoLog(vtx_shader)
 							console.log(err.toString())
 							throw new Error(err)
 						}
@@ -2098,7 +2199,7 @@ class Node extends Proxy{
 				ret += `
 				if(this.${sam.source}.loaded){
 					var tex
-					if(!(tex = this.${sam.source}.${sam_name})){
+					if(!(tex = this.${sam.source}.tex || this.${sam.source}.${sam_name})){
 						this.${sam.source}.${sam_name} = tex = gl.createTexture()
 						gl.bindTexture(${glc.TEXTURE_2D}, tex)
 						gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, this.${sam.source}.img)
@@ -2131,7 +2232,7 @@ class Node extends Proxy{
 				gl.blendFuncSeparate(${color_blend.src},${color_blend.dst},${alpha_blend.src},${alpha_blend.dst})
 				`
 			}
-			else{
+			else if(color_blend){
 				if((always_opaque && color_blend.op == glc.FUNC_ADD && color_blend.dst == glc.ONE_MINUS_SRC_ALPHA && color_blend.src == glc.SRC_ALPHA) ||
 					color_blend.op == glc.FUNC_ADD && color_blend.dst == glc.ZERO && color_blend.src == glc.ONE){
 					ret += `
@@ -2147,20 +2248,22 @@ class Node extends Proxy{
 
 			// fix the depth check
 			var depth = context.depth
-			if(depth.type == 'Value' && (depth.value === true || depth.value === false)){
-				if(depth.value === true) ret += `
+			if(depth){
+				if(depth.type == 'Value' && (depth.value === true || depth.value === false)){
+					if(depth.value === true) ret += `
 				gl.disable(${glc.DEPTH_TEST})
-				`
-				else ret += `
+					`
+					else ret += `
 				gl.enable(${glc.DEPTH_TEST})
 				gl.depthFunc(${glc.NEVER})
-				`
-			} 
-			else if(depth.type == 'Logic' && depth.left.name == 'pixel' && depth.right.name == 'frame'){
-				ret +=`
+					`
+				} 
+				else if(depth.type == 'Logic' && depth.left.name == 'pixel' && depth.right.name == 'frame'){
+					ret +=`
 				gl.enable(${glc.DEPTH_TEST})
 				gl.depthFunc(${glsl_compare[depth.op]})
-				`
+					`
+				}
 			}
 			else throw new Error('Unsupported depth equation')
 
@@ -2221,7 +2324,7 @@ class Image extends Proxy{
 		})
 	}
 
-	blit:(vec2 v){
+	sample:(vec2 v){
 		return texture2D(this, v, {
 			MIN_FILTER:LINEAR
 			MAG_FILTER:LINEAR
@@ -2266,8 +2369,8 @@ class View extends Node{
 			var h = parent.offsetHeight
 			var sw = w * pixelRatio
 			var sh = h * pixelRatio
-			canvas.width = sw
-			canvas.height = sh
+			gl.width = canvas.width = sw
+			gl.height = canvas.height = sh
 			canvas.style.width = w + 'px'
 			canvas.style.height = h + 'px'
 			if(_gl)_gl.viewport(0, 0, sw, sh)
