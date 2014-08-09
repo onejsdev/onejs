@@ -760,6 +760,7 @@ ONE.base_ = function(){
 	}
 
 	// end the signal
+	this.Signal.resolve = 
 	this.Signal.end = function(value){
 		this.set(value)
 		this.ended = true
@@ -786,6 +787,7 @@ ONE.base_ = function(){
 	}
 	
 	// called when signal errors
+	this.Signal.catch = 
 	this.Signal.onError = function(error_cb){
 		if(!this.hasOwnProperty('error_list')) this.error_list = error_cb
 		else if(!Array.isArray(this.onThrow)) this.error_list = [this.error_list, error_cb]
@@ -801,6 +803,8 @@ ONE.base_ = function(){
 	}
 	
 	// make the signal error
+	this.Signal.reject =
+	this.Signal.throw = 
 	this.Signal.error = function(value, next){
 		if(this.ended) throw new Error('Cant error ended signal')
 		if(this.default_cb) return this.end( this.default_cb(value) )
