@@ -85,8 +85,7 @@ class StaticServer extends HttpServer{
 	if(live) route("/") do( req, res ){
 		var host = req.headers.host
 		var root = ''
-		if(host.indexOf('localhost') == 0) root = 'index'
-
+		if(typeof host !== 'string' || host.indexOf('localhost') == 0) root = 'index'
 		else root = host.slice(0, host.indexOf('.'))
 
 		var cache_file = 'cache_'+root
