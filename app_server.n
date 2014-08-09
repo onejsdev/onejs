@@ -11,7 +11,7 @@ import node
 import htmlscraper
 import math
 
-var live = 0
+var live = 1
 if(live){
 	var addr = "0.0.0.0"
 	var port = 80
@@ -85,6 +85,7 @@ class StaticServer extends HttpServer{
 	if(live) route("/") do( req, res ){
 		var host = req.headers.host
 		var root = ''
+
 		if(typeof host !== 'string' || host.indexOf('localhost') == 0) root = 'index'
 		else root = host.slice(0, host.indexOf('.'))
 

@@ -2369,15 +2369,11 @@ ONE.genjs_compat_ = function(){
 			var iter = generator.apply(this, arguments)
 			return ONE.Base.wrapSignal(function(sig){
 				function error(e){
-					// throw forward
 					sig.throw(e)
-					// lets not throw in the iterator for now
-					//if(!ret) iter.throw(e)
 				}
 				function next( value ){
 					var iterval = iter.next( value )
 					if(iterval.done === false){ // we have a promise
-						console.log(Object.keys(iterval.value))
 						iterval.value.then( next, error )
 					}
 					else{

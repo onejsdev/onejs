@@ -196,7 +196,7 @@ class HTMLScraper extends HTMLParser{
 		appendChild(name, value){
 			if(arguments.length == 1){
 				var cpy = name
-				value = new HTMLNode()
+				value = HTMLNode.new()
 				name = cpy.tagname
 				for(var k in cpy) value[k] = cpy[k]
 			}
@@ -281,7 +281,7 @@ class HTMLScraper extends HTMLParser{
 	// destructured named arguments with default values
 	// and assign-on-this
 	parse(source, @stripempty){
-		node = new HTMLNode()
+		node = HTMLNode.new()
 		HTMLParser.parse.call(this, source)
 		return node
 	}
@@ -324,7 +324,7 @@ class HTMLScraper extends HTMLParser{
 
 	// begin a tag
 	begin(name){
-		var newnode = new HTMLNode()	
+		var newnode = HTMLNode.new()	
 		newnode.parent = node
 		node.appendChild(name, newnode)
 		newnode.tagname = name

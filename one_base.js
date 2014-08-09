@@ -786,8 +786,12 @@ ONE.base_ = function(){
 		return this
 	}
 	
-	// called when signal errors
-	this.Signal.catch = 
+	// catch is chainable with await
+	this.Signal.catch = function(error_cb){
+		this.onError(error_cb)
+		return this
+	}
+
 	this.Signal.onError = function(error_cb){
 		if(!this.hasOwnProperty('error_list')) this.error_list = error_cb
 		else if(!Array.isArray(this.onThrow)) this.error_list = [this.error_list, error_cb]
