@@ -1,0 +1,1374 @@
+import math
+import glenums
+
+class DepTraceGLSL extends AST.Walk{
+
+	// unsupported keys
+	ForIn( n ){ throw new Error('Cannot use for in in a shader, use for from') }
+	ForOf( n ){ throw new Error('Cannot use for of in a shader, use for from') }
+	Struct( n ){ throw new Error('Cannot use struct in a shader function') }
+	Comprehension( n ){ throw new Error('Cannot use a comprehension in a shader function') }
+	ThisCall( n ){ throw new Error('Cannot use this in a shader function') }
+	Template( n ){ throw new Error('Cannot use templates in a shader function') }
+	Throw( n ){ throw new Error('Cannot use throw in a shader function') }
+	Try( n ){ throw new Error('Cannot use try in a shader function') }
+	Enum( n ){ throw new Error('Cannot use enum in a shader function') }
+	Define( n ){ throw new Error('Cannot define in a shader function') }
+	New( n ){ throw new Error('Cannot use new in a shader function') }
+	Nest( n ){ throw new Error('Cannot use nesting syntax in a shader function') }
+	Class( n ){ throw new Error('Cannot define a class in a shader function') }
+	Quote( n ){ throw new Error('Cannot use quote in a shader function') }
+	Rest( n ){ throw new Error('Cannot use rest ... in a shader function') }
+	Then( n ){ throw new Error('Cannot use then in a shader function') }
+	Debugger( n ){ throw new Error('Cannot use debuger in a shader function') }
+	With( n ){ throw new Error('Cannot use with in a shader function') }
+
+	// causes dependency marks to travel up the tree
+	// uniform has mark 1
+	// attribute has mark 2
+	// pixel has mark 3
+	Pre( n ){
+		n.infer = undefined
+		n.mark = undefined
+	}
+
+	Post( n, overload_mark ){
+		// propagate mark and inference up the chain
+		var parent = n.parent
+		var nmark = overload_mark || n.mark
+		if(parent){
+			if(nmark){
+				var pmark = parent.mark
+				if(!pmark) parent.mark = nmark
+				else if(pmark < nmark) parent.mark = nmark
+			}
+			if(!parent.infer) parent.infer = n.infer
+		}
+	}
+
+	// i must dry implement Do
+	Do( n, parent ){
+		n.parent = parent
+		Pre(n)
+		AST.Walk::Do(n, parent)
+		// fuse mark properly
+		if(n.arg.mark > n.call.mark) n.call.mark = n.arg.mark
+	}
+
+	Value( n, parent ){
+		n.parent = parent
+		Pre(n)
+		if(n.kind != 'num') throw new Error('Only numeric values supported in shaders')
+		if(n.raw.indexOf('.') != -1) n.infer = float
+		else n.infer = int
+		Post(n)
+	}
+
+	For( n, parent ){
+		var old_scope = scope
+		var old_marks = marks
+		scope = Object.create(scope)
+		marks = Object.create(marks)
+		AST.Walk::For(n, parent)
+		scope = old_scope
+		marks = old_marks
+		n.for_mark = n.mark
+		AST.Walk::For(n, parent)
+	}
+
+	ForTo( n, parent ){
+		var old_scope = scope
+		var old_marks = marks
+		scope = Object.create(scope)
+		marks = Object.create(marks)
+		AST.Walk::ForTo(n, parent) // first walk
+		scope = old_scope
+		marks = old_marks
+		n.for_mark = n.mark // store mark
+		AST.Walk::ForTo(n, parent) // second walk
+	}
+
+	ForFrom( n, parent ){
+		if(n.left.type != 'Var' || n.left.defs.length != 1) throw new Error('Shaders only support for(var value from fixedarray)')
+		var old_scope = scope
+		var old_marks = marks
+		scope = Object.create(scope)
+		marks = Object.create(marks)
+		AST.Walk::ForFrom(n, parent)
+		scope = old_scope
+		marks = old_marks
+		n.for_mark = n.mark
+		AST.Walk::ForFrom(n, parent)
+	}
+
+	Id( n, parent ){
+		n.parent = parent
+		Pre(n)
+		var name = n.name
+		if(n.flag == 35){
+			n.infer = vec3
+			return Post(n)// is color
+		}
+
+		if(macro_args && macro_args[name]){
+			var type = macro_args[name].infer
+			n.infer = type
+			return Post(n)
+		}
+
+		if(scope && scope[name]){
+			var type = scope[name]
+			n.infer = type
+			n.mark = marks[name]
+			return Post(n)
+		}
+
+		var type = glsl_variables[name]
+		if(type){
+			if(name == 'gl_FragCoord') n.mark = 3
+			n.infer = type
+			return Post(n)
+		}
+
+		// static type method or property?
+		var type = find_type(name)
+		if(type){
+			n.infer = type
+			return Post(n)
+		}
+
+		// check if we are a macro?
+		var def = this.find_define(name)
+		if(def){
+			this[def.type](def, n)
+			return Post(n)
+		}
+
+		// lets resolve name
+		var prop = context[name]
+		if(prop === undefined) throw new Error('Cannot resolve ' + name)
+		
+		// what if we are a type
+		// we are a reference to a remote object
+		if(prop.proxy_uid){
+
+			// what if we reference a texture here?
+			if(prop._sampler2D_){
+				n.mark = 2 // atleast a vertex shader
+			}
+			n.infer = {
+				name:'object'
+				ref_name: name
+				ref:prop
+			}
+			return Post(n)
+		}
+		if(prop._ast_){
+			// check if its a value, or a fully static type constructor
+			// TODO check if a value is  a type constructor
+			if(prop.type == 'Value'){
+				if(prop.kind != 'num') throw new Error('invalid type in DepTraceGLSL ' + prop.kind)
+				n.mark = prop.mark = 1
+				n.infer = prop.infer = float
+				// lets replace the property with the actual value.
+				context[name] = prop//prop.value = prop.value.value
+				// unbind the expression
+				//prop.value = undefined
+			}
+			else {
+				// if we reference a property more than once
+				// we need to store it in a temp variable
+				if(this.refcount[name]) this.refcount[name]++
+				else this.refcount[name] = 1
+				var mod = this.module
+				this.module = prop.module
+				this[prop.type](prop, n)
+				this.module = mod
+			}
+		}
+		else {
+			//TODO turn properties into signals here!
+			//log(prop)
+
+			// its a placeholder class
+			if(prop.hasOwnProperty('__class__')){
+				n.infer = {
+					name:'object'
+					ref_name: name
+					ref:prop
+				}
+				return Post(n)
+			}
+
+			if(typeof prop == 'object' && typeof prop._t_ == 'object'){
+				n.mark = 1
+				n.infer = prop._t_
+			} 
+			else if(typeof prop == 'number'){
+				n.mark = 1
+				n.infer = float
+			}
+			else throw new Error('Add other property types ' + name)
+		}
+		if(n.kind){
+			// lets set our 'infer' to this type
+			if(n.kind.name == 'pixel'){
+				n.mark = 3	// mark us as pixel
+			}
+			else if(n.kind.name == 'vertex'){
+				n.mark = 2
+			}
+			else {
+				// where do we get our typemap?
+				n.infer = module.types[n.kind.name]
+				if(!n.infer) throw new Error('cannot find type ' + n.kind.name)
+			}
+		}
+		Post(n)
+	}
+
+	Index( n, parent ){
+		n.parent = parent
+		Pre(n)
+		if(!n.index){
+			var nmark = n.mark = 2 // mark as attribute
+			if(n.object.kind && n.object.kind.name == 'pixel')
+				nmark = 3
+
+			// what is our our type however?..
+			var attrib = context[n.object.name]
+			if(!attrib) throw new Error('cannot fetch attribute '+n.object.name)
+
+			n.infer = attrib._t_
+
+			return Post(n, nmark)
+		}
+		else{ // we are an index
+			// resolve the object
+			this[n.object.type](n.object, n)
+
+			// resolve the index
+			this[n.index.type](n.index, n)
+
+			// we have to have an inferred type on object now
+			if(!n.infer) throw new Error('index access without type')
+			if(!n.infer.dim) throw new Error('index access on type without dimensions')
+			n.infer = Object.getPrototypeOf(n.infer) // rip off dimensions
+
+			return Post(n)
+		}
+		return AST.Walk::Index(n)
+	}
+	
+	Key( n, parent ){
+		n.parent = parent
+		Pre(n)
+
+		// only try to walk/resolve the object
+		this[n.object.type](n.object, n)
+		var nmark = n.mark
+
+		// remote object
+		if(n.object.infer.name == 'object'){
+
+			var obj = n.object.infer.ref
+			// make a reference to another object.key
+			var propname = n.key.name
+			var prop = obj[propname]
+
+			if(prop === undefined) throw new Error('Cannot find ' + n.object.name + '.' + propname)
+
+			// mark signal in our proxy table
+			n.infer = prop && prop._t_ || float
+			n.mark = 1 // uniform
+
+			// flag ourself in proxy_refs
+			var objname = n.object.name
+			var bind = proxy_refs[objname] || (proxy_refs[objname] = {})
+			bind[propname] = 1
+
+			// flag it for the dependency codegen
+			n.remote = 1
+			return Post(n)
+		}
+
+		if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
+			// extend our vertex shader mark upwards one step, since we are not splittable here
+			if(n.mark == 3) nmark = 3, n.mark = 2
+		}
+
+		// we have to have an inferred type on object now
+		if(!n.infer) throw new Error('key access without type')
+		
+		var fields = n.infer.fields
+		if(!fields) throw new Error('key access on type without fields')
+
+		var key_name = n.key.name
+
+		if(key_name == 'length' && n.infer.dim){
+			n.const_length = n.infer.dim
+			n.mark = undefined
+			n.infer = int
+			return Post(n)
+		}
+		var type = fields[key_name]
+		if(!type && n.object.infer.name in glsl_types){
+			// validate swizzlingl. this code must deserve a prize.
+			var swiz = check_swizzle( key_name, n.object.infer.slots )
+			if(swiz){
+				if(swiz.length == 2) type = vec2
+				else if(swiz.length  == 3) type = vec3
+				else if(swiz.length  == 4) type = vec4
+			}
+		}
+		if(!type) throw new Error('type '+n.object.infer.name+' has no field ' + key_name)
+
+		n.infer = type
+		
+		return Post(n, nmark)
+	}
+
+	this.Function( n, parent ){
+		// we should only do our body, not our params
+		n.parent = parent
+		//Pre(n)
+		var body = n.body
+		if(body) this[body.type](body, n)
+		//Post(n)
+	}
+
+	Def( n, parent ){
+		n.parent = parent
+		var type
+		var mark
+		// dont let the mark travel up
+		var oldmark = n.mark
+		if(n.init) this[n.init.type](n.init, n)
+		if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
+
+		// fetch our mark from for loop
+		var in_for
+		var for_node
+		if(for_node = n.parent.parent){
+			if(for_node.type == 'ForFrom' || for_node.type == 'ForTo' || for_node.type == 'For'){
+				if(n.parent.defs.length > 1) throw new Error('Cannot define more than one var in a for')
+				if(for_node.for_mark) n.mark = for_node.for_mark
+				in_for = true
+			}
+		}
+
+		if(n.parent.type == 'Var'){
+			if(!n.init){
+				if(for_node && for_node.type == 'ForFrom'){
+					// the type is inferred from the right hand side
+					type = for_node.right.infer
+					if(!type.dim) throw new Error('Cannot for from over dimensionless type ' + type.name)
+					type = Object.getPrototypeOf(type)
+				}
+				else throw new Error('Cannot use uninitialized var')
+			}
+			else{
+				type = n.init.infer
+				if(in_for && type.name == 'float') type = int
+			}
+		}
+		else if(n.parent.type === 'TypeVar'){
+			var kind = n.parent.kind
+			if(kind.type == 'Index'){
+				var name = kind.object.name
+				var type = this.find_type(name)
+				type = Object.create(type)
+				type.dim = 1
+			}
+			else{
+				var name = kind.name
+				type = this.find_type(name)
+			}
+		}
+		else throw new Error('Unsupported Def encountered')
+		n.infer = scope[n.id.name] = type
+		marks[n.id.name] = n.mark
+	}
+
+	Return( n, parent ){
+		// set return type
+		n.parent = parent
+		Pre(n)
+		if(n.arg){
+			var oldmark = n.mark
+			this[n.arg.type](n.arg, n)
+			if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
+		}
+		if(return_type && return_type != n.infer){
+			throw new Error('Multiple return types detected '+return_type.name + ' and ' + n.infer)
+		}
+		return_type = n.infer
+		Post(n)
+	}
+
+	// type inference implementation of texture2D
+	compiler_texture2D( n, parent ){
+
+		var args = n.args
+		if(args.length < 2) throw new Error('texture2D not enough arguments')
+		// the first arg is the sampler2D we are going to need.
+
+		var sampler = args[0]
+		var sampler_name 
+		if(sampler.type == 'This'){
+			sampler_name = context_name
+			sampler.infer = {
+				object:context,
+				name:'object'
+			}
+		}
+		else{
+			sampler_name = sampler.name
+			this[sampler.type](sampler, n)
+
+			if(sampler.infer.name != 'object' || !sampler.infer.ref._sampler2D_)
+				throw new Error('texture2D invalid first argument type ' + sampler.infer.name)
+		}
+
+		var pos = args[1]
+		this[pos.type](pos, n)
+		if(pos.infer.name != 'vec2')
+			throw new Error('texture2D invalid second argument type ' + pos.infer.name)
+
+		// optional 3rd arg
+		var bias = n.args[2]
+		if(bias && bias.type != 'Object'){
+			this[bias.type](bias, n)
+		}
+		
+		if(!proxy_refs[sampler_name]) proxy_refs[sampler_name] = {}
+
+		if(n.mark != 3) n.mark = 2
+		n.infer = vec4
+		Post(n)
+	}
+
+	// type inference calls
+	Call( n, parent ){
+		n.parent = parent
+		Pre(n)
+
+		// static type methods
+		if(n.fn.type == 'Key'){
+			var obj = n.fn.object
+			if(obj.type == 'Id'){
+				var name = obj.name
+				if(name == 'Math'){
+					n.infer = float
+					return Post(n)
+				}
+				var type = this.find_type(name)
+				if(type){
+					// static method call
+					for(var arg from n.args) this[arg.type](arg, n)
+					n.infer = type
+					return Post(n)
+				}
+			}
+		}
+
+		if(n.fn.type == 'Key'){ // type infer the object
+			n.fn.parent = n
+			this[n.fn.object.type](n.fn.object, n.fn)
+		}
+		else if(context[n.fn.name] && !context[n.fn.name]._ast_){
+			this[n.fn.type](n.fn, n)
+		}
+
+		// we are an id, or an id on an object.
+		if(n.fn.type == 'Id' || n.fn.type == 'Key' && n.fn.object.infer && n.fn.object.infer.name == 'object'){
+
+			// check 
+			var name
+			var new_context
+			if(n.fn.type == 'Id'){
+				name = n.fn.name
+
+				//!HACK todo fix this
+				if(name == 'length'){
+					for(var arg from n.args) this[arg.type](arg, n)
+					n.infer = float
+					return Post(n)
+				}
+
+				// we can call objects directly
+				if(n.fn.infer && n.fn.infer.name == 'object'){
+					new_context = n.fn.infer.ref
+					context_name = n.fn.infer.ref_name
+					name = 'call'
+				}
+				else{
+					// 
+					var compiler = 'compiler_' + name
+					if(this[compiler]){
+						return this[compiler](n, parent)
+					}
+
+					var type = find_type(name)
+
+					// type infer the args
+					for(var arg from n.args) this[arg.type](arg, n)
+
+					// type constructor
+					if(type){
+						n.infer = type
+						// lets do the args
+						return Post(n)
+					}
+				}
+			}
+			else{
+				// we are a function on another object
+				new_context = n.fn.object.infer.ref
+				context_name = n.fn.object.infer.ref_name
+				name = n.fn.key.name
+			}
+
+			// type infer the args
+			for(var arg from n.args) this[arg.type](arg, n)
+
+			// lets check if we are calling a macro
+			
+			//console.log(n.args, name)
+
+			// calls on other objects provide a new context
+			// i know. i need to refactor this to be nicer. or learn to program
+			var old_context = context
+			if(new_context) context = new_context
+			n.args.expanded = true
+			var [macro, macro_generics] = find_macro(n, name, n.args)
+
+			if(macro){
+				// we are a macro
+				if(macro.type == 'Function'){
+					// lets type infer trace an actual macro call
+					var old_scope = scope
+					var old_return = return_type
+					var old_module = this.module
+					var old_generics = generics
+					generics = macro_generics
+					return_type = undefined
+					var mparams = macro.params
+					scope = Object.create(null)
+					marks = Object.create(null)
+					if(macro.module) this.module = macro.module
+					for(var i, arg from n.args){
+						if(!arg.infer) throw new Error('Cannot infer arg in macro '+name)
+						if(arg.infer.name == 'object') throw new Error('Object arguments to function not implemented yet')
+						var name = mparams[i].id.name
+						scope[name] = arg.infer
+						marks[name] = arg.mark
+					}
+					// lets set the arguments on the scope
+					this[macro.type](macro, n)
+					this.module = old_module
+					generics = old_generics
+					scope = old_scope
+					n.infer = return_type
+					// bubble up mark from function
+					if(n.mark === undefined || n.mark < macro.mark) n.mark = macro.mark
+					return_type = old_return
+				}
+				else if(macro.type == 'Call'){
+
+					var old_args = macro_args
+					old_generics = generics
+					generics = macro_generics
+					macro_args = Object.create(null)
+					var margs = macro.args
+					for(var i, arg from n.args){
+						if(arg.infer.name == 'object') throw new Error('Object arguments to function not implemented yet')
+						macro_args[margs[i].name] = arg
+					}
+					var astnode = macro.parent.value
+					// type infer trace a macro!
+					this[astnode.type](astnode, n)
+					n.infer = astnode.infer
+					macro_args = old_args
+				}
+				else throw new Error('Macro called but not a function '+name)
+				// we have to figure out a return-type trace on our macro
+				if(new_context) context = old_context
+				return Post(n)
+			}
+			if(new_context) context = old_context
+		}
+		
+		// otherwise it may be a type method, we need to trace it
+		return AST.Walk::Call(n, parent)
+	}
+
+	// operator type inferencing
+	Binary( n, parent ){
+		n.parent = parent
+		Pre(n)
+		this[n.left.type](n.left, n)
+		this[n.right.type](n.right, n)
+
+		var left_i = n.left.infer.name
+		var right_i = n.right.infer.name
+
+		if(left_i == 'int' || left_i == 'float') n.infer = n.right.infer
+		else if(right_i == 'int' || right_i == 'float') n.infer = n.left.infer
+		else if(left_i == 'mat4'){
+			if(right_i == 'vec2' || right_i == 'vec3' || right_i == 'vec4') n.infer = vec4
+			else if(right_i == 'mat4') n.infer = mat4
+		}
+		else if(right_i == 'mat4'){
+			if(left_i == 'vec2' || left_i == 'vec3' || left_i == 'vec4') n.infer = vec4
+		}
+		else if(left_i == 'vec3' && right_i == 'vec4'){
+			n.infer = vec4
+		}
+		else if(left_i == 'vec4' && right_i == 'vec3'){
+			n.infer = vec4
+		}
+
+		Post(n)
+	}
+
+	check_swizzle = AST.ToJS.check_swizzle
+	find_define = AST.ToJS.find_define
+	find_type = AST.ToJS.find_type
+	find_macro = AST.ToJS.find_macro
+	macro_match_args = AST.ToJS.macro_match_args
+}
+
+// generate the GLSL
+class GenGLSL extends AST.ToCode{
+	term = ';'
+
+	// otherwise if we are not 'pixel' we need to spit out varyings.
+	expand( n, parent ){
+		//log(n.type)
+		if(n.mark == 1){ // we are a uniform dependent expression
+			// okay
+			if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
+			// okay so, we are a uniform. we splice in
+			// a temp uniform, and we define it
+			var type_name = n.infer.name
+			var uni = {
+				module: this.module
+				name: (pixel?'pix_':'vtx_') + type_name + '_' + (uniform_id++)
+				node: n
+			}
+			if(!(type_name in glsl_types)) this.types[type_name] = n.infer
+			uniforms.push(uni)
+			return uni.name
+		}
+		// output vertex varying
+		if(pixel && n.mark == 2){
+			// alright we need to output a vertex varying
+			var type_name = n.infer.name
+			var vary = {
+				name: 'var_' + type_name + '_' + (varying_id++)
+				node: n
+			}
+			varyings.push(vary)
+			if(!(type_name in glsl_types)) this.types[type_name] = n.infer
+
+			return vary.name
+			//log('here', n.toDump())
+		}
+		// otherwise output self
+		return AST.ToCode::expand(n, parent)
+	}
+
+	// Id resolver
+	Id( n ){
+		var name = n.name
+		// if we are # bla lets resolve the color and inline.
+		if(n.flag == 35){ // is a color
+			vec3 col = ONE.color(name)
+			return 'vec3(' + col.x + ',' + col.y + ',' + col.z + ')'
+		}
+		
+		if(name in glsl_functions || name in glsl_variables){
+			return name
+		}
+		
+		// check macro args
+		if(macro_args && name in macro_args){
+			return '(' + macro_args[name] + ')'
+		}
+
+		if(iterators && name in iterators){
+			return iterators[name]
+		}
+
+		if(scope && name in scope){
+			return name
+		}
+		//console.log(name, n, this.module)
+		var def = find_define(name)
+		if(def){
+			return expand(def, n)
+		}			
+
+		var prop = context[name]
+		if(prop === undefined) throw new Error("cannot resolve " + name)
+		
+		// temporary variable generation
+		if(prop._ast_){
+
+			var node = prop
+			var type = node.type
+			var old_module = this.module
+			if(type == 'Id' || type == 'Value' || 
+				type == 'Key' || (type == 'Index' &&
+					(!node.index || node.index.type == 'Value'))){
+				this.module = prop.module
+				var ret = expand(prop, n)
+				this.module = old_module
+				return ret
+			}
+			// use a tempvar
+			var count = refcount[name]
+			if(typeof count == 'object'){
+				// we already have it defined
+				tmpvars.splice(tmpvars.indexOf(count), 1)
+				tmpvars.push(count)
+				return count.name
+			}
+			else if(count>1){ // define it
+				var tmp = {
+					name:'tmp_' + n.infer.name + '_' + (uniform_id++),
+					type:n.infer.name,
+					value:expand(prop, n)
+				}
+				refcount[name] = tmp
+				tmpvars.push(tmp)
+				return tmp.name
+			}
+			this.module = prop.module
+			var ret = expand(prop, n)
+			this.module = old_module
+			return ret
+		}
+		
+		throw new Error('Dont know what to do with '+name)
+		
+		return ''
+	}
+	
+	// resolve index
+	Index( n ){
+		// so we got a bla[]
+		if(!n.index){
+			if(n.object.type != 'Id') throw new Error('dont support property attributes')
+			
+			var name = n.object.name
+			var obj = context[name]
+			
+			if(!(n.infer.name in glsl_types)){
+				throw new Error('Dont support plain struct attributes('+n.infer.name+'), access the primitive properties')
+			}
+			if(!obj) throw new Error('Cannot find vertex attribute[] ' + name)
+			
+			var attr = attribs[name]
+			if(attr && attr !== obj) throw new Error('Cannot redefine vertex attribute[] ' + name)
+
+			attribs[name] = obj
+			
+			return name // return name
+		}
+		return AST.ToCode::Index(n)
+	}
+	
+	// we have to resolve Id's
+	Key( n ){
+		if(n.const_length){
+			return n.const_length
+		}
+		if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
+			// we have to create a sub attribute mapping
+			var name = n.object.object.name
+			var obj = context[name]
+			if(!obj) throw new Error('Cannot find vertex attribute[] ' + name)
+
+			var sub = sub_attribs[name] || (sub_attribs[name] = Object.create(null))
+			
+			sub[n.key.name] = obj
+
+			name += '_' + n.key.name
+			attribs[name] = {sub: obj._t_.fields[n.key.name]}
+			return name
+		}
+		if(n.object.type == 'Id'){
+			var objname = n.object.name  
+			if(objname in glsl_variables){
+				return objname + '.' + n.key.name
+			}
+		}
+		// lets only resolve the object, en just postfix the key
+		return expand(n.object, n) + '.' + n.key.name
+	}
+
+	Unary( n, parent ){
+		if(n.op.length != 1) throw new Error('Unary '+n.op+' not supported in shaders')
+		return AST.ToCode::Unary( n. parent)
+	}
+
+	Binary( n ){
+		var left_i = n.left.infer.name
+		var right_i = n.right.infer.name
+		var left_t = n.left.type
+		var right_t = n.right.type
+		var left = this.expand(n.left, n)
+		var right = this.expand(n.right, n)
+
+		// auto int to float cast
+		if(left_i == 'int' && right_i != 'int'){
+			if(left_t == 'Value') left = n.left.raw + '.'
+			else left = 'float(' + left + ')'
+		}
+		else if(right_i == 'int' && left_i != 'int'){
+			if(right_t == 'Value') right = n.right.raw + '.'
+			else right = 'float(' + right + ')'
+		}
+		// auto vector upgrade
+		else if(left_i == 'mat4'){
+			if(right_i == 'vec2') right = 'vec4(' + right + ',0.,1.)'
+			else if(right_i == 'vec3') right = 'vec4(' + right + ',1.)'
+		}
+		else if(right_i == 'mat4'){
+			if(left_i == 'vec2') left = 'vec4(' + left + ',0.,1.)'
+			else if(left_i == 'vec3') left = 'vec4(' + left + ',1.)'
+		}
+		// auto expand vec3 to vec4
+		else if(left_i == 'vec3' && right_i == 'vec4'){
+			left = 'vec4(' + left + ',1.)'
+		}
+		else if(left_i == 'vec4' && right_i == 'vec3'){
+			right = 'vec4(' + right + ',1.)'
+		}
+
+		// paren detect
+		if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' || 
+			(left_t == 'Binary' || left_t == 'Logic') && n.left.prio < n.prio) 
+			left = '(' + left + ')'
+
+		if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' || 
+			(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio) 
+			right = '(' + right + ')'
+		
+		if(n.op == '**'){
+			return 'pow(' + left + ',' + right + ')'
+		}
+
+		return left + space + n.op + space + right
+	}
+
+	Var( n ){
+		var ret = ''
+		for(var v from n.defs){
+			if(ret) ret +=  term + newline + depth
+			ret += Def(v)
+		}
+		return ret
+	}
+
+	// typevar needs its struct definitions
+	TypeVar( n ){
+		var type_name = n.kind.infer.name
+		if(!(type_name in glsl_types)) types[type_name] = n.kind.infer
+		return type_name + ' ' + flat(n.defs, n)
+	}
+
+	ForTo = AST.ToJS.ForTo
+
+	ForFrom( n ){
+		// supporting the most simple for from over a known type size
+		var type = n.right.infer
+		var value_name 
+		if(n.right.type != 'Id') throw new Error('For from right hand type not a basic identifier')
+		var array_name = expand(n.right, n)
+		if(n.left.type == 'TypeVar' || n.left.type == 'Var'){
+			var value_id = n.left.defs[0]
+			value_name = value_id.id.name
+			if(type.name !== value_id.infer.name) throw new Error('For From left hand type not equal to right hand, use var')
+			if(!(type.name in glsl_types)) types[type.name] = type
+		}
+		else if(n.left.type == 'Id'){
+			value_name = n.left
+			if(type.name !== n.left.infer.name) throw new Error('For From left hand type not equal to right hand, use var')
+		}
+		else throw new Error('Unusable left hand side in for from')
+		var iter_name = alloc_var(n)
+
+		if(!iterators) iterators = Object.create(null)
+		iterators[value_name] = array_name + '[' + iter_name + ']'
+
+		// lets define our loop variable
+		var ret = 'for(int ' + iter_name +' = 0;' + iter_name + '<' + n.right.infer.dim + ';' + iter_name + '++)' + 
+			expand(n.loop, n)
+
+		return ret
+	}
+
+	Def( n ){
+		var name = n.id.name
+		scope[name] = n.infer
+
+		var dim = ''
+		if(n.infer.dim) dim = '[' + n.infer.dim + ']'
+
+		if(n.parent.type == 'Var'){
+			var type_name = n.infer.name
+			if(!(type_name in glsl_types)) types[type_name] = n.infer
+			if(!n.init){ // dont init
+				return n.infer.name + ' ' + name + dim
+			} 
+			return n.infer.name + ' ' + name + dim +' = ' + expand(n.init, n)
+		}
+		else if(n.parent.type === 'TypeVar'){
+			if(n.init) return name + dim + ' = ' + expand(n.init, n)
+			return name + dim
+		}
+		else throw new Error('Unsupported Def encountered')
+	}
+
+	alloc_var( n ){
+		while(n && n.var_alloc_id === undefined){
+			n = n.parent
+		}
+		return name = 'tmp_' + (n.var_alloc_id++)
+	}
+
+	// Function!
+	this.Function( n, name, argdef, ret_type ){
+		n.var_alloc_id = 0
+
+		// allright lets generate a function!
+		var ret = ret_type.name + ' ' + name + '(' + argdef + ')'
+
+		var old_depth = depth
+		depth += indent
+
+		var old_iterators = iterators
+		iterators = undefined
+
+		var body =  expand(n.body, n)
+		
+		ret += body
+	
+		depth = old_depth
+		iterators = old_iterators
+
+		return ret
+	}
+
+	var filter_shorten = {
+		NEAREST:'N'
+		LINEAR:'L'
+		NEAREST_MIPMAP_NEAREST:'NN'
+		LINEAR_MIPMAP_NEAREST:'LN'
+		NEAREST_MIPMAP_LINEAR:'NL'
+		LINEAR_MIPMAP_LINEAR:'LL'
+		REPEAT:'R'
+		CLAMP_TO_EDGE:'C'
+		MIRRORED_REPEAT:'M'
+	}
+
+	// texture2D implementation
+	compiler_texture2D( n ){
+		// alright we have to concat the sampler flags
+		var args = n.args
+		var node = args[args.length - 1]
+		var state = {}
+		if(node.type == 'Object'){
+			for(var tag from node.keys) state[tag.key.name] = tag.value.name
+		}
+		// this is a hack to simulate sampler objects 
+		state.MIN_FILTER ?= 'LINEAR'
+		state.MAG_FILTER ?= 'LINEAR'
+		state.WRAP_S ?= 'REPEAT'
+		state.WRAP_T ?= 'REPEAT'
+		var hash = 
+			filter_shorten[state.MIN_FILTER]+'_'+
+			filter_shorten[state.MAG_FILTER]+'_'+
+			filter_shorten[state.WRAP_S]+'_'+
+			filter_shorten[state.WRAP_T]
+
+		var source
+		var image
+
+		// fetch image object
+		if(args[0].type == 'This'){
+			source = context_name
+			image = context
+		}	
+		else{
+			source = args[0].name
+			image = context[source]
+		}
+
+		// construct a sampler uid
+		var sampler_id = 'sam_'+(image.proxy_uid || context_name)+ '_' + hash
+
+		// store the sampler, with a
+		var sam
+		if(sam = samplers[sampler_id]){
+			sam.target |= pixel?1:2
+		}
+		else{
+			samplers[sampler_id] = {
+				type:   'sampler2D'
+				source: source
+				image:  image
+				ismip:  filter_shorten[state.MIN_FILTER].length == 2
+				state:  state
+				target: pixel?1:2
+			}
+		}
+
+		var ret = 'texture2D('
+
+		ret += sampler_id + ', '  +
+			this.expand(args[1], n) 
+
+		if(args.length > 2 && args[2].type != 'Object'){
+			ret += ', ' + this.expand(args[2], n) 
+		}
+		ret += ')'
+
+		return ret
+	}
+
+	// Do calls
+	Call( n ){
+		if(n.fn.type !== 'Id' && n.fn.type !== 'Key') 
+			return AST.ToCode::Call(n)
+		// check 
+		var name 
+		var new_context
+
+		// its a call on another object
+		if(n.fn.type == 'Key' || n.fn.infer && n.fn.infer.name == 'object'){
+			if(n.fn.type == 'Key'){
+				new_context = n.fn.object.infer.ref
+				context_name = n.fn.object.name
+				name = n.fn.key.name
+			}
+			else{
+				new_context = n.fn.infer.ref
+				context_name = n.fn.name
+				name = 'call'
+			}
+		}
+		else{
+			name = n.fn.name
+
+			var compiler_name = 'compiler_' + name
+			if(this[compiler_name]){
+				return this[compiler_name](n)
+			}
+
+			var type = find_type(name)
+			// type constructor
+			if(type){
+				var ret = name + '(' 
+				for(var i, arg from n.args){
+					if(i) ret += ','
+					ret += this[arg.type](arg, n)
+				}
+				ret += ')'
+				return ret
+			}
+			// lets check our name against built in
+			if(name in glsl_functions) return AST.ToCode::Call(n)
+		}
+		var old_context = context
+		if(new_context) context = new_context
+
+		n.args.expanded = true // skip argument expansion in find_macro
+		var [macro, macro_generics] = find_macro(n, name, n.args)
+		if(macro){
+			if(macro.type == 'Function'){
+				// generate GLSL function
+				var params = macro.params
+				var gen = 'macro_' + name
+				var args = ''
+				var argdef = ''
+				var new_scope = Object.create(null)
+				if(new_context) context = old_context
+
+				for(var i, arg from n.args){
+					if(i) args += ', ', argdef += ', '
+					args += this[arg.type](arg, n)
+					var type_name = arg.infer.name
+					var param_name = params[i].id.name
+					new_scope[param_name] = arg.infer
+					argdef += type_name + ' ' + param_name
+					gen += '_' + type_name
+				}
+				if(new_context) context = new_context
+
+				if(!type_methods[gen]){
+					var old_depth = depth
+					var old_args = macro_args
+					var old_module = this.module
+					var old_generics = generics
+					var old_scope = scope
+
+					scope = new_scope
+					generics = macro_generics
+					macro_args = undefined
+					depth = '\t\t\t'
+					if(macro.module) this.module = macro.module
+
+					type_methods[gen] = this.Function(macro, gen, argdef, n.infer)
+
+					depth = old_depth
+					generics = old_generics
+					macro_args = old_args
+					this.module = old_module
+
+					scope = old_scope
+				}
+
+				if(new_context) context = old_context
+
+				return gen + '(' + args + ')'
+			}
+			else if(macro.type == 'Call'){
+				var old_args = macro_args
+				var old_module = this.module
+				var old_generics = generics
+
+				generics = macro_generics
+				macro_args = Object.create(null)
+				var margs = macro.args
+				if(new_context) context = old_context
+				for(var i, arg from n.args){
+					macro_args[margs[i].name] = this[arg.type](arg, n)
+				}
+				if(new_context) context = new_context
+				var astnode = macro.parent.value
+				this.module = astnode.module
+
+				var ret = this[astnode.type](astnode, n)
+
+				this.module = old_module
+				generics = old_generics
+				macro_args = old_args
+				if(new_context) context = old_context
+
+				return ret
+			}
+			throw new Error('Call failure')
+		}
+	}
+
+	macro_match_args = AST.ToJS.macro_match_args
+	find_macro = AST.ToJS.find_macro
+	find_define = AST.ToJS.find_define
+	find_type = AST.ToJS.find_type
+}
+
+// generate the uniform computation JS
+class GenUniformJS extends AST.ToJS{
+	Id( n ){
+		var name = n.name
+		if(n.flag == 35){ // is a color
+			return 'this.color("' + name + '")'
+		}
+		
+		if(name in glsl_functions || name in glsl_variables){
+			return name
+		}
+		
+		var prop = context[name]
+		
+		if(prop === undefined || this.scope[name]) return this.resolve(n.name, n)
+		
+		if(prop && prop._ast_){
+			var mod = this.module
+			this.module = prop.module
+			var ret = expand(prop, n)
+			this.module = mod
+			return ret
+		}
+		
+		if(typeof prop == 'object'){
+			//!TODO convert to signal
+			deps[name] = proxy_props[name] = 1
+			return 'this.' + name
+		} 
+		else if(typeof prop == 'number'){
+			//!TODO convert to signal
+			deps[name] = proxy_props[name] = 1
+			return 'this.' + name
+		}
+		else throw new Error('Cant generate uniformJS for '+name)
+	}
+	// ok so if we depend on a subobject
+	Key( n ){
+		if(n.remote){
+			var prop_name = n.object.name
+			var dep_name = n.object.name + '.' + n.key.name
+			deps[dep_name] = 1
+			proxy_props[prop_name] = 1
+			return 'this.'+dep_name
+		}
+		return AST.ToJS::Key(n)
+	}
+}
+
+// type serializer
+StructToGLSL( tabs, type, type_flatten ){
+	var ret = '\n' + tabs + 'struct ' + type.name + '{\n'
+	var fields = type.fields
+	for(var name in fields){
+		var field = fields[name]
+		// lets check if we have the type
+		var fname = field.name
+		if(!(fname in glsl_types) && !(fname in type_flatten)){
+			type_flatten[fname] = 1
+			ret = StructToGLSL(tabs, field, type_flatten) + ret
+		}
+		ret += tabs + '\t' + fname + ' ' + name  
+		if(field.dim) ret += '[' + field.dim + '];\n'
+		else ret += ';\n'
+	}  
+	ret += tabs + '};'
+	return ret
+}
+
+// uniform type expander
+UniformTypeExpander( type, parts, base, glname, offset ){
+
+	// lets check if our type is in the mappings
+	var ismat
+	var map = glsl_uniform_map[type.name] || (ismat = glsl_uniform_matrix[type.name])
+	if(map){ // unroll it
+		var viewsize =  AST.viewSize[type.view] 
+		var off = ((type.off || 0) + offset) / viewsize
+
+		parts.init += `\t\t\t\t\t\tshader.ul_${base} = gl.getUniformLocation(shader, "${glname}");\n`
+		var call = 'gl.' + map 
+		if(ismat){
+			call += '(shader.ul_' + base + ',false'
+			var last = off + ((type.dim || 1 ) * type.size) / viewsize 
+			if(off) call += ',v.subarray(' + off + ',' + last +')'
+			else call += ',v'
+		}
+		else{
+			if(type.dim){
+				call += 'v(shader.ul_' + base
+				if(off){ // subarray
+					var last = off + (type.dim * type.size) / viewsize 
+					call += ',v.subarray(' + off + ',' + last + ')'
+				}
+				else{
+					call += ',v'
+				}
+			}
+			else{
+				call += '(shader.ul_' + base
+				if(type.slots == 1){
+					if(off) call += ',v[' + off + ']'
+					else call += ',v'
+				}
+				else for(var i = 0; i < type.slots; i++){
+					call += ',v[' + (off + i) + ']'
+				}
+			}
+		}
+		call += ')'
+		parts.setters += '\t\t\t\t\t' + call + '\n'
+	}
+	else {
+		if(type.dim){
+			for(var i = 0; i < type.dim; i++){
+				for(var name in type.fields){
+					UniformTypeExpander(type.fields[name], parts, base + '_'  + i + '_' + name, glname + '[' + i + '].' + name , offset + i * type.size)
+				}
+			}
+		}
+		else{
+			// lets set all the fields
+			for(var name in type.fields){
+				var field = type.fields[name]
+				UniformTypeExpander(field, parts, base + '_' + name, glname + '.' + name, offset)
+			}
+		}
+	}
+}
+
+function decodeBlendFactor( node, key ){
+	if(node.type == 'Id') return glc.ONE
+	if(node.type == 'Binary'){
+		var factor = node.left
+		if(node.right.name != key) throw new Error('Blend equation needs to have either pixel or frame on the right side of the *')
+		if(factor.type == 'Binary'){ // its a one minus situation
+			if(factor.op != '-' || factor.left.type != 'Value' || factor.left.value != 1) throw new Error('Invalid blending (only 1- supported)')
+			var name = factor.right.name
+			if(name == 'alpha') return glc.ONE_MINUS_SRC_ALPHA
+			if(name == 'pixel') return glc.ONE_MINUS_SRC_COLOR
+			if(name == 'frame') return glc.ONE_MINUS_DST_COLOR
+			if(name == 'frame_alpha') return glc.ONE_MINUS_DST_ALPHA
+			throw new Error('implement one minus mode')
+		}
+		if(factor.type != 'Id') throw new Error('Invalid blending (factor not an Id)')
+		var name = factor.name
+		if(name == 'alpha') return glc.SRC_ALPHA
+		if(name == 'pixel') return glc.SRC_COLOR
+		if(name == 'frame') return glc.DST_COLOR
+		if(name == 'frame_alpha') return glc.DST_ALPHA
+		// todo constant color and constant alpha
+	}
+	throw new Error('Invalid blending factor (node type invalid)')
+}
+
+DecodeBlendEquation( eq ){
+	var out = {}
+	if(eq.type == 'Binary' && (eq.op == '+' || eq.op == '-')){ // its the main equation
+		var left = eq.left
+		var right = eq.right
+
+		if(eq.op == '+') out.op = glc.FUNC_ADD
+		else if(eq.op == '-') out.op = glc.FUNC_SUBTRACT
+
+		if(left.type == 'Id' && left.name == 'pixel' || 
+		   left.type == 'Binary' && left.right.name == 'pixel'){
+			left = eq.right, right = eq.left
+			if(eq.op == '-') out.op = glc.FUNC_REVERSE_SUBTRACT
+		}
+		// left should be frame, right should be pixel
+		out.dst = decodeBlendFactor(left, 'frame')
+		out.src = decodeBlendFactor(right, 'pixel')
+	}
+	else if(eq.type == 'Binary' && eq.op == '*'){ // its a single mul
+		out.op = glc.FUNC_ADD
+		// the right side needs to be either frame or pixel
+		if(eq.right.name == 'frame'){
+			out.src = glc.ZERO
+			out.dst = decodeBlendFactor(eq, 'frame')
+		}
+		else if(eq.right.name == 'pixel'){
+			out.dst = glc.ZERO
+			out.src = decodeBlendFactor(eq, 'pixel')
+		}
+		else throw new Error('Blend equation needs to have either pixel or frame on the right side of the *')
+	} 
+	else if(eq.type == 'Id'){
+		out.op = glc.FUNC_ADD
+		if(eq.name == 'frame'){
+			out.src = glc.ZERO
+			out.dst = glc.ONE
+		}
+		else if(eq.name == 'pixel'){
+			out.src = glc.ONE
+			out.dst = glc.ZERO
+		}
+		else throw new Error('Blend equation invalid (not frame or pixel)')
+	}
+	else throw new Error('Blend equation invalid (main type) ' + eq.type + ' ' + eq.op)
+	return out
+}

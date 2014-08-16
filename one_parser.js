@@ -1768,28 +1768,16 @@ ONE.parser_strict_ = function(){
 
 			if (starttype === this._name && expr.type === "Id" && this.eat(this._colon)) {
 				node.left = expr
-				if(this.eat(this._eq)) node.lazy = 0
-				else node.lazy = 1
-
-				if(this.tokType != this._braceR){//} && !this.lastSkippedNewlines){
+				if(this.eat(this._eq)){
 					node.right = this.parseNoCommaExpression()
+					this.eat(this._comma)
+					return this.finishNode(node, "Signal")
 				}
-
-				// parse signal metadata
-				while(this.tokType == this._name && this.containsFlag == 35){
-					// parse metadata on our signal
-					var meta = node.meta || (node.meta = [])
-					var meta_node = this.startNode()
-					meta_node.id = this.parseIdent()
-					if(this.eat(this._colon)){
-						meta_node.init = this.parseNoCommaExpression()
-						this.eat(this._comma)
-					}
-					meta.push(this.finishNode(meta_node, "Def"))
+				else{
+					node.quote = this.parseNoCommaExpression()
+					this.eat(this._comma)
+					return this.finishNode(node, "AssignQuote")
 				}
-
-				this.eat(this._comma)
-				return this.finishNode(node, "Signal")
 			} 
 			else {
 				if(this.tokType != this._else) this.semicolon()

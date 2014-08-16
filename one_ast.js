@@ -278,7 +278,6 @@ ONE.ast_ = function(){
 			Unary: { op:0, prefix:0, arg:1 },
 			Binary: { op:0, prio:0, left:1, right:1 },
 			Logic: { op:0, prio:0, left:1, right:1 },
-			Signal: { left:1, right:1, lazy:0, meta:2 },
 			Assign: { op:0, prio:0, left:1, right:1 },
 			Update: { op:0, prio:0, arg:1, prefix:0 },
 			Condition: { test:1, then:1, else:1 },
@@ -289,7 +288,9 @@ ONE.ast_ = function(){
 
 			Class: { id:1, base:1, body:1, extarg:0, catch:1, then:1 },
 
+			Signal: { left:1, right:1 },
 			Quote: { quote:1 },
+			AssignQuote: { left:1, quote:1 },
 			Rest: { id:1, dots:0 },
 			Then: { name:1, do:1 },
 
@@ -533,7 +534,7 @@ ONE.ast_ = function(){
 				n.parent = parent
 				n.genstart = this.line
 
-				if(!this[n.type]) throw new Error(n.type)
+				if(!this[n.type]) throw new Error('Undefined type in ToCode:' + n.type)
 
 				var ret = this[type || n.type](n)
 				n.genend = this.line
@@ -977,15 +978,6 @@ ONE.ast_ = function(){
 				return left + this.space + n.op + this.space + right
 			}
 
-			this.Signal = function( n ){
-				var ret
-				ret = this.expand(n.left, n) + ':'
-				if(!n.lazy) ret += '='
-				if(ret[ret.length - 1] == '\n') ret += this.indent + this.depth
-				ret += this.space + this.expand(n.right, n)
-				return ret
-			}
-
 			this.Assign = function( n ){
 				var left = this.expand(n.left, n)
 				var right = this.expand(n.right, n)
@@ -1041,6 +1033,10 @@ ONE.ast_ = function(){
 				return fn + '(' + arg + ')'
 			}
 
+			this.Nest = function( n ){
+				return this.expand(n.fn, n) + this.expand(n.body, n)
+			}
+
 			this.Class = function( n ){
 				var ret = 'class ' + n.id.name
 				if(n.base) ret += ' extends ' + n.base.name 
@@ -1053,6 +1049,19 @@ ONE.ast_ = function(){
 				return ret
 			}
 
+			this.Signal = function( n ){
+				var left = this.expand(n.left, n)
+				var right = this.expand(n.right, n)
+				return left + ':=' + this.space + quote
+			}
+
+
+			this.AssignQuote = function( n ){
+				var left = this.expand(n.left, n)
+				var quote = this.expand(n.quote, n)
+				return left + ':' + this.space + quote
+			}
+			
 			this.Rest = function( n ){
 				return '...' + this.expand(n.id, n)
 			}
@@ -1354,7 +1363,7 @@ ONE.color_ = function(){
 	this.color = function( col, type ) {
 		var c = this.color_wikipedia[col] // color LUT
 		var a = new Float32Array(3)
-		a.t = type
+		a._t_ = type
 		if( c === undefined ){
 			// lets parse the color
 			var len = col.length

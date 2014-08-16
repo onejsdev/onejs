@@ -1,6 +1,5 @@
 // var {Root, Rect} = load('dom')
 import math
-import dom
 /*
 Dom1(){
 	class MyDiv extends Rect{
@@ -50,7 +49,7 @@ Scoping(){
 				assert($.y == v)
 			}
 		}
-		x = new Nest(30)
+		x = Nest.new(30)
 		assert(x.$.x == 10)
 		assert($.y == 20)
 		assert($.x === undefined)
@@ -86,7 +85,7 @@ Super(){
 		}
 	}
 
-	var base = new Base()
+	var base = Base.new()
 	base.fn()
 	assert( order == '4321' )
 }
@@ -97,7 +96,7 @@ Roles(){
 	class Role3{ a = 40, b = 50 }
 	class C1{ a = 10 }
 
-	var x = new C1()
+	var x = C1.new()
 	C1.learn(Role1)
 	C1.learn(Role2)
 	C1.learn(Role3)
@@ -120,7 +119,7 @@ Roles(){
 	assert(x.b === undefined)
 
 	class Proto1 extends Role1{}
-	proto = new Proto1()
+	proto = Proto1.new()
 	proto.a == 20
 	proto.hasOwnProperty('a') == false
 	var p = Object.getPrototypeOf(proto)
@@ -212,7 +211,7 @@ Language(){
 		method() -> 1
 		method2(@thisarg){}
 	}
-	cnew = new ctest()
+	cnew = ctest.new()
 	assert( cnew.method() == 1 )
 	// this assignment args
 	cnew.method2(10)

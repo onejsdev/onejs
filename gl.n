@@ -1,0 +1,957 @@
+
+import math
+import track
+import glenums
+import glsl
+
+// super basic meshgens
+vec2Rect( x, y, w, h ){
+	return vec2[6](
+		x,y,   x+w,y,   x,y+h
+		x+w,y, x+w,y+h, x,y+h
+	)
+}
+
+vec3Rect( x, y, w, h, z = 0 ){
+	return vec3[6](
+		x,y,z,   x+w,y,z,   x,y+h,z
+		x+w,y,z, x+w,y+h,z, x,y+h,z
+	)
+}
+
+vec4Rect( x, y, w, h, z = 0, ww = 1 ){
+	return vec4[6](
+		x,y,z,ww,   x+w,y,z,ww,   x,y+h,z,ww
+		x+w,y,z,ww, x+w,y+h,z,ww, x,y+h,z,ww
+	)
+}
+
+class Node extends Proxy{
+
+	// make a singleton copy of Time
+	this.Time = Time{}
+
+	// API available in draw
+	clearAll:( vec3 col ){
+		gl.clearColor(col[0], col[1], col[2], 1.0)
+		//gl.colorMask(true, true, true, true)
+		gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT|gl.STENCIL_BUFFER_BIT)
+	}
+
+	clearAll_:( vec4 col ){
+		gl.clearColor(col[0], col[1], col[2], col[3])
+		gl.clearDepth( 1 )
+		gl.clearStencil( 0 )
+		//gl.colorMask(true, true, true, true)
+		gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT|gl.STENCIL_BUFFER_BIT)
+	}
+	
+	drawChildren:(){
+		if(children) for(var c from children) c.draw()
+	}
+	
+	
+	lockBuffer_:(){
+		return lockBuffer(gl.width, gl.height, false)
+	}
+
+	lockBuffer:(width, height, flat){
+		var buffers = gl._buffers || (gl._buffers = {})
+		var id = '_' + width + '_' + height
+		var buf_array = buffers[id]
+		if(!buf_array) buf_array = buffers[id] = []
+	
+		var buf = buf_array.pop()
+		if(!buf){
+			buf = gl.createFramebuffer()
+			var tex = buf.tex = gl.createTexture()
+			gl.bindTexture(gl.TEXTURE_2D, tex)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+
+			if(!flat){
+				var zbuf = buf.zbuf gl.createRenderbuffer()
+
+				gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
+
+	    		gl.bindRenderbuffer(gl.RENDERBUFFER, zbuf)
+	    		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, width, height)
+				gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, buf.zbuf);
+
+				gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+			}
+			gl.bindTexture(gl.TEXTURE_2D, null)
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+			buf.width = width
+			buf.height = height
+			buf.loaded = true
+		}
+		return buf
+	}
+
+	releaseBuffer:(buf){
+		var buffers = gl._buffers || (gl._buffers = {})
+		var id = '_' + buf.width + '_' + buf.height
+		var buf_array = buffers[id]
+		buf_array.push(buf)
+	}
+
+	pushBuffer:(buf){
+		if(!gl._bufstack) gl._bufstack = []
+		gl._bufstack.push(buf)
+		gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
+		//gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
+		gl.viewport(0, 0, buf.width, buf.height)
+	}
+
+	popBuffer:(){
+		var buf = gl._bufstack.pop()
+
+		if(gl._bufstack.length){
+			var buf = gl._bufstack[gl._bufstack.length - 1]
+			gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
+			//gl.frameBufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
+			//gl.viewport(0, 0, buf.width, buf.height)
+		}
+		else{
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+			//gl.bindTexture(gl.TEXTURE_2D, null)
+			//gl.viewport(0, 0, gl.width, gl.height)
+		}
+
+	}
+
+	// default draw
+	draw:(){
+		drawSelf()
+	}
+
+	init:(){
+		if(!owner.children) owner.children = []
+		owner.children.push(this)
+		gl = owner.gl
+	}
+
+	blend: alpha * pixel + (1 - alpha) * frame
+
+	depth: pixel <= frame
+
+	stencil: true
+
+	// the proxy code generator
+	proxy(){
+		// so lets stringify it.
+		var code = draw.proxy_code
+		if(code) return Proxy::proxy() + code
+
+		code = ''
+
+		var ast = draw
+		// make a fresh scope and signals store
+		var js = this.GenDrawJS
+		js.new_state()
+		// plug the module of the ast node
+		js.module = ast.module
+		js.context = this
+		js.proxy_props = proxy_props = {}
+		js.proxy_refs = proxy_refs = {'owner':{}}
+
+		js.uid = 0
+		if(ast.type != 'Function') throw new Error('GL Draw not a function')
+		
+		var flags = js.pull_flags(ast)
+		profile(1) do ->
+		code += 'this.draw = ' + js.Function(ast, undefined, [], undefined, ['gl']) + '\n'
+
+		// we have to generate redraw binding code for proxy_bind
+		var rem = 'this.remove = function(){\n'
+
+		for(var ref in proxy_refs){
+			var props = proxy_refs[ref]
+			for(var prop in props){
+				var pname = 'this.' + ref + '.' + prop
+				code += 'if(' + pname + '_hook)' + pname + '_hook(this)\n'
+				rem += '\tif(' + pname + '_unhook)' + pname + '_unhook(this)\n'
+			}
+		}
+		rem += '}\n'
+		code += rem
+
+		if(flags.indexOf('js') != -1) out(code)
+		
+		// prepend static type_methods
+		for(var k in js.type_methods){
+			code = js.type_methods[k] + '\n'+ code
+		}
+
+		draw.proxy_remote = code
+
+		if(dump) console.log(code)
+
+		return Proxy::proxy() + code
+	}
+
+	type: triangle
+
+	var fake_module = {types:{},imports:[],defines:{}}
+
+	class GenDrawJS extends AST.ToJS{
+		
+		context_resolve( name, n ){
+			if(typeof context[name] !== 'undefined'){
+				proxy_props[name] = 1
+				n.infer = context[name]._t_ || float
+				return 'this.' + name
+			}
+		}
+
+		Nest(n){
+			// ok lets build up the resolution stack.
+			if(n.fn.name != 'Draw') throw new Error('Only support Draw blocks')			
+			// how does that work?
+			// lets enumerate n.fn.body
+			for(var step from n.body.steps){
+				// we support single id's
+				// and quote assigns
+			}	
+		}
+
+		_compile_drawSelf( n ){
+		
+			var uid = 'd' + ++this.uid
+
+			var samplers = GenGLSL.samplers = {}
+
+			// forward module and context
+			GenGLSL.context = context
+			var attribs = GenGLSL.attribs = Object.create(null)
+			var sub_attribs = GenGLSL.sub_attribs = Object.create(null)
+
+			DepTraceGLSL.context = context
+			
+			var pix = context.pixel
+			// handle case where pixel is a plain value
+			if(pix !== undefined && !pix._ast_) pix = {type:'Id', name:'pixel', module:fake_module}
+			if(!pix) throw new Error('Unexpected pixel type')
+			
+			// deptrace the pixelshader
+			GenGLSL.pixel = DepTraceGLSL.pixel = 1
+			DepTraceGLSL.proxy_refs = proxy_refs
+			GenGLSL.refcount = DepTraceGLSL.refcount = {}
+			
+			var alpha = context.alpha
+			if(alpha){
+				// alpha is a plain value
+				if(!alpha._ast_) alpha = {type:'Id', name:'alpha', module:fake_module}
+				DepTraceGLSL.module = alpha.module
+				DepTraceGLSL[alpha.type](alpha)
+			}
+
+			DepTraceGLSL.module = pix.module
+			DepTraceGLSL[pix.type](pix)
+
+			//log(pix.bind.toDump())
+			
+			// codegen the pixelshader
+			GenGLSL.uniform_id = 0
+			GenGLSL.varying_id = 0
+			GenGLSL.tmpvar_id = 0
+
+			var pix_type_methods = GenGLSL.type_methods = {}
+			var pix_uniforms = GenGLSL.uniforms = []
+			var varyings = GenGLSL.varyings = []
+			var pix_tmpvars = GenGLSL.tmpvars = []
+			var pix_types = GenGLSL.types = {}
+			var signal_deps = GenGLSL.sigdeps = []
+			// generate pixel shader GLSL
+			GenGLSL.module = pix.module
+			var pix_expr = GenGLSL.expand(pix)
+
+			var alpha_expr
+			
+			if(alpha){
+				GenGLSL.module = alpha.module
+				alpha_expr = GenGLSL.expand(alpha)
+			}
+
+			var always_opaque
+			if(pix.infer.name == 'vec3'){
+				if(alpha){
+					pix_expr = 'vec4(' + pix_expr + ',' + alpha_expr + ')'
+				}
+				else{
+					always_opaque = true
+					pix_expr = 'vec4(' + pix_expr + ',' + '1.)'
+				}
+			} 
+			else if(alpha){
+				pix_expr = 'vec4((' + pix_expr +').rgb,' + alpha_expr + ')' 
+			}
+
+			// pull the vertex property from our context
+			var vtx = context.vertex
+			if(!vtx || !vtx._ast_) throw new Error('Unexpected vertex type')
+			// dependency trace vertex shader
+			GenGLSL.pixel = DepTraceGLSL.pixel = 0
+			GenGLSL.refcount = DepTraceGLSL.refcount = {}
+			GenGLSL.module = vtx.module
+			GenGLSL.types = vtx_types
+
+			DepTraceGLSL.module = vtx.module
+			DepTraceGLSL[vtx.type](vtx)
+
+			var vtx_type_methods = GenGLSL.type_methods = {}
+			var vtx_uniforms = GenGLSL.uniforms = []
+			var vtx_tmpvars = GenGLSL.tmpvars = []
+			var vtx_types = GenGLSL.types = {}
+			// generate vertex shader GLSL
+			var vtx_expr = GenGLSL.expand(vtx)
+			
+			// patch up vertex position types just like color
+			if(vtx.infer.name == 'vec3'){
+				vtx_expr = 'vec4(' + vtx_expr + ',1.)'
+			} 
+			else if(vtx.infer.name == 'vec2'){
+				vtx_expr = 'vec4(' + vtx_expr + ',0.,1.)'
+			} 
+
+			var vary_merged = ''
+			var vary_decl = ''
+			var vary_assign = ''
+			var attr_decl = ''
+			var pix_uni_decl = ''
+			var vtx_uni_decl = ''
+			var ret = ''
+			
+			// merge identical varyings
+			var vary_merge = {}
+			// generate varying assigns
+			for(var vary from varyings){
+				
+				GenGLSL.uniforms = vtx_uniforms
+				var code = GenGLSL.expand(vary.node)
+				var typename = vary.node.infer.name
+				var key = typename + code
+				var merge = vary_merge[key]
+				if(?merge){
+					vary_merged += `
+				#define ${vary.name} ${merge}
+					`
+					continue
+				}
+				vary_merge[key] = vary.name
+				vary_decl +=`
+				varying ${typename} ${vary.name};
+				`
+				vary_assign += `
+					${vary.name} = ${code};
+				`
+			}
+			
+			// generate pixel uniform
+			for(var uni from pix_uniforms){
+				var type = uni.node.infer
+				var dim = ''
+				if(type.dim) dim = '[' + type.dim + ']'
+				pix_uni_decl += `
+				uniform ${type.name} ${uni.name}${dim};
+				`
+			}
+			
+			// generate vertex uniform
+			for(var uni from vtx_uniforms){
+				var type = uni.node.infer
+				var dim = ''
+				if(type.dim) dim = '[' + type.dim + ']'
+				vtx_uni_decl += `
+				uniform ${type.name} ${uni.name}${dim};
+				`
+			}
+			
+			// generate samplers
+			for(var sam_name in samplers){
+				var sam = samplers[sam_name]
+				if(sam.target&1){ // pixelshader
+					pix_uni_decl += `
+				uniform ${sam.type} ${sam_name};
+					`
+				}
+				if(sam.target&2){ // vertexshader
+					vtx_uni_decl += `
+				uniform ${sam.type} ${sam_name};
+					`
+				}
+			}
+
+			// generate attribute declarations
+			for(var name in attribs){
+				var attr = attribs[name]
+				if(attr.sub){ // sub attribute
+					attr_decl += `
+				attribute ${attr.sub.name} ${name};
+				`
+				}
+				else{
+					attr_decl += `
+				attribute ${attr._t_.name} ${name};
+				`
+				}
+			}
+
+			var pix_tmpcode = ''
+			
+			// generate pixelshader tmpvars
+			for(var i = pix_tmpvars.length - 1; i >=0; i--){
+				var tmp = pix_tmpvars[i]
+				pix_uni_decl += `
+				${tmp.type} ${tmp.name};
+				`
+				pix_tmpcode += `
+					${tmp.name} = ${tmp.value};
+				`
+			}
+
+			var vtx_tmpcode = ''
+
+			// generate vertexshader tmpvars
+			for(var i = vtx_tmpvars.length - 1; i >=0; i--){
+				var tmp = vtx_tmpvars[i]
+				vtx_uni_decl += `
+				${tmp.type} ${tmp.name}
+				`
+				vtx_tmpcode += `
+					${tmp.name} = ${tmp.value};
+				`
+			}
+			// generate pixelshader methods
+			var pix_method_decl = ''
+			for(var method in pix_type_methods){
+				pix_method_decl += `
+				${pix_type_methods[method]}
+				`
+			}
+
+			// generate vertex shader methods
+			var vtx_method_decl = ''
+			for(var method in vtx_type_methods){
+				vtx_method_decl += `
+				${vtx_type_methods[method]}
+				`
+			}
+
+			// generate pixelshader types
+			var pix_type_decl = ''
+			var pix_type_flat = Object.create(null)
+			for(var type in pix_types){
+				pix_type_decl += StructToGLSL('\t\t\t\t',pix_types[type], pix_type_flat)
+			}
+
+			// generate pixelshader types
+			var vtx_type_decl = ''
+			var vtx_type_flat = Object.create(null)
+			for(var type in vtx_types){
+				vtx_type_decl += StructToGLSL('\t\t\t\t',vtx_types[type], pix_type_flat)
+			}
+
+			// pixel shader
+			var pix_shader = `
+				precision highp float;${pix_type_decl}
+				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
+				void main(){
+					${pix_tmpcode}
+					gl_FragColor = ${pix_expr};
+				}
+			`
+
+			// vertex shader
+			var vtx_shader = `
+				precision highp float;${vtx_type_decl}
+				${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
+				void main(){
+					${vtx_tmpcode}
+					gl_Position = ${vtx_expr};
+					${vary_assign}
+				}
+			`
+			// the shader compiler code body
+			ret += `
+				var shader = this.${uid}_shader
+				if(!shader){
+					var pix_source = "${pix_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')}"
+					var vtx_source = "${vtx_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')}"
+					var cache_key = pix_source + vtx_source
+					shader = gl._shadercache[cache_key]
+					if(!shader){
+						var pix_shader = gl.createShader(${glc.FRAGMENT_SHADER})
+						
+						gl.shaderSource(pix_shader, pix_source)
+						gl.compileShader(pix_shader)
+						if (!gl.getShaderParameter(pix_shader, ${glc.COMPILE_STATUS})){
+							var err = gl.getShaderInfoLog(pix_shader)
+							console.log(err.toString())
+							throw new Error(err)
+						}
+						
+						var vtx_shader = gl.createShader(${glc.VERTEX_SHADER})
+						gl.shaderSource(vtx_shader, vtx_source)
+						gl.compileShader(vtx_shader)
+						if (!gl.getShaderParameter(vtx_shader, ${glc.COMPILE_STATUS})){
+							var err = gl.getShaderInfoLog(vtx_shader)
+							console.log(err.toString())
+							throw new Error(err)
+						}
+						
+						shader = gl.createProgram()
+						gl.attachShader(shader, vtx_shader)
+						gl.attachShader(shader, pix_shader)
+						gl.linkProgram(shader)
+						gl._shadercache[cache_key] = shader
+			`
+
+			// generate sampler uniform fetch
+			for(var sam_name in samplers){
+				ret += `
+						shader.ul_${sam_name} = gl.getUniformLocation(shader, "${sam_name}")`
+			}
+
+			// uniform expander helpers
+			GenUniformJS.store_tempid = 1000*this.uid + 1
+
+			GenUniformJS.type_methods = type_methods
+			var uniform_parts = {
+				init:'',
+				setters:''
+			}
+
+			// generate uniform setters
+			for(var uni from pix_uniforms.concat(vtx_uniforms)){
+				GenUniformJS.module = uni.module
+				GenUniformJS.context = context
+				GenUniformJS.proxy_props = proxy_props
+				var deps = GenUniformJS.deps = Object.create(null)
+
+				var js = GenUniformJS.expand(uni.node, n)
+				
+				var if_str = ''
+				var as_str = ''
+				for(var k in deps){
+					var store = k.replace('.', '_')
+					if(if_str)if_str += ' || ', as_str += ', '
+					if_str += `shader.uv_${uni.name}_${store} !== this.${k}`
+					as_str += `shader.uv_${uni.name}_${store} = this.${k}`
+				}
+
+				uniform_parts.setters += `
+				if(${if_str}){
+					${as_str}
+					var v = ${js}\n`
+
+				UniformTypeExpander(uni.node.infer, uniform_parts, uni.name, uni.name, 0)
+
+				uniform_parts.setters += `
+				}`
+			}
+
+			ret += '\n'+uniform_parts.init
+
+			// fetch attribute locations
+			for(var name in attribs)ret += `
+						shader.al_${name} = gl.getAttribLocation(shader, "${name}")`
+		
+			// cache shader
+			ret += 	`
+					}
+					this.${uid}_shader = shader`
+
+
+			// create sub attribute buffers
+			for(var name in sub_attribs){
+				ret += `
+					this.${uid}_vb_${name} = gl.createBuffer()`					
+			}
+
+			// create attribute buffers
+			for(var name in attribs){
+				if(attribs[name].sub) continue
+				ret += `
+					this.${uid}_vb_${name} = gl.createBuffer()`					
+			}
+
+			// done with the shader compile
+			ret += `
+				}
+				gl.useProgram(shader)
+			`
+			var len = 0
+
+			// sub attributes
+			for(var name in sub_attribs){
+				var sub_attr = sub_attribs[name]
+
+				proxy_props[name] = 1
+
+				var data = context[name]
+				var newlen = data.buffer.byteLength / data._t_.size
+				if(len && newlen && len != newlen) throw new Error('Attribute arrays are not of the same length '+len+' and '+newlen)
+				len = newlen
+
+				ret += `
+				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
+				var arr_buf = this.${name}.buffer
+				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
+					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
+					arr_buf.clean = this.${uid}_vb_${name}.clean = true
+				}
+				`
+				for(var sub in sub_attr){
+					var type = sub_attr[sub]._t_
+					var sub_type = type.fields[sub]
+					var full_name = name + '_' + sub
+
+					ret +=`
+				var al = shader.al_${full_name}
+				gl.enableVertexAttribArray(al)
+				gl.vertexAttribPointer(al, ${sub_type.slots}, ${glc.FLOAT}, false, ${type.size}, ${sub_type.off})
+				`
+				}
+			}
+
+			// plain attributes
+			for(var name in attribs){
+				var attr = attribs[name]
+				if(attr.sub) continue
+				var type = attr._t_
+
+				var newlen
+				newlen = attr.buffer.byteLength / attr._t_.size
+				if(len && newlen && len != newlen) throw new Error('Attribute arrays are not of the same length '+len+' and '+newlen)
+				len = newlen
+
+				proxy_props[name] = 1
+				ret += `
+				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
+				var arr_buf = this.${name}.buffer
+				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
+					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
+					arr_buf.clean = this.${uid}_vb_${name}.clean = true
+				}
+				var al = shader.al_${name}
+				gl.enableVertexAttribArray(al)
+				gl.vertexAttribPointer(al, ${type.slots}, ${glc.FLOAT}, false, ${type.size}, 0)
+				`
+			}
+			
+			// samplers
+			var tex_id = 0
+			for(var sam_name in samplers){
+				var sam = samplers[sam_name]
+				var state = sam.state
+				// alright we now have to set up the texture.
+				ret += `
+				if(this.${sam.source}.loaded){
+					var tex
+					if(!(tex = this.${sam.source}.tex || this.${sam.source}.${sam_name})){
+						this.${sam.source}.${sam_name} = tex = gl.createTexture()
+						gl.bindTexture(${glc.TEXTURE_2D}, tex)
+						gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, this.${sam.source}.img)
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_MAG_FILTER}, ${glc[state.MAG_FILTER]})
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_S}, ${glc[state.WRAP_S]})
+						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_T}, ${glc[state.WRAP_T]})
+					`
+					if(sam.ismip) ret += `
+						gl.generateMipmap(${glc.TEXTURE_2D})
+					`
+					ret +=`
+						gl.bindTexture(${glc.TEXTURE_2D}, null)
+					}
+					gl.activeTexture(${glc.TEXTURE0 + tex_id})
+					gl.bindTexture(${glc.TEXTURE_2D}, tex)
+					gl.uniform1i(shader.ul_${sam_name}, ${tex_id})
+				}
+				`
+				tex_id ++ 
+			}
+
+			// alpha blending decoding
+			var color_blend = DecodeBlendEquation(context.blend)
+			if(context.blend_alpha){
+				var alpha_blend = context.blend_alpha
+				ret += `
+				gl.enable(${glc.BLEND})
+				gl.blendEquationSeparate(${color_blend.op},${alpha_blend.op})
+				gl.blendFuncSeparate(${color_blend.src},${color_blend.dst},${alpha_blend.src},${alpha_blend.dst})
+				`
+			}
+			else if(color_blend){
+				if((always_opaque && color_blend.op == glc.FUNC_ADD && color_blend.dst == glc.ONE_MINUS_SRC_ALPHA && color_blend.src == glc.SRC_ALPHA) ||
+					color_blend.op == glc.FUNC_ADD && color_blend.dst == glc.ZERO && color_blend.src == glc.ONE){
+					ret += `
+				gl.disable(${glc.BLEND})
+				`
+				}
+				ret += `
+				gl.enable(${glc.BLEND})
+				gl.blendEquation(${color_blend.op})
+				gl.blendFunc(${color_blend.src},${color_blend.dst})
+				`
+			}
+
+			// fix the depth check
+			var depth = context.depth
+			if(depth){
+				if(depth.type == 'Value' && (depth.value === true || depth.value === false)){
+					if(depth.value === true) ret += `
+				gl.disable(${glc.DEPTH_TEST})
+					`
+					else ret += `
+				gl.enable(${glc.DEPTH_TEST})
+				gl.depthFunc(${glc.NEVER})
+					`
+				} 
+				else if(depth.type == 'Logic' && depth.left.name == 'pixel' && depth.right.name == 'frame'){
+					ret +=`
+				gl.enable(${glc.DEPTH_TEST})
+				gl.depthFunc(${glsl_compare[depth.op]})
+					`
+				}
+			}
+			else throw new Error('Unsupported depth equation')
+
+			// drawing function
+			ret += `
+				${uniform_parts.setters}
+				gl.drawArrays(${glc.TRIANGLES}, 0, ${len})
+			`
+			// correctly indent the code
+			ret = ret.replace(/\n\t\t\t\t/g, '\n' + this.indent)
+			return ret
+		}
+	}
+}
+
+// lets first load up the image somehow
+class Image extends Proxy{
+	
+	_sampler2D_ =  1
+	_image_ = 1
+
+	size = vec2(0,0)
+
+	url(geturl){
+		var obj = new()
+		obj.url = geturl
+		obj.proxy_props = {url:1}
+		return obj
+	}
+
+	// framebuffer constructors
+	rgb8(){}
+	rgb8_d(){}
+	rgb8_s(){}
+	rgb8_ds(){}
+	rgba8(){}
+	rgba8_d(){}
+	rgba8_s(){}
+	rgba8_ds(){}
+
+	rgb16(){}
+	rgb16_d(){}
+	rgb16_s(){}
+	rgb16_ds(){}
+	rgba16(){}
+	rgba16_d(){}
+	rgba16_s(){}
+	rgba16_ds(){}
+
+	rgb32(){}
+	rgb32_d(){}
+	rgb32_s(){}
+	rgb32_ds(){}
+	rgba32(){}
+	rgba32_d(){}
+	rgba32_s(){}
+	rgba32_ds(){}
+
+	// remote initializer
+	init:(parent){
+		if(url){
+			img = new window.Image()
+			img.onload()=>{
+				loaded = true
+			}
+			img.src = url
+		}
+	}
+
+	call:(float x, float y){
+		return texture2D(this, vec2(x, y), {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	call_:(vec2 p){
+		return texture2D(this, p, {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	sample:(vec2 v){
+		return texture2D(this, v, {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	index:(int i){
+		return texture2D(this, v, {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+}
+
+class Device extends Node{
+
+	fill = #black
+
+	w := 0
+	h := 0
+	aspect := 0
+	ratio := 1
+	frame := 0
+
+	draw:(){
+		clearAll(fill)
+	}
+
+	init:(parent){
+		children = []
+		if(!parent) parent = document.body
+
+		canvas = document.createElement("canvas")
+		parent.appendChild(canvas)
+		var _gl = gl = canvas.getContext('webgl',{
+			alpha: false,
+			depth: true,
+			stencil: true,
+			antialias: false,
+			premultipliedAlpha: false,
+			preserveDrawingBuffer: true
+		})
+
+		// debugtracer for gl api
+		function gl_tracer(gl){
+			var gl_rev = {}
+			function gl_trace( name, original ){
+				return function(){
+					if(window._gl_stop_trace) return original.apply(gl, arguments)
+					var str = [];
+					for(var i = 0; i<arguments.length; i++){
+						var a = arguments[i], t
+						if(a && (t = glrev[a])) str.push(a + " = gl." + t + "")
+						else if(a === undefined) str.push('undefined')
+						else if(a === null) str.push('null')
+						else str.push(a)
+					}
+					var ret = original.apply(gl, arguments)
+					console.log("gl." + name + "(" + str.join(", ") + ")" + ((ret !== undefined)?(" -> " + ret):""))
+					return ret
+				}
+			}			
+			for(var key in gl){
+				if(typeof gl[key] == 'function'){
+					var remap = '__' + key
+					gl[key] = gl_trace(key, gl[remap] = gl[key])
+
+					gldump( k )
+				} else {
+					glrev[gl[k]] = k;
+				}
+			}
+		}
+		if(this.debug) gl_tracer(gl)
+
+		//canvas.webkitRequestFullscreen()
+		window.onresize = =>{
+			var pixelRatio = window.devicePixelRatio
+			var w = parent.offsetWidth
+			var h = parent.offsetHeight
+			var sw = w * pixelRatio
+			var sh = h * pixelRatio
+			gl.width = canvas.width = sw
+			gl.height = canvas.height = sh
+			canvas.style.width = w + 'px'
+			canvas.style.height = h + 'px'
+			if(_gl)_gl.viewport(0, 0, sw, sh)
+		}
+		window.onresize()
+		gl._shadercache = {}
+
+		last = 0
+		var count = 0
+		anim_req = false
+		// lets request an init
+		drawloop(time)=>{
+			// check if we are looping
+			if(anim_hooks.length){
+				anim_req = true
+				window.requestAnimationFrame(drawloop)
+			}
+
+			//document.title = parseInt(1000/(time-last))+'fps'
+			last = time
+			// call update
+			if(!start) start = time
+			sec = (time - start) / 1000
+
+			for(var a from anim_hooks){
+				a(sec)
+			}
+			draw()
+			for(var c from children){
+				c.draw()
+			}
+			//if(!window._glstop)console.log('---- FRAME DONE ----')
+			if(count++ == 1)window._glstop = 1
+		}
+
+		changed(node){
+
+		}
+
+		anim_hooks = []
+
+		anim_hook(cb){
+			var idx = anim_hooks.push(cb) - 1
+			if(!idx && !anim_req){
+				anim_req = true
+				window.requestAnimationFrame(drawloop)
+			}
+			return idx
+		}
+
+		anim_unhook(cb, idx){
+			var idx = anim_hooks.indexOf(cb)
+			if(idx != -1) anim_hooks.splice(idx, 1)
+		}
+
+		anim_req = true
+		window.requestAnimationFrame(drawloop)
+	}
+}

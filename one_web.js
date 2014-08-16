@@ -129,31 +129,25 @@ ONE.proxy_ = function(){
 			}
 		}
 		
-		this.proxy = function( ){
-			var arg = arguments
-			var len = arguments.length
-			if(!len) arg = [this.on_init], len = 1
-			var code = ''
-			for(var i = 0; i < len; i++){
-				var signal = arg[i]
-				if(!signal) continue
-				
-				var key = signal.key
+		this.proxy = function( methods ){
+			if(!methods) methods = {init:this.init}
 
-				var proxy_code = signal.proxy_code
+			var code = ''
+			for(var key in methods){
+				var method = methods[key]
+				var proxy_code = method.proxy_code
 				if(proxy_code){
 					code += proxy_code
 					continue
 				}
 
-				var ast = signal.value
-				if(!ast._ast_) throw new Error('invalid signal type')
+				if(!method._ast_) throw new Error('invalid proxy method')
 				var js = this.AST.ToJS
 				js.new_state()
-				js.module = ast.module
-				code += 'this.' + key + ' = ' + js.expand(ast) + '\n'
+				js.module = method.module
+				code += 'this.' + key + ' = ' + js.expand(method) + '\n'
 
-				signal.proxy_code = code
+				method.proxy_code = code
 			}
 			var refs = this.proxy_refs
 			if(refs){

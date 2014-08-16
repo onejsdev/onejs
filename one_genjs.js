@@ -38,7 +38,7 @@ ONE.genjs_ = function(modules, parserCache){
 		this.store_prefix = '_\u0455'
 		this.template_marker = '\_\u0445_'
 		this.template_regex = /\_\u0445\_/g
-		
+
 		this.new_state = function(){
 			this.signals = []
 			this.line = 0
@@ -576,7 +576,7 @@ ONE.genjs_ = function(modules, parserCache){
 							
 							this.module[ret_type.name] = ret_type
 							var ret = '('+output+'= new '+ret_type.view+'Array(' + swiz.length + '),' + 
-										output + '.t=module.' + ret_type.name
+										output + '._t_=module.' + ret_type.name
 
 							for(var i = 0;i<swiz.length;i++){
 								ret += ','+output+'['+i+'] = ' + base + '[' + voff + '+' + swiz[i] + ']'
@@ -603,7 +603,7 @@ ONE.genjs_ = function(modules, parserCache){
 							this.find_function(n).call_var = 1
 							if(voff == '0') return base
 							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + '),'+
-								this.call_tmpvar+'.t=module.'+type.name+','+this.call_tmpvar+')'
+								this.call_tmpvar+'._t_=module.'+type.name+','+this.call_tmpvar+')'
 						}
 						return base + '[' + voff+ ']'
 					}
@@ -1387,7 +1387,7 @@ ONE.genjs_ = function(modules, parserCache){
 						var fn = this.find_function(n.parent)
 						if(fn && fn.root){
 							// export the method
-							this.module.exports[name] = n
+							this.module.exports[n.name] = n
 						}
 						ret += this.expand(n.name, n) + this.space + '=' + this.space
 						//console.log(ret)
@@ -1527,45 +1527,40 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			ret = 'this.signal("'+id+'",'
 
-			if(!n.lazy){
-				ret += this.expand(n.right, n)
-				ret += ')'
+			// and it also supports local vars
+			// we need to check for % vars and pass them into parse.
+			var esc = outer.ToEscaped
+			var tpl = esc.templates = {}
+			var locals = esc.locals = {}
+			
+			// if we have a variable in scope, we need to bind the expression to it
+			esc.scope = this.scope
+			
+			esc.depth = this.depth
+			var body = esc.expand(n.right, n)
+			
+			// cache the AST for parse()
+			parserCache[body] = n.right
+			
+			var obj = ''
+			for( var name in tpl ){
+				if(obj) obj += ','
+				obj += name+':'+(name in this.scope?name:'this.'+name)
 			}
-			else{
-				// and it also supports local vars
-				// we need to check for % vars and pass them into parse.
-				var esc = outer.ToEscaped
-				var tpl = esc.templates = {}
-				var locals = esc.locals = {}
-				
-				// if we have a variable in scope, we need to bind the expression to it
-				esc.scope = this.scope
-				
-				esc.depth = this.depth
-				var body = esc.expand(n.right, n)
-				
-				// cache the AST for parse()
-				parserCache[body] = n.right
-				
-				var obj = ''
-				for( var name in tpl ){
-					if(obj) obj += ','
-					obj += name+':'+(name in this.scope?name:'this.'+name)
-				}
-				var localstr = ''
-				for( var local in locals ){
-					if(local) obj += ','
-					localstr += name+':'+name
-				}
-				
-				ret +=  'this._parse("' + body + '",module'
-				if( localstr ) ret += ',{' + localstr + '}'
-				if( obj ){
-					if(!localstr) ret += ',null'
-					ret += ',{' + obj + '}'
-				}
-				ret += '))'
+			var localstr = ''
+			for( var local in locals ){
+				if(local) obj += ','
+				localstr += name+':'+name
 			}
+			
+			ret +=  'this._parse("' + body + '",module'
+			if( localstr ) ret += ',{' + localstr + '}'
+			if( obj ){
+				if(!localstr) ret += ',null'
+				ret += ',{' + obj + '}'
+			}
+			ret += '))'
+
 			if(n.meta){
 				for(var i = 0;i<n.meta.length;i++){
 					var meta = n.meta[i]
@@ -1577,7 +1572,7 @@ ONE.genjs_ = function(modules, parserCache){
 			}
 			return ret
 		}
-		
+
 		this.Assign = function( n ){
 			var ret = ''
 			if(n.op == '?='){
@@ -1805,7 +1800,7 @@ ONE.genjs_ = function(modules, parserCache){
 				this.module[type.name] = type
 
 				var alloc = '(' + this.call_tmpvar+'= '+'new ' + type.view + 'Array(' + type.slots + ')'+',' +
-					this.call_tmpvar + '.t=module.' + type.name + ',' + this.call_tmpvar + ')'
+					this.call_tmpvar + '._t_=module.' + type.name + ',' + this.call_tmpvar + ')'
 
 				if(this.store_tempid){
 					var store = 'this.struct_' + (this.store_tempid++)
@@ -1863,12 +1858,12 @@ ONE.genjs_ = function(modules, parserCache){
 				if(dims){
 					var dim_code = this.expand(dims, n) 
 					ret += '(' + dim_code + ')*' + nslots + ')' +
-						',' + output + '.t = Object.create(module.' + type.name + '), ' +
-						output + '.t.dim = ' + dim_code 
+						',' + output + '._t_ = Object.create(module.' + type.name + '), ' +
+						output + '._t_.dim = ' + dim_code 
 				}
 				else{
 					ret += nslots + ')' +
-						',' + output + '.t = module.' + type.name
+						',' + output + '._t_ = module.' + type.name
 				}
 
 				if(this.store_tempid){
@@ -2021,7 +2016,12 @@ ONE.genjs_ = function(modules, parserCache){
 					}
 				}
 			}
-			if(found) throw new Error('Macro '+name+' used but not matching any arg types')
+			if(found){
+				var types = ''
+				for(var i = 0;i<args.length;i++)
+					types += args[i].infer.name
+				throw new Error('Macro '+name+' used but not matching any arg types:' +types)
+			}
 		}
 
 		this.macro_call = function( n, name, args ){
@@ -2346,6 +2346,10 @@ ONE.genjs_ = function(modules, parserCache){
 			return exp + '.call('+exp+', ' + this.Function( n ) + ', this)'
 		}
 		
+		this.AssignQuote = function( n ){
+			return  this.expand(n.left, n) + ' = ' + this.Quote( n )
+		}
+
 		this.Quote = function( n ){
 			// we need to check for % vars and pass them into parse.
 			var esc = outer.ToEscaped
@@ -2461,6 +2465,37 @@ ONE.genjs_compat_ = function(){
 	Function.prototype.prototypeOf = function( other ){
 		return other instanceof this
 	}
+
+	Float32Array.prototype.set = function(x, y){
+		for(var i = 0, l = arguments.length;i < l;i++)this[i] = arguments[i]
+	}
+
+	Float32Array.prototype.__defineGetter__('x', function(){ return this[0] })
+	Float32Array.prototype.__defineGetter__('y', function(){ return this[1] })
+	Float32Array.prototype.__defineGetter__('z', function(){ return this[2] })
+	Float32Array.prototype.__defineGetter__('w', function(){ return this[3] })
+	Float32Array.prototype.__defineGetter__('r', function(){ return this[0] })
+	Float32Array.prototype.__defineGetter__('g', function(){ return this[1] })
+	Float32Array.prototype.__defineGetter__('b', function(){ return this[2] })
+	Float32Array.prototype.__defineGetter__('a', function(){ return this[3] })
+	Float32Array.prototype.__defineGetter__('s', function(){ return this[0] })
+	Float32Array.prototype.__defineGetter__('t', function(){ return this[1] })
+	Float32Array.prototype.__defineGetter__('p', function(){ return this[2] })
+	Float32Array.prototype.__defineGetter__('q', function(){ return this[3] })
+	Float32Array.prototype.__defineSetter__('x', function(v){ this[0] = v })
+	Float32Array.prototype.__defineSetter__('y', function(v){ this[1] = v })
+	Float32Array.prototype.__defineSetter__('z', function(v){ this[2] = v })
+	Float32Array.prototype.__defineSetter__('w', function(v){ this[3] = v })
+	Float32Array.prototype.__defineSetter__('r', function(v){ this[0] = v })
+	Float32Array.prototype.__defineSetter__('g', function(v){ this[1] = v })
+	Float32Array.prototype.__defineSetter__('b', function(v){ this[2] = v })
+	Float32Array.prototype.__defineSetter__('a', function(v){ this[3] = v })
+	Float32Array.prototype.__defineSetter__('s', function(v){ this[0] = v })
+	Float32Array.prototype.__defineSetter__('t', function(v){ this[1] = v })
+	Float32Array.prototype.__defineSetter__('p', function(v){ this[2] = v })
+	Float32Array.prototype.__defineSetter__('q', function(v){ this[3] = v })
+
+	//!TODO add the swizzles: ok now xy yx xyz zyx zxy yzx yzx rgb bgr xyzw wzyx bgra
 
 	Object.defineProperty( Array.prototype, 'last', {
 		configurable:false,
