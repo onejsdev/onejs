@@ -26,7 +26,7 @@ ONE.base_ = function(){
 	// inherit a new class, whilst passing on the scope
 	this.extend = function( outer, role, selfname ){
 
-		if(this.owner) throw new Error("You are extending an instance")
+		if(this.parent) throw new Error("You are extending an instance")
 
 		// variable API
 		if(typeof outer == 'string') selfname = outer, outer = this
@@ -48,15 +48,15 @@ ONE.base_ = function(){
 		return obj
 	}
 
-	// new an object with variable arguments and automatic owner
-	this.new = function( owner ){
+	// new an object with variable arguments and automatic parent
+	this.new = function( parent ){
 
-		if(this.owner !== undefined) throw new Error("You are newing an instance")
+		if(this.parent !== undefined) throw new Error("You are newing an instance")
 
 		var obj = Object.create(this)
 
 		var len = arguments.length
-		Object.defineProperty( obj, 'owner', {value:owner || null, enumerable:false, configurable:false} )
+		Object.defineProperty( obj, 'parent', {value:parent || null, enumerable:false, configurable:false} )
 
 		if(len > 1){
 			if(obj._init) obj._init.apply(obj, Array.prototype.slice.call(arguments, 1))
@@ -71,13 +71,13 @@ ONE.base_ = function(){
 	}
 
 	// call signature for new
-	this.call = function( pthis, role, owner ){
+	this.call = function( pthis, role, parent ){
 		if(pthis !== this) throw new Error("Base.call used with different this")
-		if(this.owner !== undefined) throw new Error("You are newing an instance")
+		if(this.parent !== undefined) throw new Error("You are newing an instance")
 
 		var obj = Object.create(this)
 
-		obj.owner = owner || null
+		obj.parent = parent || null
 
 		if(obj._init) obj._init()
 		else if(obj.init) obj.init()
@@ -93,11 +93,11 @@ ONE.base_ = function(){
 	}
 
 	this.isClass = function(){
-		return this.owner === undefined
+		return this.parent === undefined
 	}
 
 	this.isInstance = function(){
-		return this.owner !== undefined
+		return this.parent !== undefined
 	}
 
 	this.prototypeOf = function( other ){
@@ -550,7 +550,7 @@ ONE.base_ = function(){
 				get:function(){
 					var sig = this[signalStore]					
 					// make an instance copy if needed
-					if(sig.owner != this){
+					if(sig.parent != this){
 						sig = this[signalStore] = this.forkSignal(sig)
 						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
@@ -570,7 +570,7 @@ ONE.base_ = function(){
 				set:function(value){
 					var sig = this[signalStore]
 					// make instance copy if needed
-					if(sig.owner != this){
+					if(sig.parent != this){
 						sig = this[signalStore] = this.forkSignal(sig)
 						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
@@ -578,7 +578,7 @@ ONE.base_ = function(){
 				}
 			})
 		}
-		else if(sig.owner != this){
+		else if(sig.parent != this){
 			sig = this[signalStore] = this.forkSignal(sig)
 			Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 		}
@@ -590,9 +590,9 @@ ONE.base_ = function(){
 
 	this.Signal = {}
 
-	this.Signal.new = function(owner){
+	this.Signal.new = function(parent){
 		var sig = Object.create(this)
-		sig.owner = owner
+		sig.parent = parent
 		return sig
 	}
 
@@ -631,15 +631,15 @@ ONE.base_ = function(){
 	this.Signal.callListeners = function( _value ){
 
 		var value = _value === undefined? this.value: this.value = _value
-		var owner = this.owner
+		var parent = this.parent
 		var proto = this
 		var list
 		var ret
 		while(proto){
 			if(proto.hasOwnProperty('set_list') && (list = proto.set_list)){
-				if(!Array.isArray(list)) ret = list.call(owner, value, this)
+				if(!Array.isArray(list)) ret = list.call(parent, value, this)
 				else for(var i = 0, l = list.length; i < l; i++){
-					ret = list[i].call(owner, value, this)
+					ret = list[i].call(parent, value, this)
 				}
 			}
 			proto = Object.getPrototypeOf(proto)
@@ -707,7 +707,7 @@ ONE.base_ = function(){
 		else if(!Array.isArray(this.set_list)) this.set_list = [this.set_list, set_cb]
 		else this.set_list.push(set_cb)
 
-		if(this.monitor) this.monitor.call(this.owner, set_cb, 'set')
+		if(this.monitor) this.monitor.call(this.parent, set_cb, 'set')
 
 		var sub = Object.create(SetSubscription)
 		sub.signal = this
@@ -730,14 +730,14 @@ ONE.base_ = function(){
 		this.value = value
 		// call all our listeners
 		var proto = this 
-		var owner = this.owner
-		if(this.setter) this.setter.call(owner, value)
+		var parent = this.parent
+		if(this.setter) this.setter.call(parent, value)
 		var list
 		while(proto){
 			if(proto.hasOwnProperty('set_list') && (list = proto.set_list)){
-				if(!Array.isArray(list)) list.call(owner, value)
+				if(!Array.isArray(list)) list.call(parent, value)
 				else for(var i = 0, l = list.length; i < l; i++){
-					list[i].call(owner, value)
+					list[i].call(parent, value)
 				}
 			}
 			proto = Object.getPrototypeOf(proto)
@@ -754,7 +754,7 @@ ONE.base_ = function(){
 		sub.signal = this
 		sub.cb = cb
 
-		if(this.monitor) this.monitor.call(this.owner, set_cb, 'end')
+		if(this.monitor) this.monitor.call(this.parent, set_cb, 'end')
 
 		return sub
 	}
@@ -766,13 +766,13 @@ ONE.base_ = function(){
 		this.ended = true
 		// call end
 		var proto = this 
-		var owner = this.owner
+		var parent = this.parent
 		var list
 		while(proto){
 			if(proto.hasOwnProperty('end_list') && (list = proto.end_list)){
-				if(!Array.isArray(list)) list.call( owner, value, this )
+				if(!Array.isArray(list)) list.call( parent, value, this )
 				else for(var i = 0, l = list.length; i < l; i++){
-					list[i].call( owner, value, this )
+					list[i].call( parent, value, this )
 				}
 			}
 			proto = Object.getPrototypeOf(proto)
@@ -801,7 +801,7 @@ ONE.base_ = function(){
 		sub.signal = this
 		sub.cb = error_cb
 
-		if(this.monitor) this.monitor.call(this.owner, set_cb, 'error')
+		if(this.monitor) this.monitor.call(this.parent, set_cb, 'error')
 
 		return sub
 	}
@@ -817,15 +817,15 @@ ONE.base_ = function(){
 		this.errored = value
 		// call error
 		var proto = this 
-		var owner = this.owner
+		var parent = this.parent
 		var handled
 		var list
 		while(proto){
 			if(proto.hasOwnProperty('error_list') && (list = proto.error_list)){
 				handled = true
-				if(!Array.isArray(list)) list.call(owner, value, next, this)	
+				if(!Array.isArray(list)) list.call(parent, value, next, this)	
 				else for(var i = 0, l = list.length; i < l; i++){
-					list[i].call(owner, value, next, this)
+					list[i].call(parent, value, next, this)
 				}
 			}
 			proto = Object.getPrototypeOf(proto)
@@ -835,7 +835,7 @@ ONE.base_ = function(){
 
 	this.createSignal = function(){
 		var sig = Object.create(this.Signal)
-		sig.owner = this
+		sig.parent = this
 		return sig
 	}
 
@@ -865,14 +865,14 @@ ONE.base_ = function(){
 	// signal wrapper
 	this.wrapSignal = function( wrap ){
 		var sig = Object.create(this.Signal)
-		sig.owner = this
+		sig.parent = this
 		wrap(sig)
 		return sig
 	}
 
 	this.allSignals = function( array ){
 		var sig = Object.create(this.Signal)
-		sig.owner = this
+		sig.parent = this
 		if(!array || !array.length){
 			sig.end()
 			return sig
@@ -900,7 +900,7 @@ ONE.base_ = function(){
 	this.propSignal = function( key, setter ){
 		var sig = Object.create(this.Signal)
 
-		sig.owner = this
+		sig.parent = this
 		sig.key = key
 		sig.setter = setter
 
@@ -910,7 +910,7 @@ ONE.base_ = function(){
 	// fork a signal
 	this.forkSignal = function( signal ){
 		var sig  = Object.create(signal)
-		sig.owner = this
+		sig.parent = this
 		return sig
 	}
 

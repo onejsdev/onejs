@@ -5,28 +5,28 @@ import glenums
 import glsl
 
 // super basic meshgens
-vec2Rect( x, y, w, h ){
+define vec2Rect( x, y, w, h ){
 	return vec2[6](
 		x,y,   x+w,y,   x,y+h
 		x+w,y, x+w,y+h, x,y+h
 	)
 }
 
-vec3Rect( x, y, w, h, z = 0 ){
+define vec3Rect( x, y, w, h, z = 0 ){
 	return vec3[6](
 		x,y,z,   x+w,y,z,   x,y+h,z
 		x+w,y,z, x+w,y+h,z, x,y+h,z
 	)
 }
 
-vec4Rect( x, y, w, h, z = 0, ww = 1 ){
+define vec4Rect( x, y, w, h, z = 0, ww = 1 ){
 	return vec4[6](
 		x,y,z,ww,   x+w,y,z,ww,   x,y+h,z,ww
 		x+w,y,z,ww, x+w,y+h,z,ww, x,y+h,z,ww
 	)
 }
 
-class Node extends Proxy{
+class Draw extends Proxy{
 
 	// make a singleton copy of Time
 	this.Time = Time{}
@@ -128,13 +128,13 @@ class Node extends Proxy{
 
 	// default draw
 	draw:(){
-		drawSelf()
+		this{}
 	}
 
 	init:(){
-		if(!owner.children) owner.children = []
-		owner.children.push(this)
-		gl = owner.gl
+		if(!parent.children) parent.children = []
+		parent.children.push(this)
+		gl = parent.gl
 	}
 
 	blend: alpha * pixel + (1 - alpha) * frame
@@ -157,9 +157,10 @@ class Node extends Proxy{
 		js.new_state()
 		// plug the module of the ast node
 		js.module = ast.module
+		js.imm_locals = ast.imm_locals
 		js.context = this
 		js.proxy_props = proxy_props = {}
-		js.proxy_refs = proxy_refs = {'owner':{}}
+		js.proxy_refs = proxy_refs = {'parent':{}}
 
 		js.uid = 0
 		if(ast.type != 'Function') throw new Error('GL Draw not a function')
@@ -199,42 +200,70 @@ class Node extends Proxy{
 	type: triangle
 
 	var fake_module = {types:{},imports:[],defines:{}}
+	var jsblob_guid = 0
+	var jsblob_guid_lut = {}
 
 	class GenDrawJS extends AST.ToJS{
 		
 		context_resolve( name, n ){
-			if(typeof context[name] !== 'undefined'){
-				proxy_props[name] = 1
-				n.infer = context[name]._t_ || float
-				return 'this.' + name
+			var dist = 0
+			var prop
+			var ctx = context
+			while(ctx && prop === undefined){
+				prop = ctx[name]
+				ctx = ctx.parent
+				dist ++
+			}
+			if(typeof prop === 'function') throw new Error('Cannot use '+name+' because it doesnt exist on the main thread')
+			if(prop !== undefined && typeof prop !== 'function'){
+				proxy_props[name] = dist
+				n.infer = prop._t_ || float
+				return 'this.' + Array(dist).join('parent.') + name
 			}
 		}
 
 		Nest(n){
-			// ok lets build up the resolution stack.
-			if(n.fn.name != 'Draw') throw new Error('Only support Draw blocks')			
-			// how does that work?
-			// lets enumerate n.fn.body
-			for(var step from n.body.steps){
-				// we support single id's
-				// and quote assigns
-			}	
-		}
+			// ok lets create the node we are inheriting from
+			var sub_context
+			if(n.fn.type == 'This'){
+				sub_context = Object.create(context)
+			}
+			else{ // we have to resolve it on imm_locals
+				var name = n.fn.name
+				var obj = imm_locals && imm_locals[name] || context[name]
+				if(!obj) throw new Error('Cannot resolve '+ name + ' in draw')
+				sub_context = Object.create(obj)
+				sub_context.parent = context
+				sub_context.flatten_distance = 1
+			}
 
-		_compile_drawSelf( n ){
-		
+			for(var step from n.body.steps){
+				// we only support prop:value and learn(Other)
+				if(@step.type == 'Call'){ 
+					throw new Error('Todo: Implement Call on immediate mode drawing')
+				}
+				else if(step.type == 'AssignQuote'){
+					// alright lets store the 'quote' on my object
+					sub_context[step.left.name] = step.quote
+					step.quote.imm_locals = scope
+					step.quote.module = module
+				}
+				else throw new Error('Unsupported statement '+step.type+' in immediate mode draw class')
+			}
+
+			// alright lets compile the bastard
 			var uid = 'd' + ++this.uid
 
 			var samplers = GenGLSL.samplers = {}
 
 			// forward module and context
-			GenGLSL.context = context
+			GenGLSL.context = sub_context
 			var attribs = GenGLSL.attribs = Object.create(null)
 			var sub_attribs = GenGLSL.sub_attribs = Object.create(null)
 
-			DepTraceGLSL.context = context
+			DepTraceGLSL.context = sub_context
 			
-			var pix = context.pixel
+			var pix = sub_context.pixel
 			// handle case where pixel is a plain value
 			if(pix !== undefined && !pix._ast_) pix = {type:'Id', name:'pixel', module:fake_module}
 			if(!pix) throw new Error('Unexpected pixel type')
@@ -244,7 +273,7 @@ class Node extends Proxy{
 			DepTraceGLSL.proxy_refs = proxy_refs
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
 			
-			var alpha = context.alpha
+			var alpha = sub_context.alpha
 			if(alpha){
 				// alpha is a plain value
 				if(!alpha._ast_) alpha = {type:'Id', name:'alpha', module:fake_module}
@@ -253,6 +282,8 @@ class Node extends Proxy{
 			}
 
 			DepTraceGLSL.module = pix.module
+			DepTraceGLSL.imm_locals = pix.imm_locals
+			DepTraceGLSL.locals = pix.locals
 			DepTraceGLSL[pix.type](pix)
 
 			//log(pix.bind.toDump())
@@ -270,6 +301,8 @@ class Node extends Proxy{
 			var signal_deps = GenGLSL.sigdeps = []
 			// generate pixel shader GLSL
 			GenGLSL.module = pix.module
+			GenGLSL.imm_locals = pix.imm_locals
+			GenGLSL.locals = pix.locals
 			var pix_expr = GenGLSL.expand(pix)
 
 			var alpha_expr
@@ -294,15 +327,19 @@ class Node extends Proxy{
 			}
 
 			// pull the vertex property from our context
-			var vtx = context.vertex
+			var vtx = sub_context.vertex
 			if(!vtx || !vtx._ast_) throw new Error('Unexpected vertex type')
 			// dependency trace vertex shader
 			GenGLSL.pixel = DepTraceGLSL.pixel = 0
 			GenGLSL.refcount = DepTraceGLSL.refcount = {}
 			GenGLSL.module = vtx.module
+			GenGLSL.imm_locals = vtx.imm_locals
+			GenGLSL.locals = vtx.locals
 			GenGLSL.types = vtx_types
 
 			DepTraceGLSL.module = vtx.module
+			DepTraceGLSL.imm_locals = vtx.imm_locals
+			DepTraceGLSL.locals = vtx.locals
 			DepTraceGLSL[vtx.type](vtx)
 
 			var vtx_type_methods = GenGLSL.type_methods = {}
@@ -480,6 +517,7 @@ class Node extends Proxy{
 			`
 			// the shader compiler code body
 			ret += `
+				var gl = this.gl
 				var shader = this.${uid}_shader
 				if(!shader){
 					var pix_source = "${pix_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')}"
@@ -531,19 +569,27 @@ class Node extends Proxy{
 			// generate uniform setters
 			for(var uni from pix_uniforms.concat(vtx_uniforms)){
 				GenUniformJS.module = uni.module
-				GenUniformJS.context = context
+				GenUniformJS.imm_locals = uni.imm_locals
+				GenUniformJS.locals = uni.locals
+				GenUniformJS.context = sub_context
 				GenUniformJS.proxy_props = proxy_props
 				var deps = GenUniformJS.deps = Object.create(null)
 
 				var js = GenUniformJS.expand(uni.node, n)
+
+				var guid = jsblob_guid_lut[js] || (jsblob_guid_lut[js] = jsblob_guid++)
 				
 				var if_str = ''
 				var as_str = ''
 				for(var k in deps){
+					var dist = deps[k]
+					var name 
+					if(dist < 0) name = k
+					else name = 'this.' + Array(dist).join('parent.') + k
 					var store = k.replace('.', '_')
 					if(if_str)if_str += ' || ', as_str += ', '
-					if_str += `shader.uv_${uni.name}_${store} !== this.${k}`
-					as_str += `shader.uv_${uni.name}_${store} = this.${k}`
+					if_str += `shader.uv_${uni.name}_${store}_${guid} !== ${name}`
+					as_str += `shader.uv_${uni.name}_${store}_${guid} = ${name}`
 				}
 
 				uniform_parts.setters += `
@@ -586,23 +632,24 @@ class Node extends Proxy{
 			ret += `
 				}
 				gl.useProgram(shader)
+				var item_count = 0
 			`
-			var len = 0
 
 			// sub attributes
 			for(var name in sub_attribs){
 				var sub_attr = sub_attribs[name]
 
-				proxy_props[name] = 1
-
-				var data = context[name]
-				var newlen = data.buffer.byteLength / data._t_.size
-				if(len && newlen && len != newlen) throw new Error('Attribute arrays are not of the same length '+len+' and '+newlen)
-				len = newlen
+				if(sub_attr._local_){
+					buf_name = name
+				}
+				else{
+					buf_name = 'this.' + name
+					proxy_props[name] = 1
+				}
 
 				ret += `
 				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
-				var arr_buf = this.${name}.buffer
+				var arr_buf = buf_name.buffer
 				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
 					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
 					arr_buf.clean = this.${uid}_vb_${name}.clean = true
@@ -617,6 +664,7 @@ class Node extends Proxy{
 				var al = shader.al_${full_name}
 				gl.enableVertexAttribArray(al)
 				gl.vertexAttribPointer(al, ${sub_type.slots}, ${glc.FLOAT}, false, ${type.size}, ${sub_type.off})
+				item_count = arr_buf.byteLength / ${sub_attr._t_.size}
 				`
 				}
 			}
@@ -626,16 +674,18 @@ class Node extends Proxy{
 				var attr = attribs[name]
 				if(attr.sub) continue
 				var type = attr._t_
+				var buf_name
+				if(attr._local_){
+					buf_name = name
+				}
+				else{
+					buf_name = 'this.'+name
+					proxy_props[name] = 1
+				}
 
-				var newlen
-				newlen = attr.buffer.byteLength / attr._t_.size
-				if(len && newlen && len != newlen) throw new Error('Attribute arrays are not of the same length '+len+' and '+newlen)
-				len = newlen
-
-				proxy_props[name] = 1
 				ret += `
 				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
-				var arr_buf = this.${name}.buffer
+				var arr_buf = ${buf_name}.buffer
 				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
 					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
 					arr_buf.clean = this.${uid}_vb_${name}.clean = true
@@ -643,6 +693,7 @@ class Node extends Proxy{
 				var al = shader.al_${name}
 				gl.enableVertexAttribArray(al)
 				gl.vertexAttribPointer(al, ${type.slots}, ${glc.FLOAT}, false, ${type.size}, 0)
+				item_count = arr_buf.byteLength / ${attr._t_.size}
 				`
 			}
 			
@@ -679,9 +730,9 @@ class Node extends Proxy{
 			}
 
 			// alpha blending decoding
-			var color_blend = DecodeBlendEquation(context.blend)
-			if(context.blend_alpha){
-				var alpha_blend = context.blend_alpha
+			var color_blend = DecodeBlendEquation(sub_context.blend)
+			if(sub_context.blend_alpha){
+				var alpha_blend = sub_context.blend_alpha
 				ret += `
 				gl.enable(${glc.BLEND})
 				gl.blendEquationSeparate(${color_blend.op},${alpha_blend.op})
@@ -703,7 +754,7 @@ class Node extends Proxy{
 			}
 
 			// fix the depth check
-			var depth = context.depth
+			var depth = sub_context.depth
 			if(depth){
 				if(depth.type == 'Value' && (depth.value === true || depth.value === false)){
 					if(depth.value === true) ret += `
@@ -726,7 +777,7 @@ class Node extends Proxy{
 			// drawing function
 			ret += `
 				${uniform_parts.setters}
-				gl.drawArrays(${glc.TRIANGLES}, 0, ${len})
+				gl.drawArrays(${glc.TRIANGLES}, 0, item_count)
 			`
 			// correctly indent the code
 			ret = ret.replace(/\n\t\t\t\t/g, '\n' + this.indent)
@@ -826,7 +877,7 @@ class Image extends Proxy{
 	}
 }
 
-class Device extends Node{
+class Device extends Draw{
 
 	fill = #black
 

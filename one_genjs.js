@@ -364,7 +364,7 @@ ONE.genjs_ = function(modules, parserCache){
 				ret = '(' + this.store_prefix + '=' + ret + ')'
 			}
 			if(n.store & 2) throw new Error("Postfix ! not implemented")
-			if(n.store & 4){
+			if(n.store & 4 || n.store & 8){
 				ret = 'ONE.trace(' + ret + ')'
 			}
 			return ret
@@ -468,10 +468,6 @@ ONE.genjs_ = function(modules, parserCache){
 					this.module.vec3 = this.find_type('vec3')
 					return 'ONE.color("'+n.name+'", module.vec3)'
 				}
-				if(flag === 64){
-					if(n.name === '') return 'console.log("trace")'
-					return 'this.' + n.name
-				}
 			}
 			
 			return this.resolve( n.name, n )
@@ -513,7 +509,7 @@ ONE.genjs_ = function(modules, parserCache){
 					// lookup type on context object
 					var ctx
 					if(!type && this.context && (ctx = this.context[node.name])){
-						if(ctx.t) type = ctx.t
+						if(ctx._t_) type = ctx._t_
 					}
 					var isthis
 					if(typeof type == 'object' && !type.__class__ || (isthis = type = this.type_method)){
@@ -1081,6 +1077,7 @@ ONE.genjs_ = function(modules, parserCache){
 			if(n.dim !== undefined) throw new Error('Dont know what to do with dimensions')
 			
 			var type
+			var init = (n.init ? this.space+'='+this.space + this.expand(n.init, n) : '')
 			if(n.parent.type == 'TypeVar'){
 				
 				var kind = n.parent.kind
@@ -1102,12 +1099,15 @@ ONE.genjs_ = function(modules, parserCache){
 				type = this.find_type(n.id.kind.name)
 				if(!type) throw new Error('Cannot find type ' + n.id.kind.name)
 			}
-			else type = 1
+			else{
+				if(init && n.init.infer) type = n.init.infer
+				else type = 1
+			}
 			this.scope[n.id.name] = type
 			
 			// if we have a type, we need to check the init call to be a constructor.
-			return this.expand(n.id, n) +
-				(n.init ? this.space+'='+this.space + this.expand(n.init, n) : '')
+			return this.expand(n.id, n) + init
+				
 		}
 		
 		this.Define = function( n ){
@@ -1858,7 +1858,7 @@ ONE.genjs_ = function(modules, parserCache){
 				if(dims){
 					var dim_code = this.expand(dims, n) 
 					ret += '(' + dim_code + ')*' + nslots + ')' +
-						',' + output + '._t_ = Object.create(module.' + type.name + '), ' +
+						',' + output + '._t_ = Object.create(module.' + type.name + ' || null), ' +
 						output + '._t_.dim = ' + dim_code 
 				}
 				else{
@@ -1978,14 +1978,19 @@ ONE.genjs_ = function(modules, parserCache){
 			var found
 
 			if(this.context){ // support for context macros
-				var nm = name
-				macro = this.context[name]
-				while(macro && macro._ast_){
-					var ret
-					if(ret = this.macro_match_args(n, name, macro, args)) return [macro, ret]
-					found = true
-					nm = nm + '_'
-					macro = this.context[nm]
+				var ctx = this.context
+				while(ctx){
+					var nm = name
+					macro = ctx[name]
+					while(macro && macro._ast_){
+						var ret
+						if(ret = this.macro_match_args(n, name, macro, args)) return [macro, ret]
+						found = true
+						nm = nm + '_'
+						macro = this.context[nm]
+					}
+					if(ctx.owner == ctx) break
+					ctx = ctx.owner
 				}
 			}
 			
@@ -2039,15 +2044,22 @@ ONE.genjs_ = function(modules, parserCache){
 						gen += '_'+(kind && kind.name || 'var')
 					}
 					if(!this.type_methods[gen]){
+
 						var old_depth = this.depth
 						var old_scope = this.scope
 						var old_arg = this.macro_args
 						var old_generics = this.generics
+						var old_module = this.module
+
 						this.macro_args = undefined
 						this.scope = Object.create(null)
 						this.depth = ''
 						this.generics = macro_generics
+						if(macro.module && macro.module != old_module) this.module = macro.module
+
 						this.type_methods[gen] = this.Function(macro, gen, undefined, true)
+
+						this.module = old_module
 						this.depth = old_depth
 						this.scope = old_scope
 						this.macro_args = old_arg
@@ -2078,8 +2090,10 @@ ONE.genjs_ = function(modules, parserCache){
 					var old_module = this.module
 					var old_generics = this.generics
 					this.generics = macro_generics
+
 					if(macro.module && macro.module != old_module) this.module = macro.module
 					var ret = this.expand(macro.parent.value, n)
+
 					this.macro_args = old_arg
 					this.module = old_module
 					this.generics = old_generics
@@ -2353,7 +2367,9 @@ ONE.genjs_ = function(modules, parserCache){
 		this.Quote = function( n ){
 			// we need to check for % vars and pass them into parse.
 			var esc = outer.ToEscaped
-			var tpl = esc.templates = {}
+			var tpl = esc.templates = Object.create(null)
+			var locals = esc.locals = Object.create(null)
+			esc.scope = this.scope
 			// now we need to set the template object
 			esc.depth = this.depth
 			var body = esc.expand(n.quote, n)
@@ -2361,11 +2377,17 @@ ONE.genjs_ = function(modules, parserCache){
 			parserCache[body] = n.quote
 			
 			var obj = ''
-			for( var name in tpl ){
+			for(var name in tpl){
 				if(obj) obj += ','
 				obj += name+':'+(name in this.scope?name:'this.'+name)
 			}
-			return 'this._parse("' + body + '",module,null'+(obj?',{' + obj + '})':')')
+			var sobj = ''
+			for(var name in locals){
+				if(sobj) sobj += ','
+				sobj += name+':'+name
+			}
+
+			return 'this._parse("' + body + '",module,'+(sobj?'{'+sobj+'}':'null')+(obj?',{' + obj + '})':')')
 		}
 		
 		this.Rest = function( n ){

@@ -1,17 +1,15 @@
 import math
 import gl
 
-class Test extends Node{
+class Test extends Draw{
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(30deg,  1deg*param1 + Time.sec,0,0,0,5)
-
+	objmtx: mat4.RT(30deg,  1deg * param1 + Time.sec,0,0,0,5)
 	mesh = vec2Rect(-2, -2, 4, 4)
 	vertex: mesh[] * (objmtx * viewmtx)
 	// signal ready!
-	param1 = 1
 	p:pixel mesh[]
-
 	bg = Image.url('texture1.jpg')
+	param1 = 1
 	pixel: bg.sample(0.5 * p + 0.5) ** (
 		(mix(#orange, #black) do 
 			abs(sin(param1 * 1. * atan(p.x, p.y))))
@@ -20,13 +18,14 @@ class Test extends Node{
 			sin(sin(param1 + Time.sec) * param1 * p.x * p.y)
 		)
 
-	draw2:(){
-		Draw{this}
+	draw:(){
+		//pushFrame(frame)
+		this{}
+		//popFrame()
 	}
 }
 
 Device{
 	Test{
-		param1 = 10
 	}
 }

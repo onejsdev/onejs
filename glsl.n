@@ -137,21 +137,42 @@ class DepTraceGLSL extends AST.Walk{
 			return Post(n)
 		}
 
-		// check if we are a macro?
+		// check if we are a define?
 		var def = this.find_define(name)
 		if(def){
 			this[def.type](def, n)
 			return Post(n)
 		}
 
+		// now what we are a local variable.
+		if(imm_locals && imm_locals[name]){
+			// store the type
+			n.infer = imm_locals[name]
+			n.mark = 1
+			return Post(n)
+		}
+
+		var prop
 		// lets resolve name
-		var prop = context[name]
+		var ctx = context
+		while(ctx && prop === undefined){
+			prop = ctx[name]
+			if(ctx.parent == ctx) break
+			ctx = ctx.parent
+		}
+
+		// last resort, resolve against locals
+		if(locals && name in locals){
+			prop = locals[name]
+			name = '_locals_' + name
+			Object.getPrototypeOf(context)[name] = prop
+		}
+
 		if(prop === undefined) throw new Error('Cannot resolve ' + name)
 		
 		// what if we are a type
 		// we are a reference to a remote object
 		if(prop.proxy_uid){
-
 			// what if we reference a texture here?
 			if(prop._sampler2D_){
 				n.mark = 2 // atleast a vertex shader
@@ -163,34 +184,24 @@ class DepTraceGLSL extends AST.Walk{
 			}
 			return Post(n)
 		}
-		if(prop._ast_){
-			// check if its a value, or a fully static type constructor
-			// TODO check if a value is  a type constructor
-			if(prop.type == 'Value'){
-				if(prop.kind != 'num') throw new Error('invalid type in DepTraceGLSL ' + prop.kind)
-				n.mark = prop.mark = 1
-				n.infer = prop.infer = float
-				// lets replace the property with the actual value.
-				context[name] = prop//prop.value = prop.value.value
-				// unbind the expression
-				//prop.value = undefined
-			}
-			else {
-				// if we reference a property more than once
-				// we need to store it in a temp variable
+		if(prop._ast_){ // expression
+			if(prop.type != 'Value'){
 				if(this.refcount[name]) this.refcount[name]++
 				else this.refcount[name] = 1
-				var mod = this.module
-				this.module = prop.module
-				this[prop.type](prop, n)
-				this.module = mod
 			}
+			var old_module = this.module
+			var old_locals = this.locals
+			this.module = prop.module
+			this.locals = prop.locals
+			this[prop.type](prop, n)
+			this.module = old_module
+			this.locals = old_locals
 		}
 		else {
 			//TODO turn properties into signals here!
 			//log(prop)
 
-			// its a placeholder class
+			// its a placeholder class, just compile against it
 			if(prop.hasOwnProperty('__class__')){
 				n.infer = {
 					name:'object'
@@ -235,8 +246,24 @@ class DepTraceGLSL extends AST.Walk{
 			if(n.object.kind && n.object.kind.name == 'pixel')
 				nmark = 3
 
-			// what is our our type however?..
-			var attrib = context[n.object.name]
+			var name = n.object.name
+
+			// support local attributes
+			var loc_attr = imm_locals && imm_locals[name]
+			if(loc_attr){
+				n.infer = loc_attr
+				return Post(n, nmark)
+			}
+
+			// fetch attributes on parent chain
+			var ctx = context
+			var attrib
+			while(ctx && attrib === undefined){
+				attrib = ctx[name]
+				if(ctx.parent == ctx) break
+				ctx = ctx.parent
+			}
+
 			if(!attrib) throw new Error('cannot fetch attribute '+n.object.name)
 
 			n.infer = attrib._t_
@@ -453,7 +480,7 @@ class DepTraceGLSL extends AST.Walk{
 		n.parent = parent
 		Pre(n)
 
-		// static type methods
+		// shortcut for Math.something() or type.something()
 		if(n.fn.type == 'Key'){
 			var obj = n.fn.object
 			if(obj.type == 'Id'){
@@ -533,9 +560,6 @@ class DepTraceGLSL extends AST.Walk{
 			for(var arg from n.args) this[arg.type](arg, n)
 
 			// lets check if we are calling a macro
-			
-			//console.log(n.args, name)
-
 			// calls on other objects provide a new context
 			// i know. i need to refactor this to be nicer. or learn to program
 			var old_context = context
@@ -653,6 +677,8 @@ class GenGLSL extends AST.ToCode{
 			// a temp uniform, and we define it
 			var type_name = n.infer.name
 			var uni = {
+				imm_locals: this.imm_locals
+				locals: this.locals
 				module: this.module
 				name: (pixel?'pix_':'vtx_') + type_name + '_' + (uniform_id++)
 				node: n
@@ -697,6 +723,7 @@ class GenGLSL extends AST.ToCode{
 			return '(' + macro_args[name] + ')'
 		}
 
+		// special thing for for of in GLSL
 		if(iterators && name in iterators){
 			return iterators[name]
 		}
@@ -710,7 +737,15 @@ class GenGLSL extends AST.ToCode{
 			return expand(def, n)
 		}			
 
-		var prop = context[name]
+		var prop
+		var ctx = context
+		while(ctx && prop === undefined){
+			prop = ctx[name]
+			if(ctx.parent == ctx) break
+			ctx = ctx.parent
+		}
+		// if we are here, we are not a uniform
+
 		if(prop === undefined) throw new Error("cannot resolve " + name)
 		
 		// temporary variable generation
@@ -719,12 +754,13 @@ class GenGLSL extends AST.ToCode{
 			var node = prop
 			var type = node.type
 			var old_module = this.module
+			var old_locals = this.locals
 			if(type == 'Id' || type == 'Value' || 
 				type == 'Key' || (type == 'Index' &&
 					(!node.index || node.index.type == 'Value'))){
 				this.module = prop.module
 				var ret = expand(prop, n)
-				this.module = old_module
+				this.module = prop.module
 				return ret
 			}
 			// use a tempvar
@@ -763,11 +799,27 @@ class GenGLSL extends AST.ToCode{
 			if(n.object.type != 'Id') throw new Error('dont support property attributes')
 			
 			var name = n.object.name
-			var obj = context[name]
-			
-			if(!(n.infer.name in glsl_types)){
-				throw new Error('Dont support plain struct attributes('+n.infer.name+'), access the primitive properties')
+
+			// support local attribute objects
+			var obj = imm_locals && imm_locals[name]
+			if(obj) obj = {_t_:obj, _local_:1}
+			else {
+				// fetch attributes on parent chain
+				var ctx = context
+				obj = undefined
+				while(ctx && obj === undefined){
+					obj = ctx[name]
+					if(ctx.parent == ctx) break
+					ctx = ctx.parent
+				}
 			}
+			
+			if(!n.infer.name) throw new Error('Cannot type infer / use untyped vertex attribute ' + name)
+
+			if(!(n.infer.name in glsl_types)){
+				throw new Error('Dont support plain struct attributes('+n.infer.name+'), access the primitive properties ' + name)
+			}
+
 			if(!obj) throw new Error('Cannot find vertex attribute[] ' + name)
 			
 			var attr = attribs[name]
@@ -788,7 +840,11 @@ class GenGLSL extends AST.ToCode{
 		if(n.object.type == 'Index' && !n.object.index && !(n.object.infer.name in glsl_types)){
 			// we have to create a sub attribute mapping
 			var name = n.object.object.name
-			var obj = context[name]
+
+			var obj = imm_locals[name]
+			if(obj) obj = {_t_:obj, _local_:1}
+			else obj = context[name]
+
 			if(!obj) throw new Error('Cannot find vertex attribute[] ' + name)
 
 			var sub = sub_attribs[name] || (sub_attribs[name] = Object.create(null))
@@ -990,9 +1046,9 @@ class GenGLSL extends AST.ToCode{
 		state.WRAP_S ?= 'REPEAT'
 		state.WRAP_T ?= 'REPEAT'
 		var hash = 
-			filter_shorten[state.MIN_FILTER]+'_'+
-			filter_shorten[state.MAG_FILTER]+'_'+
-			filter_shorten[state.WRAP_S]+'_'+
+			filter_shorten[state.MIN_FILTER] + '_' +
+			filter_shorten[state.MAG_FILTER] + '_' +
+			filter_shorten[state.WRAP_S] + '_' +
 			filter_shorten[state.WRAP_T]
 
 		var source
@@ -1009,7 +1065,7 @@ class GenGLSL extends AST.ToCode{
 		}
 
 		// construct a sampler uid
-		var sampler_id = 'sam_'+(image.proxy_uid || context_name)+ '_' + hash
+		var sampler_id = 'sam_' + (image.proxy_uid || context_name) + '_' + hash
 
 		// store the sampler, with a
 		var sam
@@ -1052,7 +1108,7 @@ class GenGLSL extends AST.ToCode{
 		if(n.fn.type == 'Key' || n.fn.infer && n.fn.infer.name == 'object'){
 			if(n.fn.type == 'Key'){
 				new_context = n.fn.object.infer.ref
-				context_name = n.fn.object.name
+				context_name = n.fn.object.infer.ref_name
 				name = n.fn.key.name
 			}
 			else{
@@ -1174,6 +1230,7 @@ class GenGLSL extends AST.ToCode{
 // generate the uniform computation JS
 class GenUniformJS extends AST.ToJS{
 	Id( n ){
+
 		var name = n.name
 		if(n.flag == 35){ // is a color
 			return 'this.color("' + name + '")'
@@ -1182,28 +1239,51 @@ class GenUniformJS extends AST.ToJS{
 		if(name in glsl_functions || name in glsl_variables){
 			return name
 		}
-		
-		var prop = context[name]
-		
-		if(prop === undefined || this.scope[name]) return this.resolve(n.name, n)
+
+		if(imm_locals && imm_locals[name]){
+			deps[name] = -1
+			return name
+		}
+
+		var dist = 0
+		var prop
+		var ctx = context
+		while(ctx && prop === undefined){
+			prop = ctx[name]
+			ctx = ctx.parent
+			dist ++
+		}
+		if(dist>1 && context.flatten_distance) dist--
+
+		// support locals by storing them on my this and remapping the name
+		if(locals && name in locals){
+			var store = '_locals_' + name
+			deps[store] = proxy_props[store] = 1
+			return 'this.'+store
+		}
+
+		if(prop === undefined || this.scope[name] || macro_args && macro_args[name])return this.resolve(n.name, n)
 		
 		if(prop && prop._ast_){
-			var mod = this.module
+			var old_module = this.module
+			var old_locals = this.locals
 			this.module = prop.module
+			this.locals = prop.locals
 			var ret = expand(prop, n)
-			this.module = mod
+			this.locals = old_locals
+			this.module = old_module
 			return ret
 		}
 		
 		if(typeof prop == 'object'){
 			//!TODO convert to signal
-			deps[name] = proxy_props[name] = 1
-			return 'this.' + name
+			deps[name] = proxy_props[name] = dist
+			return 'this.' + Array(dist).join('parent.') + name
 		} 
 		else if(typeof prop == 'number'){
 			//!TODO convert to signal
-			deps[name] = proxy_props[name] = 1
-			return 'this.' + name
+			deps[name] = proxy_props[name] = dist
+			return 'this.' + Array(dist).join('parent.') +name
 		}
 		else throw new Error('Cant generate uniformJS for '+name)
 	}

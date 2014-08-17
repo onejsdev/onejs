@@ -492,7 +492,7 @@ ONE.parser_strict_ = function(){
 	// Test whether a given character code starts an identifier.
 
 	this.isIdentifierStart = function(code) {
-		if (code < 65) return code === 36 || code === 35 || code === 64
+		if (code < 65) return code === 36 || code === 35 
 		if (code < 91) return true
 		if (code < 97) return code === 95
 		if (code < 123)return true
@@ -504,7 +504,7 @@ ONE.parser_strict_ = function(){
 	this.isIdentifierChar = function(code) {
 		if (code < 48) return code === 36 || code === 35
 		if (code < 58) return true
-		if (code < 65) return code === 64
+		if (code < 65) return false
 		if (code < 91) return true
 		if (code < 97) return code === 95
 		if (code < 123)return true
@@ -886,8 +886,8 @@ ONE.parser_strict_ = function(){
 	}
 
 	this.readToken = function(forceRegexp) {
-
 		// in templated string check
+		this.probe_flag = false
 		if(this.templateNext){ 
 			this.templateNext = false
 			return this.readString(96)
@@ -899,6 +899,12 @@ ONE.parser_strict_ = function(){
 		if (this.tokPos >= this.inputLen) return this.finishToken(this._eof)
 
 		var code = this.input.charCodeAt(this.tokPos)
+		if(code == 64){
+			this.tokPos ++
+			var tok = this.readToken(forceRegexp)
+			this.probe_flag = true
+			return tok
+		}
 		// Identifier or keyword. '\uXXXX' sequences are allowed in
 		// identifiers, so '\' also dispatches to that.
 		if (this.isIdentifierStart(code) || code === 92 /* '\' */) return this.readWord()
@@ -1160,7 +1166,7 @@ ONE.parser_strict_ = function(){
 		for (;;) {
 			var ch = this.input.charCodeAt(this.tokPos)
 			if (this.isIdentifierChar(ch)) {
-				if ( ch == 35 || ch == 64){
+				if ( ch == 35 ){
 					if( !first ) this.raise(this.tokPos, "# and @ cannot be used in the middle of a word")
 					this.containsFlag = ch
 					start++
@@ -1289,6 +1295,7 @@ ONE.parser_strict_ = function(){
 		node.type = null
 		node.start = this.tokStart
 		node.end = node.start
+
 		// lets process lastNodes against lastComments
 		if(this.storeComments && this.lastComments.length){
 			this.lastNodes.push(node)
@@ -1308,6 +1315,7 @@ ONE.parser_strict_ = function(){
 		node.type = null
 		node.end = null
 		node.start = other.start
+
 		return node
 	}
 
@@ -2079,6 +2087,7 @@ ONE.parser_strict_ = function(){
 		var left = this.parseMaybeConditional(noIn)
 		if (this.tokType.isAssign) {
 			var node = this.startNodeFrom(left)
+			if(this.probe_flag) node.store = 8
 			node.op = this.tokVal
 			node.left = left
 			this.next()
@@ -2117,10 +2126,12 @@ ONE.parser_strict_ = function(){
 	// operator that has a lower precedence than the set it is parsing.
 
 	this.parseExprOp = function(left, minPrec, noIn) {
+
 		var prec = this.tokType.binop
 		if (prec != null && !this.tokType.isAssign && (!noIn || (this.tokType !== this._in && this.tokType !== this._of && this.tokType !== this._to) )) {
 			if (prec > minPrec) {
-				var node = this.startNodeFrom(left)
+ 				var node = this.startNodeFrom(left)
+				if(this.probe_flag) node.store = 8
 				node.left = left
 				node.op = this.tokType.replace || this.tokVal
 				node.prio = this.tokType.binop
@@ -2141,7 +2152,7 @@ ONE.parser_strict_ = function(){
 			var node = this.startNode(), update = this.tokType.isUpdate
 
 			node.op = this.tokType.replace || this.tokVal
-
+			if(this.probe_flag) node.store = 8
 			node.prefix = true
 			this.tokRegexpAllowed = true
 			this.next()
@@ -2168,7 +2179,10 @@ ONE.parser_strict_ = function(){
 	// Parse call, dot, and `[]`-subscript expressions.
 
 	this.parseExprSubscripts = function() {
-		return this.parseSubscripts(this.parseExprAtom())
+		var probe = this.probe_flag
+		var atom = this.parseExprAtom()
+		if(probe) atom.store = atom.store || 0, atom.store |= 8
+		return this.parseSubscripts(atom)
 	}
 
 	this.bench = {}
@@ -2179,8 +2193,10 @@ ONE.parser_strict_ = function(){
 		case this._bracketL:
 			// we also dont do this._bracketL on new line
 			if( this.lastSkippedNewlines ) return base
+			var probe = this.probe_flag
 			this.eat(this._bracketL)
 			var node = this.startNodeFrom(base)
+			if(probe) node.store = 8
 			node.object = base
 			if( this.tokType != this._bracketR){
 				node.index = this.parseExpression()
@@ -2189,8 +2205,11 @@ ONE.parser_strict_ = function(){
 			return this.parseSubscripts(this.finishNode(node, "Index"), noCalls)
 
 		case this._dot:
+			var probe = this.probe_flag
 			this.eat(this._dot)
+			probe = probe || this.probe_flag
 			var node = this.startNodeFrom(base)
+			if(probe) node.store = 8
 			node.object = base
 			node.key = this.parseIdent(true)
 			return this.parseSubscripts(this.finishNode(node, "Key"), noCalls)
@@ -2215,17 +2234,18 @@ ONE.parser_strict_ = function(){
 			node.key = this.parseIdent(true)
 			node.exist = 1
 			return this.parseSubscripts(this.finishNode(node, "Key"), noCalls)
+		case this._this:
 		case this._string:
 		case this._name:
 			if( this.lastSkippedNewlines ) return base
 
-			if(base.type !== 'Id' && base.type !== 'Index' && base.type !== 'Key')
+			if(base.type !== 'This' && base.type !== 'Id' && base.type !== 'Index' && base.type !== 'Key')
 				return base
 			if(base.kind) this.raise(base.start, "Chaining multiple types has no purpose(yet)")
 			var node = this.startNodeFrom(base)
 			node.kind = base
 			node.name = this.tokVal
-			this.eat(this._name) || this.eat(this._string)
+			this.eat(this._name) || this.eat(this._string) || this.eat(this._this)
 			return this.parseSubscripts(this.finishNode(node, "Id"))
 
 		case this._dotdot:
@@ -2365,8 +2385,10 @@ ONE.parser_strict_ = function(){
 
 	this.parseCall = function(base){
 		if( this.lastSkippedNewlines ) return base
+		var probe = this.probe_flag
 		this.eat(this._parenL)
 		var node = this.startNodeFrom(base)
+		if(probe) node.store = 8
 		node.fn = base
 		node.args = this.parseExprList(this._parenR, false)
 		return this.parseSubscripts(this.finishNode(node, "Call"))

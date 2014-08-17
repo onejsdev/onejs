@@ -100,6 +100,10 @@ ONE.proxy_ = function(){
 			if(props){
 				for(var k in props){
 					var v = this[k]
+					if(v === undefined){
+						throw new Error('Trying to proxy prop ' + k + ' but is undefined')
+					}
+
 					if(v._signal_) msg[k] = v.value
 					else msg[k] = v
 				}
@@ -108,6 +112,7 @@ ONE.proxy_ = function(){
 			var refs = this.proxy_refs
 			if(refs){
 				for(var k in refs){
+					if(!this[k]) throw new Error('Trying to proxy ref ' + k + ' but is undefined')
 					msg[k] = this[k].proxy_uid
 				}
 			}

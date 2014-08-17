@@ -237,7 +237,7 @@ class Track extends Proxy{
 
 class Time extends Proxy{
 	// The Time object manages the playback of your tracks.
-	sec := 0
+	signal sec = 0
 
 	init:(){
 
@@ -249,14 +249,14 @@ class Time extends Proxy{
 		sec_hook(obj){
 			list_sec ?= []
 			if(list_sec.push(obj) == 1){
-				var o = obj.owner
+				var o = obj.parent
 				while(o){
 					if(o.anim_hook){
 						sec_hooked = o
 						o.anim_hook(sec_anim)
 						break
 					}
-					o = o.owner
+					o = o.parent
 				}
 			}
 		}

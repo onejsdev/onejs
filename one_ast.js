@@ -526,6 +526,10 @@ ONE.ast_ = function(){
 				if(n.store & 4) ret = ret + '~'
 				return ret
 			}
+			
+			this.probe = function( n, value ){
+				return ret				
+			}
 
 			this.expand = function( n, parent, type ){ // recursive expansion
 				if(type && typeof type !== 'string') throw new Error('type not string')
@@ -538,6 +542,7 @@ ONE.ast_ = function(){
 
 				var ret = this[type || n.type](n)
 				n.genend = this.line
+
 				if(n.store) ret = this.store(n, ret)
 
 				return ret
@@ -1083,6 +1088,16 @@ ONE.ast_ = function(){
 			
 			this.newline = ' \\n\\\n'
 			this.indent = '\t'
+
+			this.Key = function( n ){
+				return this.expand(n.object, n) + '.' + n.key.name
+			}
+
+			this.Id = function( n ){
+				// resolve the id against scope, if its in scope we have to flag it
+				if(this.scope[n.name]) this.locals[n.name] = 1
+				return outer.ToCode.Id.call(this, n)
+			}
 
 			this.Unary = function( n ){
 				if(n.prefix){
