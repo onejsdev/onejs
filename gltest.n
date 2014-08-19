@@ -21,16 +21,15 @@ define spiral(vec2 p, float r, float t){
 
 define warp(vec2 p){
 	return vec2(
-		p.x + 0.01*sin(1.*p.x+4.*Time.sec),
-		p.y + 0.01*cos(1.*p.y+4.*Time.sec))
+		p.x + 0.002*sin(260.*p.x+4.*Time.sec),
+		p.y + 0.002*cos(260.*p.y+4.*Time.sec))
 }
 
 class Blur extends Draw{
-	buf = Image.rgba_depth_flipped(.6,.6)
+	buf = Image.rgba_depth_flipped()
 	mesh = vec2Rect(-1, -1, 2, 2)
 	vertex: mesh[]
-	pixel:	buf.sample(pixel mesh[]*.5+.5)//*.5 
-	 	  //+ buf.sample(pixel mesh[]*.5+.5+0.01)*.5 //etc
+	pixel:	buf.sample(pixel mesh[]*.5+.5)
 	pass:(){
 		buf{
 			clearDepth()
@@ -42,13 +41,13 @@ class Blur extends Draw{
 	}
 	draw:(){
 		this{}
-		drawChildren()
+		//drawChildren()
 	}
 }
 
 class Test extends Draw{
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(30deg, 90deg*Time.sec, 0, 0, 0, 15)
+	objmtx: mat4.RT(30deg, 90deg*Time.sec, 0, 0, 0, 3+ 35*abs on sin(Time.sec))
 
 	mesh = vec2Rect(-2, -2, 4, 4)
 	vertex: mesh[] * (objmtx * viewmtx)

@@ -11,8 +11,12 @@ import nodejs
 import htmlscraper
 import math
 
-var live = 0
-if(live){
+var live = 2
+if(live == 2){
+	var addr = "0.0.0.0"
+	var port = 2000
+}
+else if(live){
 	var addr = "0.0.0.0"
 	var port = 80
 }
@@ -88,7 +92,7 @@ class StaticServer extends HttpServer{
 
 		if(typeof host !== 'string' || host.indexOf('localhost') == 0) root = 'index'
 		else root = host.slice(0, host.indexOf('.'))
-
+		if(live == 2) root = 'gltest'
 		var cache_file = 'cache_'+root
 		var exist = await fs.exists(cache_file)
 		var header = {

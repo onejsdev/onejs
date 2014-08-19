@@ -22,11 +22,11 @@ ONE.init = function(){
 ONE.base_ = function(){
 	
 	this.__class__ = 'Base'
-	
+	this.__owner_key__ = '__owner__'
 	// inherit a new class, whilst passing on the scope
 	this.extend = function( outer, role, selfname ){
 
-		if(this.parent) throw new Error("You are extending an instance")
+		if(this[this.__owner_key__] !== undefined) throw new Error("You are extending an instance")
 
 		// variable API
 		if(typeof outer == 'string') selfname = outer, outer = this
@@ -48,15 +48,15 @@ ONE.base_ = function(){
 		return obj
 	}
 
-	// new an object with variable arguments and automatic parent
-	this.new = function( parent ){
+	// new an object with variable arguments and automatic parent/owner
+	this.new = function( owner ){
 
-		if(this.parent !== undefined) throw new Error("You are newing an instance")
+		if(this[this.__owner_key__] !== undefined) throw new Error("You are newing an instance")
 
 		var obj = Object.create(this)
 
 		var len = arguments.length
-		Object.defineProperty( obj, 'parent', {value:parent || null, enumerable:false, configurable:false} )
+		Object.defineProperty( obj, this.__owner_key__, {value:owner || null, enumerable:false, configurable:false} )
 
 		if(len > 1){
 			if(obj._init) obj._init.apply(obj, Array.prototype.slice.call(arguments, 1))
@@ -71,13 +71,13 @@ ONE.base_ = function(){
 	}
 
 	// call signature for new
-	this.call = function( pthis, nest, parent ){
+	this.call = function( pthis, nest, owner ){
 		if(pthis !== this) throw new Error("Base.call used with different this")
-		if(this.parent !== undefined) throw new Error("You are newing an instance")
+		if(this[this.__owner_key__] !== undefined) throw new Error("You are newing an instance")
 
 		var obj = Object.create(this)
 
-		obj.parent = parent || null
+		obj[this.__owner_key__] = owner || null
 
 		if(obj._init) obj._init()
 		else if(obj.init) obj.init()
