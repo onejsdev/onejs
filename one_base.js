@@ -20,9 +20,9 @@ ONE.init = function(){
 }
 
 ONE.base_ = function(){
-
+	
 	this.__class__ = 'Base'
-
+	
 	// inherit a new class, whilst passing on the scope
 	this.extend = function( outer, role, selfname ){
 
@@ -71,7 +71,7 @@ ONE.base_ = function(){
 	}
 
 	// call signature for new
-	this.call = function( pthis, role, parent ){
+	this.call = function( pthis, nest, parent ){
 		if(pthis !== this) throw new Error("Base.call used with different this")
 		if(this.parent !== undefined) throw new Error("You are newing an instance")
 
@@ -82,7 +82,7 @@ ONE.base_ = function(){
 		if(obj._init) obj._init()
 		else if(obj.init) obj.init()
 
-		if( role ) role.call( obj )
+		if( nest ) nest.call( obj )
 
 		return obj
 	}

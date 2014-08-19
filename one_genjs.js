@@ -465,7 +465,7 @@ ONE.genjs_ = function(modules, parserCache){
 						this.template_marked = true
 						return this.template_marker
 					}
-					this.module.vec3 = this.find_type('vec3')
+					n.infer =this.module.vec3 = this.find_type('vec3')
 					return 'ONE.color("'+n.name+'", module.vec3)'
 				}
 			}
@@ -2024,7 +2024,7 @@ ONE.genjs_ = function(modules, parserCache){
 			if(found){
 				var types = ''
 				for(var i = 0;i<args.length;i++)
-					types += args[i].infer.name
+					types += args[i].infer?args[i].infer.name:'unknown'
 				throw new Error('Macro '+name+' used but not matching any arg types:' +types)
 			}
 		}
@@ -2207,6 +2207,17 @@ ONE.genjs_ = function(modules, parserCache){
 					else if(name == 'call' || name == 'apply' || name == 'bind'){
 						return this.expand(n.fn, n) + '(' + this.list(n.args, n) + ')'
 					}
+				}
+			}
+			else if(fn.type == 'Id' && fn.name == 'new'){
+				if(args){
+					args = args.slice(0)
+					args.unshift('this')
+					arglen = args.length
+				}
+				else {
+					args = ['this']
+					arglen = 1
 				}
 			}
 			

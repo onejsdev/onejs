@@ -72,7 +72,7 @@ ONE.proxy_ = function(){
 			if(!ONE.proxy_free.length) this.proxy_uid = ONE.proxy_uid++
 			else this.proxy_uid = ONE.proxy_free.pop()
 
-			if(typeof this.init == 'function') this.init()
+			if(typeof this.init == 'function') this.init.call(this, arguments)
 			// queue our object up for sending it over to the other side
 			if(ONE.proxy_inits.push(this) == 1){
 				setTimeout(ONE.proxy_init, 0)
@@ -103,8 +103,7 @@ ONE.proxy_ = function(){
 					if(v === undefined){
 						throw new Error('Trying to proxy prop ' + k + ' but is undefined')
 					}
-
-					if(v._signal_) msg[k] = v.value
+					if(v && v._signal_) msg[k] = v.value
 					else msg[k] = v
 				}
 			}
@@ -161,6 +160,10 @@ ONE.proxy_ = function(){
 				}
 			}
 			return code
+		}
+
+		this.proxyProp = function(){
+			
 		}
 	})
 }

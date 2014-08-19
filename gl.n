@@ -1,4 +1,3 @@
-
 import math
 import track
 import glenums
@@ -45,87 +44,15 @@ class Draw extends Proxy{
 		//gl.colorMask(true, true, true, true)
 		gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT|gl.STENCIL_BUFFER_BIT)
 	}
+
+	clearDepth:(){
+		gl.clear(gl.DEPTH_BUFFER_BIT)
+	}
 	
 	drawChildren:(){
 		if(children) for(var c from children) c.draw()
 	}
 	
-	
-	lockBuffer_:(){
-		return lockBuffer(gl.width, gl.height, false)
-	}
-
-	lockBuffer:(width, height, flat){
-		var buffers = gl._buffers || (gl._buffers = {})
-		var id = '_' + width + '_' + height
-		var buf_array = buffers[id]
-		if(!buf_array) buf_array = buffers[id] = []
-	
-		var buf = buf_array.pop()
-		if(!buf){
-			buf = gl.createFramebuffer()
-			var tex = buf.tex = gl.createTexture()
-			gl.bindTexture(gl.TEXTURE_2D, tex)
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-
-			if(!flat){
-				var zbuf = buf.zbuf gl.createRenderbuffer()
-
-				gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
-				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
-
-	    		gl.bindRenderbuffer(gl.RENDERBUFFER, zbuf)
-	    		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_STENCIL, width, height)
-				gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, buf.zbuf);
-
-				gl.bindRenderbuffer(gl.RENDERBUFFER, null)
-			}
-			gl.bindTexture(gl.TEXTURE_2D, null)
-			gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-
-			buf.width = width
-			buf.height = height
-			buf.loaded = true
-		}
-		return buf
-	}
-
-	releaseBuffer:(buf){
-		var buffers = gl._buffers || (gl._buffers = {})
-		var id = '_' + buf.width + '_' + buf.height
-		var buf_array = buffers[id]
-		buf_array.push(buf)
-	}
-
-	pushBuffer:(buf){
-		if(!gl._bufstack) gl._bufstack = []
-		gl._bufstack.push(buf)
-		gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
-		//gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
-		gl.viewport(0, 0, buf.width, buf.height)
-	}
-
-	popBuffer:(){
-		var buf = gl._bufstack.pop()
-
-		if(gl._bufstack.length){
-			var buf = gl._bufstack[gl._bufstack.length - 1]
-			gl.bindFramebuffer(gl.FRAMEBUFFER, buf)
-			//gl.frameBufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, buf.tex, 0)
-			//gl.viewport(0, 0, buf.width, buf.height)
-		}
-		else{
-			gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-			//gl.bindTexture(gl.TEXTURE_2D, null)
-			//gl.viewport(0, 0, gl.width, gl.height)
-		}
-
-	}
-
 	// default draw
 	draw:(){
 		this{}
@@ -135,6 +62,7 @@ class Draw extends Proxy{
 		if(!parent.children) parent.children = []
 		parent.children.push(this)
 		gl = parent.gl
+		if(pass) gl._passes.push(this)
 	}
 
 	blend: alpha * pixel + (1 - alpha) * frame
@@ -151,23 +79,33 @@ class Draw extends Proxy{
 
 		code = ''
 
-		var ast = draw
 		// make a fresh scope and signals store
 		var js = this.GenDrawJS
 		js.new_state()
 		// plug the module of the ast node
-		js.module = ast.module
-		js.imm_locals = ast.imm_locals
 		js.context = this
-		js.proxy_props = proxy_props = {}
-		js.proxy_refs = proxy_refs = {'parent':{}}
+		js.proxy_props = proxy_props  || (proxy_props = {})
+		js.proxy_refs = proxy_refs || (proxy_refs = {})
+
+		proxy_refs.parent = {}
 
 		js.uid = 0
-		if(ast.type != 'Function') throw new Error('GL Draw not a function')
 		
-		var flags = js.pull_flags(ast)
-		profile(1) do ->
-		code += 'this.draw = ' + js.Function(ast, undefined, [], undefined, ['gl']) + '\n'
+		if(draw){
+			var flags = js.pull_flags(draw)
+			if(draw.type != 'Function') throw new Error('GL Draw not a function')
+			js.module = draw.module
+			js.imm_locals = draw.imm_locals
+			code += 'this.draw = ' + js.Function(draw, undefined, [], undefined, ['gl']) + '\n'
+		}
+
+		if(pass){
+			var flags = js.pull_flags(pass)
+			if(pass.type != 'Function') throw new Error('GL Draw not a function')
+			js.module = pass.module
+			js.imm_locals = pass.imm_locals
+			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, ['gl']) + '\n'
+		}
 
 		// we have to generate redraw binding code for proxy_bind
 		var rem = 'this.remove = function(){\n'
@@ -222,7 +160,7 @@ class Draw extends Proxy{
 			}
 		}
 
-		Nest(n){
+		Nest( n ){
 			// ok lets create the node we are inheriting from
 			var sub_context
 			if(n.fn.type == 'This'){
@@ -231,7 +169,14 @@ class Draw extends Proxy{
 			else{ // we have to resolve it on imm_locals
 				var name = n.fn.name
 				var obj = imm_locals && imm_locals[name] || context[name]
+
 				if(!obj) throw new Error('Cannot resolve '+ name + ' in draw')
+
+				if(!obj.hasOwnProperty(__class__)){ // we are a normal call
+					proxy_refs[name] = 1
+					return AST.ToJS::Nest(n)
+				}
+
 				sub_context = Object.create(obj)
 				sub_context.parent = context
 				sub_context.flatten_distance = 1
@@ -239,14 +184,14 @@ class Draw extends Proxy{
 
 			for(var step from n.body.steps){
 				// we only support prop:value and learn(Other)
-				if(@step.type == 'Call'){ 
+				if(step.type == 'Call'){ 
 					throw new Error('Todo: Implement Call on immediate mode drawing')
 				}
 				else if(step.type == 'AssignQuote'){
 					// alright lets store the 'quote' on my object
 					sub_context[step.left.name] = step.quote
 					step.quote.imm_locals = scope
-					step.quote.module = module
+					step.quote.module = this.module
 				}
 				else throw new Error('Unsupported statement '+step.type+' in immediate mode draw class')
 			}
@@ -567,7 +512,9 @@ class Draw extends Proxy{
 			}
 
 			// generate uniform setters
+			var if_id = 0
 			for(var uni from pix_uniforms.concat(vtx_uniforms)){
+				if_id++
 				GenUniformJS.module = uni.module
 				GenUniformJS.imm_locals = uni.imm_locals
 				GenUniformJS.locals = uni.locals
@@ -577,7 +524,7 @@ class Draw extends Proxy{
 
 				var js = GenUniformJS.expand(uni.node, n)
 
-				var guid = jsblob_guid_lut[js] || (jsblob_guid_lut[js] = jsblob_guid++)
+				var guid = jsblob_guid_lut[js] || (jsblob_guid_lut[js] = ++jsblob_guid)
 				
 				var if_str = ''
 				var as_str = ''
@@ -591,7 +538,7 @@ class Draw extends Proxy{
 					if_str += `shader.uv_${uni.name}_${store}_${guid} !== ${name}`
 					as_str += `shader.uv_${uni.name}_${store}_${guid} = ${name}`
 				}
-
+				if(!if_str) if_str = 'shader.once_' + if_id + ' !== '+guid, as_str = 'shader.once_' + if_id + ' = ' + guid
 				uniform_parts.setters += `
 				if(${if_str}){
 					${as_str}
@@ -706,6 +653,7 @@ class Draw extends Proxy{
 				ret += `
 				if(this.${sam.source}.loaded){
 					var tex
+					//console.log(this.${sam.source})
 					if(!(tex = this.${sam.source}.tex || this.${sam.source}.${sam_name})){
 						this.${sam.source}.${sam_name} = tex = gl.createTexture()
 						gl.bindTexture(${glc.TEXTURE_2D}, tex)
@@ -794,6 +742,16 @@ class Image extends Proxy{
 
 	size = vec2(0,0)
 
+	_init(type, w, h){
+		if(type){
+			this.type = type
+			this._w = w ?| null
+			this._h = h ?| null
+			proxy_props = {_w:1,_h:1,type:1}
+		}
+		Proxy::_init()
+	}
+
 	url(geturl){
 		var obj = new()
 		obj.url = geturl
@@ -802,32 +760,53 @@ class Image extends Proxy{
 	}
 
 	// framebuffer constructors
-	rgb8(){}
-	rgb8_d(){}
-	rgb8_s(){}
-	rgb8_ds(){}
-	rgba8(){}
-	rgba8_d(){}
-	rgba8_s(){}
-	rgba8_ds(){}
+	// lets make a generator with a bunch of flags.
+	var buf_list = [
+		'rgb'
+		'rgba'
+		'luminance'
+		'alpha'
+		'alpha_luminance'
+		'luminance_alpha'
+	]
+	var bpp_list = [
+		''
+		'_half_float'
+		'_float'
+		'_half_float_linear'
+		'_float_linear'
+	]
+	var attach_list = [
+		''
+		'_depth'
+		'_stencil'
+		'_stencil_depth'
+		'_depth_stencil'
+	]
+	var num_list = [
+		''
+		'_flipped'
+	]
 
-	rgb16(){}
-	rgb16_d(){}
-	rgb16_s(){}
-	rgb16_ds(){}
-	rgba16(){}
-	rgba16_d(){}
-	rgba16_s(){}
-	rgba16_ds(){}
+	function gen_call(name){
+		return function(w, h){
+			return new(name, w, h)
+		}
+	}
 
-	rgb32(){}
-	rgb32_d(){}
-	rgb32_s(){}
-	rgb32_ds(){}
-	rgba32(){}
-	rgba32_d(){}
-	rgba32_s(){}
-	rgba32_ds(){}
+	function gen_api(){
+		for(var buf from buf_list){
+			for(var bpp from bpp_list){
+				for(var attach from attach_list){
+					for(var num from num_list){
+						var name = buf + bpp + attach + num
+						this[name] = gen_call(name)
+					}
+				}
+			}
+		}
+	}
+	gen_api()
 
 	// remote initializer
 	init:(parent){
@@ -837,6 +816,12 @@ class Image extends Proxy{
 				loaded = true
 			}
 			img.src = url
+		}
+		else{
+			flipped = type.indexOf('flipped') != -1
+			call(self, nest, pthis){
+				pthis.gl._setFrame(self, nest, pthis)
+			}
 		}
 	}
 
@@ -879,16 +864,30 @@ class Image extends Proxy{
 
 class Device extends Draw{
 
+	proxy_props = {
+		antialias:1
+		premultipliedAlpha:1
+		preserveDrawingBuffer:1
+		preferLowPowerToHighPerformance:1
+	}
+
+	proxy_refs = {
+		frame:{}
+	}
+
 	fill = #black
 
-	w := 0
-	h := 0
-	aspect := 0
-	ratio := 1
-	frame := 0
+	// placeholder framebuffer
+	frame = Image.rgba_depth_stencil()
+	
+	// settings flags
+	antialias = false
+	premultipliedAlpha = false
+	preserveDrawingBuffer = false
+	preferLowPowerToHighPerformance = false
 
 	draw:(){
-		clearAll(fill)
+		if(fill) clearAll(fill)
 	}
 
 	init:(parent){
@@ -897,14 +896,23 @@ class Device extends Draw{
 
 		canvas = document.createElement("canvas")
 		parent.appendChild(canvas)
+
 		var _gl = gl = canvas.getContext('webgl',{
-			alpha: false,
-			depth: true,
-			stencil: true,
-			antialias: false,
-			premultipliedAlpha: false,
-			preserveDrawingBuffer: true
+			alpha: frame.type.indexOf('rgba') != -1
+			depth: frame.type.indexOf('depth') != -1
+			stencil: frame.type.indexOf('stencil') != -1
+			antialias: antialias
+			premultipliedAlpha: premultipliedAlpha
+			preserveDrawingBuffer: preserveDrawingBuffer
+			preferLowPowerToHighPerformance:preferLowPowerToHighPerformance
 		})
+
+		// extension cache
+		_gl._getExtension(name){
+			var ext = gl[name]
+			if(ext) return ext
+			return gl[name] = gl.getExtension(name)
+		}
 
 		// debugtracer for gl api
 		function gl_tracer(gl){
@@ -945,15 +953,21 @@ class Device extends Draw{
 			var h = parent.offsetHeight
 			var sw = w * pixelRatio
 			var sh = h * pixelRatio
+			gl.ratio = pixelRatio
 			gl.width = canvas.width = sw
 			gl.height = canvas.height = sh
 			canvas.style.width = w + 'px'
 			canvas.style.height = h + 'px'
-			if(_gl)_gl.viewport(0, 0, sw, sh)
+			_gl.viewport(0, 0, sw, sh)
+			// store our w/h and pixelratio on our frame
+			frame.ratio = pixelRatio
+			frame.w = sw
+			frame.h = sh
+			// todo, fire event?
 		}
 		window.onresize()
 		gl._shadercache = {}
-
+		gl._passes = []
 		last = 0
 		var count = 0
 		anim_req = false
@@ -971,19 +985,23 @@ class Device extends Draw{
 			if(!start) start = time
 			sec = (time - start) / 1000
 
+			for(var p from gl._passes){
+				p.pass()
+			}
+
 			for(var a from anim_hooks){
 				a(sec)
 			}
+
 			draw()
 			for(var c from children){
 				c.draw()
 			}
 			//if(!window._glstop)console.log('---- FRAME DONE ----')
-			if(count++ == 1)window._glstop = 1
+			if(count++ == 1) window._glstop = 1
 		}
 
 		changed(node){
-
 		}
 
 		anim_hooks = []
@@ -1000,6 +1018,129 @@ class Device extends Draw{
 		anim_unhook(cb, idx){
 			var idx = anim_hooks.indexOf(cb)
 			if(idx != -1) anim_hooks.splice(idx, 1)
+		}
+
+		// extend the GL API
+		gl._curFrame = frame
+		this.gl._setFrame(img_obj, nest, pthis)=>{
+			var gl = _gl
+
+			var old_frame = gl._curFrame
+
+			var img = img_obj
+
+			if(img_obj.flipped){ // pick the buffer
+				var buf1 = img_obj.buf1 || (img_obj.buf1 = {})
+				var buf2 = img_obj.buf2 || (img_obj.buf2 = {})
+				buf2.type = buf1.type = img_obj.type
+				buf2._w = buf1._w = img_obj._w
+				buf2._h = buf1._h = img_obj._h
+				img = buf1
+			}
+
+			var width = 0
+			if(img._w === null) width = old_frame.w
+			else if(img._w <= 1) width = old_frame.w * img._w
+			else width = img._w
+
+			var height = 0
+			if(img._h === null) height = old_frame.h
+			else if(img._h <= 1) height = old_frame.h * img._h
+			else height = img._h
+
+			if(!img.buf || img.h != height || img.w != width){
+				img.w = width
+				img.h = height
+				img.buf = img.buf || gl.createFramebuffer()
+				var tex = img.tex = img.tex || gl.createTexture()
+				var type = img.type
+
+				gl.bindTexture(gl.TEXTURE_2D, tex)
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+				gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+				var buf_type = gl.RGB
+				if(type.indexOf('luminance') != -1 ){
+					buf_type = gl.LUMINANCE
+					if(type.indexOf('alpha') != -1 ) buf_type = gl.LUMINANCE_ALPHA
+				}
+				else if(type.indexOf('alpha') != -1 ) buf_type = gl.ALPHA
+				else if(type.indexOf('rgba') != -1) buf_type = gl.RGBA
+
+				var data_type = gl.UNSIGNED_BYTE
+				if(img.type.indexOf('half_float_linear') != -1){
+					var ext = gl._getExtension('OES_texture_half_float_linear')
+					if(!ext) throw new Error('No OES_texture_half_float_linear')
+					data_type = ext.HALF_FLOAT_LINEAR_OES
+				}
+				else if(img.type.indexOf('float_linear') != -1){
+					var ext = gl._getExtension('OES_texture_float_linear')
+					if(!ext) throw new Error('No OES_texture_float_linear')
+					data_type = ext.FLOAT_LINEAR_OES
+				}
+				else if(img.type.indexOf('half_float') != -1){
+					var ext = gl._getExtension('OES_texture_half_float')
+					if(!ext) throw new Error('No OES_texture_half_float')
+					data_type = ext.HALF_FLOAT_OES
+				}
+				else if(img.type.indexOf('float') != -1){
+					var ext = gl._getExtension('OES_texture_float')
+					if(!ext) throw new Error('No OES_texture_float')
+					data_type = gl.FLOAT
+				}
+
+				gl.texImage2D(gl.TEXTURE_2D, 0, buf_type, width, height, 0, buf_type, data_type, null)
+
+				gl.bindFramebuffer(gl.FRAMEBUFFER, img.buf)
+				gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, img.tex, 0)
+
+				var has_depth = type.indexOf('depth') != -1 
+				var has_stencil = type.indexOf('stencil') != -1
+				if(has_depth || has_stencil){
+
+					img.depth = img.depth || gl.createRenderbuffer()
+
+					var dt = gl.DEPTH_COMPONENT16, at = gl.DEPTH_ATTACHMENT
+					if(has_depth && has_stencil) dt = gl.DEPTH_STENCIL, at = gl.DEPTH_STENCIL_ATTACHMENT
+					else if(has_stencil) dt = gl.STENCIL_INDEX, at = gl.STENCIL_ATTACHMENT
+
+		    		gl.bindRenderbuffer(gl.RENDERBUFFER, img.depth)
+		    		gl.renderbufferStorage(gl.RENDERBUFFER, dt, width, height)
+					gl.framebufferRenderbuffer(gl.FRAMEBUFFER, at, gl.RENDERBUFFER, img.depth)
+
+					gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+				}
+				gl.bindTexture(gl.TEXTURE_2D, null)
+				img.loaded = true
+			}
+			else {
+				gl.bindFramebuffer(gl.FRAMEBUFFER, img.buf)
+			}
+			gl._curFrame = img
+			gl.viewport(0, 0, img.w, img.h)//img.w / gl.ratio, img.h / gl.ratio)
+			
+			if(img_obj.flipped){
+				img_obj.tex = img_obj.buf2.tex
+				if(img_obj.tex) img_obj.loaded = true
+				img_obj.w = img.w
+				img_obj.h = img.h
+			}
+
+			nest.call(pthis)
+
+			if(img_obj.flipped){ // flip the buffers
+				var buf = img_obj.buf2
+				img_obj.buf2 = img_obj.buf1
+				img_obj.buf1 = buf
+				img_obj.tex = img_obj.buf2.tex // now use this texture
+			}
+
+			gl._curFrame = old_frame
+			gl.viewport(0, 0, old_frame.w, old_frame.h)//img.w / gl.ratio, img.h / gl.ratio)
+			if(!old_frame.buf) gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+			else gl.bindFramebuffer(gl.FRAMEBUFFER, old_frame.buf)
 		}
 
 		anim_req = true

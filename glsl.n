@@ -164,7 +164,7 @@ class DepTraceGLSL extends AST.Walk{
 		// last resort, resolve against locals
 		if(locals && name in locals){
 			prop = locals[name]
-			name = '_locals_' + name
+			//name = '_locals_' + name
 			Object.getPrototypeOf(context)[name] = prop
 		}
 
@@ -325,12 +325,12 @@ class DepTraceGLSL extends AST.Walk{
 		}
 
 		// we have to have an inferred type on object now
-		if(!n.infer) throw new Error('key access without type')
+		if(!n.infer) throw new Error('key access without type: ' + n)
 		
 		var fields = n.infer.fields
-		if(!fields) throw new Error('key access on type without fields')
-
 		var key_name = n.key.name
+
+		if(!fields) throw new Error('key access on type without fields: '  + n.infer.name + '('+n+')')
 
 		if(key_name == 'length' && n.infer.dim){
 			n.const_length = n.infer.dim
@@ -348,7 +348,7 @@ class DepTraceGLSL extends AST.Walk{
 				else if(swiz.length  == 4) type = vec4
 			}
 		}
-		if(!type) throw new Error('type '+n.object.infer.name+' has no field ' + key_name)
+		if(!type) throw new Error('type '+n.object.infer.name+' has no field ' + key_name + '(' + n + ')')
 
 		n.infer = type
 		
@@ -372,7 +372,6 @@ class DepTraceGLSL extends AST.Walk{
 		var oldmark = n.mark
 		if(n.init) this[n.init.type](n.init, n)
 		if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
-
 		// fetch our mark from for loop
 		var in_for
 		var for_node
@@ -415,6 +414,7 @@ class DepTraceGLSL extends AST.Walk{
 		else throw new Error('Unsupported Def encountered')
 		n.infer = scope[n.id.name] = type
 		marks[n.id.name] = n.mark
+		Post(n)
 	}
 
 	Return( n, parent ){
@@ -557,7 +557,11 @@ class DepTraceGLSL extends AST.Walk{
 			}
 
 			// type infer the args
-			for(var arg from n.args) this[arg.type](arg, n)
+			var highmark = 0
+			for(var arg from n.args){
+				this[arg.type](arg, n)
+				if(arg.mark > highmark) highmark = arg.mark
+			}
 
 			// lets check if we are calling a macro
 			// calls on other objects provide a new context
@@ -586,7 +590,7 @@ class DepTraceGLSL extends AST.Walk{
 						if(arg.infer.name == 'object') throw new Error('Object arguments to function not implemented yet')
 						var name = mparams[i].id.name
 						scope[name] = arg.infer
-						marks[name] = arg.mark
+						marks[name] = highmark//arg.mark
 					}
 					// lets set the arguments on the scope
 					this[macro.type](macro, n)
@@ -670,6 +674,11 @@ class GenGLSL extends AST.ToCode{
 	// otherwise if we are not 'pixel' we need to spit out varyings.
 	expand( n, parent ){
 		//log(n.type)
+		if(n.mark === undefined){
+			// if we are an Id or a Value
+			if(n.type !== 'Id' && n.type !== 'Value')
+				n.mark = 1
+		}
 		if(n.mark == 1){ // we are a uniform dependent expression
 			// okay
 			if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
@@ -746,8 +755,9 @@ class GenGLSL extends AST.ToCode{
 		}
 		// if we are here, we are not a uniform
 
-		if(prop === undefined) throw new Error("cannot resolve " + name)
-		
+		if(prop === undefined){			
+			throw new Error("cannot resolve " + name)
+		}
 		// temporary variable generation
 		if(prop._ast_){
 
@@ -999,7 +1009,6 @@ class GenGLSL extends AST.ToCode{
 	// Function!
 	this.Function( n, name, argdef, ret_type ){
 		n.var_alloc_id = 0
-
 		// allright lets generate a function!
 		var ret = ret_type.name + ' ' + name + '(' + argdef + ')'
 
@@ -1156,7 +1165,7 @@ class GenGLSL extends AST.ToCode{
 
 				for(var i, arg from n.args){
 					if(i) args += ', ', argdef += ', '
-					args += this[arg.type](arg, n)
+					args += this.expand(arg, n)//[arg.type](arg, n)
 					var type_name = arg.infer.name
 					var param_name = params[i].id.name
 					new_scope[param_name] = arg.infer
@@ -1202,7 +1211,7 @@ class GenGLSL extends AST.ToCode{
 				var margs = macro.args
 				if(new_context) context = old_context
 				for(var i, arg from n.args){
-					macro_args[margs[i].name] = this[arg.type](arg, n)
+					macro_args[margs[i].name] = this.expand(arg, n)//this[arg.type](arg, n)
 				}
 				if(new_context) context = new_context
 				var astnode = macro.parent.value
@@ -1256,13 +1265,16 @@ class GenUniformJS extends AST.ToJS{
 		if(dist>1 && context.flatten_distance) dist--
 
 		// support locals by storing them on my this and remapping the name
-		if(locals && name in locals){
-			var store = '_locals_' + name
-			deps[store] = proxy_props[store] = 1
-			return 'this.'+store
+		
+		if(prop === undefined){
+			if(this.scope[name] || macro_args && macro_args[name]) return this.resolve(n.name, n)
+			if(locals && name in locals){
+				//var store = '_locals_' + name
+				deps[name] = proxy_props[name] = 1
+				return 'this.' + name
+			}
+			else return this.resolve(n.name, n)
 		}
-
-		if(prop === undefined || this.scope[name] || macro_args && macro_args[name])return this.resolve(n.name, n)
 		
 		if(prop && prop._ast_){
 			var old_module = this.module
