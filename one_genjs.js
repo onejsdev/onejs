@@ -2343,6 +2343,7 @@ ONE.genjs_ = function(modules, parserCache){
 				cthis = call
 				call += '.new'
 			}
+			if(fn.type == 'Function') call = '(' + call + ')'
 			
 			if(isapply) return call +'.apply(' + cthis + (sarg?','+this.space+sarg:'') + ')'
 			//fastpath Math

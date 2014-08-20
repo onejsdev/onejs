@@ -85,6 +85,7 @@ class Draw extends Proxy{
 		js.new_state()
 		// plug the module of the ast node
 		js.context = this
+		js.main_this = this
 		js.proxy_props = proxy_props  || (proxy_props = {})
 		js.proxy_refs = proxy_refs || (proxy_refs = {})
 
@@ -96,7 +97,7 @@ class Draw extends Proxy{
 			var flags = js.pull_flags(draw)
 			if(draw.type != 'Function') throw new Error('GL Draw not a function')
 			js.module = draw.module
-			js.imm_locals = draw.imm_locals
+			js.locals = draw.locals
 			code += 'this.draw = ' + js.Function(draw, undefined, [], undefined, ['gl']) + '\n'
 		}
 
@@ -104,7 +105,7 @@ class Draw extends Proxy{
 			var flags = js.pull_flags(pass)
 			if(pass.type != 'Function') throw new Error('GL Draw not a function')
 			js.module = pass.module
-			js.imm_locals = pass.imm_locals
+			js.locals = pass.locals
 			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, ['gl']) + '\n'
 		}
 
@@ -146,14 +147,14 @@ class Draw extends Proxy{
 		
 		context_resolve( name, n ){
 			var dist = 0
+			var ctx = main_this
 			var prop
-			var ctx = context
 			while(ctx && prop === undefined){
 				prop = ctx[name]
 				ctx = ctx.parent
 				dist ++
 			}
-			if(typeof prop === 'function') throw new Error('Cannot use '+name+' because it doesnt exist on the main thread')
+			if(typeof prop === 'function') throw new Error('Cannot use ' + name + ' because it doesnt exist on the main thread')
 			if(prop !== undefined && typeof prop !== 'function'){
 				proxy_props[name] = dist
 				n.infer = prop._t_ || float
@@ -165,21 +166,21 @@ class Draw extends Proxy{
 			// ok lets create the node we are inheriting from
 			var sub_context
 			if(n.fn.type == 'This'){
-				sub_context = Object.create(context)
+				sub_context = Object.create(main_this)
 			}
 			else{ // we have to resolve it on imm_locals
 				var name = n.fn.name
-				var obj = imm_locals && imm_locals[name] || context[name]
+				var obj = locals && locals[name] || main_this[name]
 
 				if(!obj) throw new Error('Cannot resolve '+ name + ' in draw')
 
-				if(!obj.hasOwnProperty(__class__)){ // we are a normal call
+				if(!obj.hasOwnProperty('__class__')){ // we are a normal call
 					proxy_refs[name] = 1
 					return AST.ToJS::Nest(n)
 				}
 
 				sub_context = Object.create(obj)
-				sub_context.parent = context
+				sub_context.parent = main_this
 				sub_context.flatten_distance = 1
 			}
 
@@ -204,11 +205,15 @@ class Draw extends Proxy{
 
 			// forward module and context
 			GenGLSL.context = sub_context
+			GenGLSL.main_this = main_this
+			GenGLSL.main_uid = uid
 			var attribs = GenGLSL.attribs = Object.create(null)
 			var sub_attribs = GenGLSL.sub_attribs = Object.create(null)
 
 			DepTraceGLSL.context = sub_context
-			
+			DepTraceGLSL.main_uid = uid
+			DepTraceGLSL.main_this = main_this
+
 			var pix = sub_context.pixel
 			// handle case where pixel is a plain value
 			if(pix !== undefined && !pix._ast_) pix = {type:'Id', name:'pixel', module:fake_module}
@@ -519,6 +524,8 @@ class Draw extends Proxy{
 				GenUniformJS.module = uni.module
 				GenUniformJS.imm_locals = uni.imm_locals
 				GenUniformJS.locals = uni.locals
+				GenUniformJS.main_this = main_this
+				GenUniformJS.main_uid = uid
 				GenUniformJS.context = sub_context
 				GenUniformJS.proxy_props = proxy_props
 				var deps = GenUniformJS.deps = Object.create(null)

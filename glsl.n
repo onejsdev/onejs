@@ -164,8 +164,8 @@ class DepTraceGLSL extends AST.Walk{
 		// last resort, resolve against locals
 		if(locals && name in locals){
 			prop = locals[name]
-			//name = '_locals_' + name
-			Object.getPrototypeOf(context)[name] = prop
+			// route storage through our main this
+			main_this[name] = prop
 		}
 
 		if(prop === undefined) throw new Error('Cannot resolve ' + name)
@@ -822,6 +822,12 @@ class GenGLSL extends AST.ToCode{
 					if(ctx.parent == ctx) break
 					ctx = ctx.parent
 				}
+				// check if our property is on the main_this
+				// ifnot lets rename it
+				if(obj !== main_this[name]){
+					name = main_uid + '_attr_' + name
+					main_this[name] = obj
+				}
 			}
 			
 			if(!n.infer.name) throw new Error('Cannot type infer / use untyped vertex attribute ' + name)
@@ -1239,7 +1245,6 @@ class GenGLSL extends AST.ToCode{
 // generate the uniform computation JS
 class GenUniformJS extends AST.ToJS{
 	Id( n ){
-
 		var name = n.name
 		if(n.flag == 35){ // is a color
 			return 'this.color("' + name + '")'
@@ -1270,6 +1275,10 @@ class GenUniformJS extends AST.ToJS{
 			if(this.scope[name] || macro_args && macro_args[name]) return this.resolve(n.name, n)
 			if(locals && name in locals){
 				//var store = '_locals_' + name
+				// store local on this
+				name = main_uid + '_local_' + name
+				main_this[name] = locals[name]
+
 				deps[name] = proxy_props[name] = 1
 				return 'this.' + name
 			}
