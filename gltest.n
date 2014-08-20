@@ -41,7 +41,7 @@ class Blur extends Draw{
 	}
 	draw:(){
 		this{}
-		//drawChildren()
+		drawChildren()
 	}
 }
 
