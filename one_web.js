@@ -50,7 +50,8 @@ ONE.worker_boot_ = function(host){
 	ONE.proxy_free = []
 	ONE.init()
 	ONE.init_ast()
-	ONE.root = ONE.Base.call(ONE.Base,function(){ this.__class__='Root'}, ONE)
+	ONE.root = ONE.Base.new()
+	ONE.root.__class__ = 'Root'
 }
 
 ONE.proxy_ = function(){

@@ -1,0 +1,65 @@
+import math
+import gl
+import constraint
+
+// lets test the cassowary constraint solver
+
+var solver = CS.SimplexSolver.new()
+var a = CS.Variable.new({name:'a'})
+solver.addConstraint(CS.StayConstraint.new(a, CS.Strength.strong, 0))
+solver.resolve()
+solver.addEditVar(a, CS.Strength.required)
+        .beginEdit()
+        .suggestValue(a, 2)
+        .resolve()
+
+class Rect extends Draw{
+	mesh = vec2Rect(-.5, -.5, 1, 1)
+	vertex: mesh[]
+	pixel: #lightblue
+}
+
+// a layer with matrices
+class Layer extends Draw{
+	// de total matrix
+	m_total
+
+	// matrix for children
+	m_children
+
+	// matrix for self
+	m_self
+	// 
+	x
+	y
+	z
+	
+	x2
+	y2
+	z2
+
+	w
+	h
+	d
+
+	mx
+	my
+	mz
+	// allright so. 
+	// when we, or other values get modified...
+	// we have to recompute our matrices
+	// x y z, w h d are what exactly
+	// x y z are 'origin'
+	// w h d/x2,y2,z2 are only useful for creating
+	// either geometry, or for setting up a unit->view matrix
+}
+
+Device{
+	fill = #000
+	Rect{
+		x == parent.x + 100
+		y == parent.y + 100
+		w == parent.w - 50
+		h = 50
+	}
+}

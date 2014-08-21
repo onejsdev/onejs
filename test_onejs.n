@@ -29,8 +29,6 @@ Signals(){
 	}
 }
 */
-function test(){
-}
 
 Scoping(){
 	class Sub{
@@ -209,7 +207,7 @@ Language(){
 	// class methods
 	class ctest{
 		method() -> 1
-		method2(@thisarg){}
+		method2(arg){ this.thisarg = arg}
 	}
 	cnew = ctest.new()
 	assert( cnew.method() == 1 )
@@ -433,6 +431,7 @@ for(var key in this){
 		break
 	}
 }
+
 for(var [name, fn] of run){
 	out('Testing:'+name)
 	Base{ fn() }

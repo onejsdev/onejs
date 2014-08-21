@@ -22,11 +22,8 @@ ONE.init = function(){
 ONE.base_ = function(){
 	
 	this.__class__ = 'Base'
-	this.__owner_key__ = '__owner__'
 	// inherit a new class, whilst passing on the scope
 	this.extend = function( outer, role, selfname ){
-
-		if(this[this.__owner_key__] !== undefined) throw new Error("You are extending an instance")
 
 		// variable API
 		if(typeof outer == 'string') selfname = outer, outer = this
@@ -49,55 +46,34 @@ ONE.base_ = function(){
 	}
 
 	// new an object with variable arguments and automatic parent/owner
-	this.new = function( owner ){
-
-		if(this[this.__owner_key__] !== undefined) throw new Error("You are newing an instance")
-
+	this.new = function(){
 		var obj = Object.create(this)
-
-		var len = arguments.length
-		Object.defineProperty( obj, this.__owner_key__, {value:owner || null, enumerable:false, configurable:false} )
-
-		if(len > 1){
-			if(obj._init) obj._init.apply(obj, Array.prototype.slice.call(arguments, 1))
-			else if(obj.init) obj.init.apply(obj, Array.prototype.slice.call(arguments, 1))
-		}
-		else {
-			if(obj._init) obj._init()
-			else if(obj.init) obj.init()
-		}
-
+		if(obj._init) obj._init.apply(obj, arguments)
+		else if(obj.init) obj.init.apply(obj, arguments)
 		return obj
 	}
 
-	// call signature for new
-	this.call = function( pthis, nest, owner ){
-		if(pthis !== this) throw new Error("Base.call used with different this")
-		if(this[this.__owner_key__] !== undefined) throw new Error("You are newing an instance")
+	this.call = function(self, nest, owner){
+		if(self !== this) throw new Error('Call has incorrect self')
 
 		var obj = Object.create(this)
 
-		obj[this.__owner_key__] = owner || null
+		this.__owner__ = owner
 
-		if(obj._init) obj._init()
-		else if(obj.init) obj.init()
+		if(obj._init) obj._init.apply(obj, arguments)
+		else if(obj.init) obj.init.apply(obj, arguments)
 
-		if( nest ) nest.call( obj )
+		nest.call(obj)
 
 		return obj
-	}
-
-	// apply forwards to call
-	this.apply = function( pthis, args ){
-		this.call.apply(this, [pthis].concat(args))
 	}
 
 	this.isClass = function(){
-		return this.parent === undefined
+		return this.hasOwnProperty('__class__')
 	}
 
 	this.isInstance = function(){
-		return this.parent !== undefined
+		return !this.hasOwnProperty('__class__')
 	}
 
 	this.prototypeOf = function( other ){
@@ -189,8 +165,8 @@ ONE.base_ = function(){
 		for(var i = 0, len = learn.length; i < len; i++){
 			var source = learn[i]
 			for(var k in source){
-				// skip keys starting with _ or $
-				if(k[0] === '_' || k[0] === '$') continue
+				// skip keys starting with _ or $ on_
+				if(k[0] === '_' || k[0] === '$' || k[0] == 'o' && k[1] == 'n' && k[2] == '_') continue
 				// push the value
 				this.push(k, source['__' + k] || source[k], source)
 			}
@@ -244,7 +220,7 @@ ONE.base_ = function(){
 			
 			for(var k in source){
 				// skip variable
-				if( k[ 0 ] === '_'  || k[0] === '$') continue
+				if(k[0] === '_' || k[0] === '$' || k[0] == 'o' && k[1] == 'n' && k[2] == '_') continue
 				// pop the value
 				this.pop(k, source)
 			}
@@ -589,6 +565,9 @@ ONE.base_ = function(){
 	this.trace = function(){ console.log.apply(console, arguments); return arguments[0];}
 
 	this.Signal = {}
+
+	this.Signal.__class__ = 'Signal'
+	this.Signal._signal_ = 1
 
 	this.Signal.new = function(parent){
 		var sig = Object.create(this)

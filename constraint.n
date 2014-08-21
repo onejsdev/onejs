@@ -1,5 +1,5 @@
 // Cassowary constraint solver.
-// Refactored for ONE.JS 
+// Restructured for ONE.JS 
 // Copyright (C) 1998-2000 Greg J. Badros
 // Use of this source code is governed by http://www.apache.org/licenses/LICENSE-2.0
 // Parts Copyright (C) 2011, Alex Russell (slightlyoff@chromium.org)
@@ -137,7 +137,7 @@ class CS{
 		isInequality = false
 		isStayConstraint = false
 
-		get required(){ return (this.strength === Strength.required) }
+		get isRequired(){ return (this.strength === Strength.required) }
 
 		toString(){
 			return this.strength + " {" + this.weight + "} (" + this.expression +")";
@@ -393,11 +393,11 @@ class CS{
 			return new(undefined, 1, 0)
 		}
 
-		fromConstantfunction(cons){
+		fromConstant(cons){
 			return new(cons)
 		}
 
-		Expressionfunction(v){
+		fromValue(v){
 			v = +(v)
 			return new(undefined, v, 0)
 		}
@@ -421,7 +421,7 @@ class CS{
 		multiplyMe(x /*double*/){
 			this.constant *= x
 			var t = this.terms
-			Tableau.each(function(clv, coeff){ Tableau.set(clv, coeff * x) })
+			t.each(function(clv, coeff){ t.set(clv, coeff * x) })
 			return this
 		}
 
@@ -478,7 +478,8 @@ class CS{
 					throw NonExpression.new()
 				}
 				return this.times(1 / x);
-			} else if (x instanceof CS.Expression){
+			} 
+			else if (x instanceof CS.Expression){
 				if (!x.isConstant){
 					throw NonExpression.new()
 				}
@@ -519,10 +520,12 @@ class CS{
 						solver.noteRemovedVariable(v, subject)
 					}
 					this.terms.delete(v)
-				} else {
+				} 
+				else {
 					this.setVariable(v, newCoefficient)
 				}
-			} else {
+			} 
+			else {
 				if (!CS.approx(cd, 0)){
 					this.setVariable(v, cd)
 					if (solver){
@@ -689,9 +692,9 @@ class CS{
 		has(item){
 			var s = this.storage
 			return (s.indexOf(item) != -1)
-		},
+		}
 
-		delete(item){
+		this.delete(item){
 			var io = this.storage.indexOf(item)
 			if (io == -1){ return null; }
 			this.storage.splice(io, 1)[0]
@@ -744,7 +747,6 @@ class CS{
 
 		set(key, value){
 			var hash = key.hashCode
-
 			if (typeof this._store[hash] == "undefined"){
 				// FIXME(slightlyoff): if size gooes above the V8 property limit,
 				// compact or go to a tree.
@@ -764,6 +766,12 @@ class CS{
 				return this._store[key]
 			}
 			return null
+		}
+
+		function copyOwn(src, dest) {
+		  Object.keys(src).forEach(function(x) {
+		    dest[x] = src[x]
+		  })
 		}
 
 		clear(){
@@ -792,7 +800,7 @@ class CS{
 			}
 		}
 
-		delete(key){
+		this.delete(key){
 			key = key.hashCode
 			if (!this._store.hasOwnProperty(key)){
 				return
@@ -1077,7 +1085,7 @@ class CS{
 		removeRow(aVar /*CS.AbstractVariable*/){
 			if (CS.trace) CS.fnenterprint("removeRow:" + aVar)
 			var expr = /* CS.Expression */this.rows.get(aVar)
-			CS.assert(expr != null)
+			assert(expr != null)
 			expr.terms.each(function(clv, coeff){
 				var varset = this.columns.get(clv)
 				if (varset != null){
@@ -1553,7 +1561,7 @@ class CS{
 				var entryVar = e.anyPivotableVariable()
 				this.pivot(entryVar, av)
 			}
-			CS.assert(this.rows.get(av) == null, "rowExpression(av) == null")
+			assert(this.rows.get(av) == null)
 			this.removeColumn(av)
 			this.removeRow(az)
 		},
@@ -1718,15 +1726,15 @@ class CS{
 			if (CS.trace){
 				CS.fnenterprint("newExpression: " + cn)
 				CS.traceprint("cn.isInequality == " + cn.isInequality)
-				CS.traceprint("cn.required == " + cn.required)
+				CS.traceprint("cn.required == " + cn.isRequired)
 			}
 
 			var cnExpr = cn.expression
 			var expr = CS.Expression.fromConstant(cnExpr.constant)
-			var slackVar = new CS.SlackVariable()
-			var dummyVar = new CS.DummyVariable()
-			var eminus = new CS.SlackVariable()
-			var eplus = new CS.SlackVariable()
+			var slackVar = CS.SlackVariable.new()
+			var dummyVar = CS.DummyVariable.new()
+			var eminus = CS.SlackVariable.new()
+			var eplus = CS.SlackVariable.new()
 			var cnTerms = cnExpr.terms
 			// console.log(cnTerms.size);
 
@@ -1762,7 +1770,7 @@ class CS{
 				expr.setVariable(slackVar, -1)
 
 				this._markerVars.set(cn, slackVar)
-				if (!cn.required){
+				if (!cn.isRequired){
 					++this._slackCounter
 					eminus = SlackVariable.new({
 						value: this._slackCounter,
@@ -1777,13 +1785,13 @@ class CS{
 				}
 			} 
 			else {
-				if (cn.required){
+				if (cn.isRequired){
 					CS.trace && CS.traceprint("Equality, required")
 					// Add a dummy variable to the Expression to serve as a marker for this
 					// constraint.  The dummy variable is never allowed to enter the basis
 					// when pivoting.
 					++this._dummyCounter
-					dummyVar = new CS.DummyVariable({
+					dummyVar = CS.DummyVariable.new({
 						value: this._dummyCounter,
 						prefix: "d"
 					})
@@ -1861,7 +1869,7 @@ class CS{
 			this._optimizeCount++
 
 			var zRow = this.rows.get(zVar)
-			CS.assert(zRow != null, "zRow != null")
+			assert(zRow != null)
 			var entryVar = null
 			var exitVar = null
 			var objectiveCoeff, terms
@@ -2077,6 +2085,19 @@ class CS{
 		}
 	}
 
+	var multiplier = 1000
+
+	class SymbolicWeight{
+		init(/*w1, w2, w3*/){
+			this.value = 0
+			var factor = 1
+			for (var i = arguments.length - 1; i >= 0; --i){
+				this.value += arguments[i] * factor
+				factor *= multiplier
+			}
+		}
+	}
+
 	class Strength{
 		init(name /*String*/, symbolicWeight, w2, w3){
 			this.name = name
@@ -2088,7 +2109,7 @@ class CS{
 			}
 		}
 
-		get required(){
+		get isRequired(){
 			return (this === CS.Strength.required)
 		}
 
@@ -2107,19 +2128,6 @@ class CS{
 	Strength.medium = Strength.new("medium", 0, 1, 0)
 	/* public static final  */
 	Strength.weak = Strength.new("weak", 0, 0, 1)
-
-	var multiplier = 1000
-
-	class SymbolicWeight{
-		init(/*w1, w2, w3*/){
-			this.value = 0
-			var factor = 1
-			for (var i = arguments.length - 1; i >= 0; --i){
-				this.value += arguments[i] * factor
-				factor *= multiplier
-			}
-		}
-	}
 
 	class AbstractVariable{
 		isDummy = false

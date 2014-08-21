@@ -23,15 +23,6 @@
 			function assert(v){
 				if(!v) throw new Error('Assert failed')
 			}
-
-			var x = {
-				test:1
-			}
-			Object.createClass
-			Object.defineProperty( x, 'test', {enumerable:false, configurable:true})
-			for(var k in x){
-				console.log(k)
-			}
 			
 			var Signals = ONE.Base.extend(function(){
 				var state = 0
@@ -53,25 +44,24 @@
 				})
 
 				var b = Bt.new()
-
 				state = 0
-				b.on_click()
+				b.on_click.set()
 
 				assert(state == 1)
 
 				b.learn(Sig2)
 				state = 0
-				b.on_click()
+				b.on_click.set()
 
 				assert(state == 4)
 				b.forget(Sig2)
 				state = 0
-				b.on_click()
+				b.on_click.set()
 				assert(state == 1)
 
 				Bt.forget(Sig1)
 				state = 0
-				b.on_click()
+				b.on_click.set()
 				assert(state == 0)
 
 				b.on_x.bind(function(){
@@ -80,7 +70,7 @@
 				
 				b.x = 10
 				assert(state == 1)
-				b.on_x(20)
+				b.on_x.set(20)
 				assert(b.x == 20)
 				console.log('Signals OK')
 			})
@@ -101,7 +91,7 @@
 						assert(this.$.y == v)
 					}
 				})
-				var x = Nest.new(this, 30)
+				var x = Nest.new(30)
 				assert(x.$.x == 10)
 				assert(this.$.y == 20)
 				assert(this.$.x === undefined)

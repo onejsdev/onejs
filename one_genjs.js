@@ -1357,7 +1357,15 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			// expand the function
 			if(n.body.type == 'Block'){
+				// forward class and enum reference
 				var steps = n.body.steps
+				for(var i =0, slen = steps.length;i<slen;i++){
+					var step = steps[i]
+					if(step.type == 'Class' || step.type == 'Enum'){
+						this.scope[step.id.name] = 1
+					}
+				}
+
 				n.body.parent = n
 				// we can do a simple wait transform
 				str_body += this.block( n.body.steps, n.body, 1 )
@@ -2192,32 +2200,10 @@ ONE.genjs_ = function(modules, parserCache){
 				
 				if(fn.key.type == 'Id'){
 					var name = fn.key.name
-					if(name == 'new' || name == 'extend' ){
-						if(args){
-							args = args.slice(0)
-							args.unshift('this')
-							arglen = args.length
-						}
-						else {
-							args = ['this']
-							arglen = 1
-						}
-					}
-					// else dont mess with it
-					else if(name == 'call' || name == 'apply' || name == 'bind'){
+					// dont mess with it
+					if(name == 'call' || name == 'apply' || name == 'bind'){
 						return this.expand(n.fn, n) + '(' + this.list(n.args, n) + ')'
 					}
-				}
-			}
-			else if(fn.type == 'Id' && fn.name == 'new'){
-				if(args){
-					args = args.slice(0)
-					args.unshift('this')
-					arglen = args.length
-				}
-				else {
-					args = ['this']
-					arglen = 1
 				}
 			}
 			
