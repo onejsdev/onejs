@@ -984,25 +984,7 @@ struct mat4 extends mat{
 		m20 = 0, m21 = 0, m22 = 1, m23 = tz,
 		m30 = 0, m31 = 0, m32 = 0, m33 = 1
 	}
-	
-	RT(vec3 r, vec3 t){
-		float cx = cos(r.x), cy = cos(r.y), cz = cos(r.z)
-		float sx = sin(r.x), sy = sin(r.y), sz = sin(r.z)
-		m00 = cy *cz,                  m01 = -sz * cy,                m02 = sy,       m03 = t.x
-		m10 = cz * sx * sy + sz * cx,  m11 = -sx * sy * sz + cx * cz, m12 = -sx * cy, m13 = t.y
-		m20 = -cx * sy * cz + sx * sz, m21 = cx * sy * sz + cz * sx,  m22 = cx* cy,   m23 = t.z
-		m31 = 0,                       m31 = 0,                       m32 = cx * cy,  m33 = 1
-	}
 
-	RT(float rx, float ry, float rz, float tx, float ty, float tz){
-		float cx = cos(rx), cy = cos(ry), cz = cos(rz)
-		float sx = sin(rx), sy = sin(ry), sz = sin(rz)
-		m00 = cy *cz,                  m01 = -sz * cy,                m02 = sy,       m03 = tx
-		m10 = cz * sx * sy + sz * cx,  m11 = -sx * sy * sz + cx * cz, m12 = -sx * cy, m13 = ty
-		m20 = -cx * sy * cz + sx * sz, m21 = cx * sy * sz + cz * sx,  m22 = cx* cy,   m23 = tz
-		m31 = 0,                       m31 = 0,                       m32 = cx * cy,  m33 = 1
-	}
-	
 	S(vec3 s){
 		m00 = s.x, m01 = 0,   m02 = 0,   m03 = 0,
 		m10 = 0,   m11 = s.y, m12 = 0,   m13 = 0,
@@ -1048,22 +1030,13 @@ struct mat4 extends mat{
 	R(vec3 r){
 		float cx = cos(r.x), cy = cos(r.y), cz = cos(r.z)
 		float sx = sin(r.x), sy = sin(r.y), sz = sin(r.z)
-		m00 = cy *cz,                  m01 = -sz * cy,                m02 = sy,       m03 = 0
-		m10 = cz * sx * sy + sz * cx,  m11 = -sx * sy * sz + cx * cz, m12 = -sx * cy, m13 = 0
-		m20 = -cx * sy * cz + sx * sz, m21 = cx * sy * sz + cz * sx,  m22 = cx* cy,   m23 = 0
-		m31 = 0,                       m31 = 0,                       m32 = 0,        m33 = 1
-	}
-
-	RZXY(vec3 r){
-		float cx = cos(r.x), cy = cos(r.y), cz = cos(r.z)
-		float sx = sin(r.x), sy = sin(r.y), sz = sin(r.z)
 		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = 0
 		m10 = sz * cx,                 m11 = cx*cz,            m12 = -sx,       m13 = 0
 		m20 = -sy * cz + cy * sx * sz, m21 = sy*sz+cy*sx*cz,   m22 = cx * cy,   m23 = 0
 		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
 	}
 
-	RZXY(float rz, float rx, float ry){
+	R(float rz, float rx, float ry){
 		float cx = cos(rx), cy = cos(ry), cz = cos(rz)
 		float sx = sin(rx), sy = sin(ry), sz = sin(rz)
 		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = 0
@@ -1072,16 +1045,66 @@ struct mat4 extends mat{
 		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
 	}
 
-	RTZXY(vec3 r, vec3 t){
+	
+	RT(vec3 r, vec3 t){
 		float cx = cos(r.x), cy = cos(r.y), cz = cos(r.z)
 		float sx = sin(r.x), sy = sin(r.y), sz = sin(r.z)
+
 		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = t.x
 		m10 = sz * cx,                 m11 = cx*cz,            m12 = -sx,       m13 = t.y
 		m20 = -sy * cz + cy * sx * sz, m21 = sy*sz+cy*sx*cz,   m22 = cx * cy,   m23 = t.z
 		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
 	}
 
-	RTZXY(float rz, float rx, float ry, float tx, float ty, float tz){
+
+	R(float rz, float rx, float ry){
+		float cx = cos(rx), cy = cos(ry), cz = cos(rz)
+		float sx = sin(rx), sy = sin(ry), sz = sin(rz)
+
+		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = 0
+		m10 = sz * cx,                 m11 = cx*cz,            m12 = -sx,       m13 = 0
+		m20 = -sy * cz + cy * sx * sz, m21 = sy*sz+cy*sx*cz,   m22 = cx * cy,   m23 = 0
+		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
+
+	}
+
+
+	RT(vec3 r, vec3 t){
+		float cx = cos(r.x), cy = cos(r.y), cz = cos(r.z)
+		float sx = sin(r.x), sy = sin(r.y), sz = sin(r.z)
+
+		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = t.x
+		m10 = sz * cx,                 m11 = cx*cz,            m12 = -sx,       m13 = t.y
+		m20 = -sy * cz + cy * sx * sz, m21 = sy*sz+cy*sx*cz,   m22 = cx * cy,   m23 = t.z
+		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
+	}
+
+
+	TRT(float t1x, float t1y, float t1z, 
+		   float rx, float ry, float rz, 
+		   float t2x, float t2y, float t2z){
+		float cx = cos(rx), cy = cos(ry), cz = cos(rz)
+		float sx = sin(rx), sy = sin(ry), sz = sin(rz)
+		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = t2x + m00*t1x + m01*t1y + m02*t1z
+		m10 = sz * cx,                 m11 = cx*cz,            m12 = -sx,       m13 = t2y + m10*t1x + m11*t1y + m12*t1z
+		m20 = -sy * cz + cy * sx * sz, m21 = sy*sz+cy*sx*cz,   m22 = cx * cy,   m23 = t2z + m20*t1x + m21*t1y + m22*t1z
+		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
+	}
+
+	TSRT(float t1x, float t1y, float t1z, 
+	   	  float mx, float my, float mz, 
+		  float rx, float ry, float rz, 
+		  float t2x, float t2y, float t2z){
+		float cx = cos(rx), cy = cos(ry), cz = cos(rz)
+		float sx = sin(rx), sy = sin(ry), sz = sin(rz)
+
+		m00 = mx*(cy * cz + sx * sy * sz),  m01 = my*(-sz*cy+cz*sx*sy),  m02 = mz*(sy*cx),     m03 = t2x + (m00*t1x + m01*t1y + m02*t1z)
+		m10 = mx*(sz * cx),                 m11 = my*(cx*cz),            m12 = mz*(-sx),       m13 = t2y + (m10*t1x + m11*t1y + m12*t1z)
+		m20 = mx*(-sy * cz + cy * sx * sz), m21 = my*(sy*sz+cy*sx*cz),   m22 = mz*(cx * cy),   m23 = t2z + (m20*t1x + m21*t1y + m22*t1z)	
+		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
+	}
+
+	RT(float rx, float ry, float rz, float tx, float ty, float tz){
 		float cx = cos(rx), cy = cos(ry), cz = cos(rz)
 		float sx = sin(rx), sy = sin(ry), sz = sin(rz)
 		m00 = cy * cz + sx * sy * sz,  m01 = -sz*cy+cz*sx*sy,  m02 = sy*cx,     m03 = tx
@@ -1089,7 +1112,7 @@ struct mat4 extends mat{
 		m20 = -sy * cz + cy * sx * sz, m21 = sy*sz+cy*sx*cz,   m22 = cx * cy,   m23 = tz
 		m31 = 0,                       m31 = 0,                m32 = 0,         m33 = 1
 	}
-	
+
 	transpose( mat4 a ){
 		if (a === _) {
 			var a01 = a[1], a02 = a[2], a03 = a[3], a12 = a[6], a13 = a[7], a23 = a[11]
@@ -1379,7 +1402,7 @@ struct mat4 extends mat{
 	}
 	
 	// Create matrix from left/right/bottom/top/near/far
-	frustrum( float L, float R, float B, float T, float N, float F ){
+	frustrum( float L, float R, float T, float B, float N, float F ){
 		var rl = 1 / (R - L), tb = 1 / (T - B), nf = 1 / (N - F)
 		m00 = (N * 2) * rl, m01 = 0,            m02 = 0,                m03 = 0
 		m10 = 0,            m11 = (N * 2) * tb, m12 = 0,                m13 = 0
@@ -1395,14 +1418,14 @@ struct mat4 extends mat{
 		m20 = 0,     m21 = 0,  m22 = (F + N) * nf,      m23 = -1
 		m30 = 0,     m31 = 0,  m32 = (2 * F * N) * nf,  m33 = 0
 	}
-
+ 
 	// Create orthogonal proj matrix with Left/Right/Bottom/Top/Near/Far
-	ortho( float L, float R, float B, float T, float N, float F ){
+	ortho( float L, float R, float T, float B, float N, float F ){
 		var lr = 1 / (L - R), bt = 1 / (B - T), nf = 1 / (N - F)
-		m00 = -2 * lr,      m01 = 0,            m02 = 0,            m03 = 0 
-		m10 = 0,            m11 = -2 * bt,      m12 = 0,            m13 = 0 
-		m20 = 0,            m21 = 0,            m22 = 2 * nf,       m23 = 0
-		m30 = (L + R) * lr, m31 = (T + B) * bt, m32 = (F + N) * nf, m33 = 1
+		m00 = -2 * lr,      m10 = 0,            m20 = 0,            m30 = 0 
+		m01 = 0,            m11 = -2 * bt,      m21 = 0,            m31 = 0 
+		m02 = 0,            m12 = 0,            m22 = 2 * nf,       m32 = 0
+		m03 = (L + R) * lr, m13 = (T + B) * bt, m23 = (F + N) * nf, m33 = 1
 	}
 
 	// Create look at matrix with Eye, LookAt, and Up vectors 

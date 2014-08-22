@@ -5,7 +5,7 @@ ONE.init_ast = function(){
 	this.color_()
 	if(this.proxy_) this.proxy_.call(this.Base)
 
-	this.Base.enumfalse( Object.keys( ONE.Base ) )
+	this.Base.hideProperties( Object.keys( ONE.Base ) )
 }
 
 ONE.ast_ = function(){

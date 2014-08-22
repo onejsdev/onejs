@@ -232,7 +232,7 @@ class Track extends Proxy{
 	}
 
 	// hide our api
-	this.enumfalse.apply(this, Object.keys( this ) )
+	this.hideProperties.apply(this, Object.keys( this ) )
 }
 
 class Time extends Proxy{

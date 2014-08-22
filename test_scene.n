@@ -1,0 +1,22 @@
+import glscene
+import math
+
+// my first scenegraph!
+
+
+
+Scene{
+	antialias = true
+	fill = #aero
+	Layer{
+		x = 0
+		y = 0
+		rz = 0.1
+		pixel:#blue
+		Layer{
+			x = 100
+			rz = 0.5// Time.sec
+			pixel:mix(#black, #white, 1-length(hp))
+		}
+	}
+}

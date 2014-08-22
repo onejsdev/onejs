@@ -1,0 +1,76 @@
+import gl
+import math
+
+class Scene extends Device{
+
+	m_camera = mat4()
+
+	m_view = mat4.RT(0,0,0, 0,0,3)
+
+	draw:(){
+		clearAll(fill)
+		m_proj = mat4.ortho(0, frame.w, 0, frame.h, -1000, 1000)
+		//m_proj =  mat4.perspective(-90deg, -1, -100, 100)
+		m_camera = mat4 m_view * mat4 m_proj 
+		m_childworld = mat4.identity()
+		drawChildren(this)
+	}
+}
+
+// a layer with matrices
+class Layer extends Draw{
+
+	// define object types
+	mesh = vec2Rect(0, 0, 1, 1)
+
+	// type them, otherwise we cant use it in the compiler
+	m_world = mat4()
+	m_mesh = mat4.identity()
+	m_child = mat4.identity()
+
+	vertex: mesh[] * (m_mesh * m_world * device.m_camera)
+	p: pixel mesh[]
+	hp: 2.*(pixel mesh[] -.5)
+
+	draw:(parent){
+		mat4 m_parent = parent.m_childworld
+
+		// set our matrix
+		var dx = ax*w, dy = ay*h, dz = az*d
+		mat4 m_local = mat4.TSRT(-dx,-dy,-dz ,sx,sy,sz, rx,ry,rz, x+dx,y+dy,z+dz)
+
+		// scale our mesh
+		m_mesh = mat4.S(w, h, d)
+
+		// generate our world matrix
+		m_world = m_local * m_parent
+
+		// draw ourselves
+		this{}
+		// now lets make these things work
+		if(children){
+			m_childworld = m_child * m_world
+			drawChildren(this)
+		}
+	}
+	// anchor
+	ax = 0.5
+	ay = 0.5
+	az = 0
+	// rotation
+	rx = 0
+	ry = 0
+	rz = 0
+	// scale
+	sx = 1
+	sy = 1
+	sz = 1
+	// coordinates
+	x = 0
+	y = 0
+	z = 0
+	// size
+	w = 100
+	h = 100
+	d = 0
+}

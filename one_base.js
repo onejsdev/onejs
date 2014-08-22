@@ -13,7 +13,7 @@ ONE.init = function(){
 	this.base_.call(this.Base = {})
 	this.Base.Base = this.Base
 
-	this.Base.enumfalse( Object.keys( ONE.Base ) )
+	this.Base.hideProperties( Object.keys( ONE.Base ) )
 
 	// make ONE the new root scope
 	this.Base.$ = this.$ = Object.create(this)
@@ -359,7 +359,7 @@ ONE.base_ = function(){
 
 
 	// Make properties non enumerable
-	this.enumfalse = function( enums ){
+	this.hideProperties = function( enums ){
 		for( var i = enums.length - 1; i>=0; i--){
 			var k = enums[i]
 			Object.defineProperty( this, k, {enumerable:false, configurable:true})
@@ -511,6 +511,14 @@ ONE.base_ = function(){
 	// define a property
 	this.defineProperty = function( key, def ){
 		Object.defineProperty( this, key, def )
+	}
+
+	// lets store some constraints
+	this.constraint = function(expr){
+		if(!this.hasOwnProperty('__constraints__')){
+			Object.defineProperty(this, '__constraints__', {enumerable:false, configurable:true, value:[]})
+		}
+		this.__constraints__.push(expr)
 	}
 
 	this.signal = function( key, value, setter ){

@@ -33,6 +33,7 @@ class Draw extends Proxy{
 	call( pthis, nest, owner ){
 		var obj = Object.create(this)
 		obj.parent = owner
+		obj.device = obj.parent.device
 
 		if(obj._init) obj._init()
 		else if(obj.init) obj.init()
@@ -64,8 +65,8 @@ class Draw extends Proxy{
 		gl.clear(gl.DEPTH_BUFFER_BIT)
 	}
 	
-	drawChildren:(){
-		if(children) for(var c from children) c.draw()
+	drawChildren:(parent){
+		if(children) for(var c from children) c.draw(parent || this)
 	}
 	
 	// default draw
@@ -77,6 +78,7 @@ class Draw extends Proxy{
 		if(!parent.children) parent.children = []
 		parent.children.push(this)
 		gl = parent.gl
+		scene = parent.scene
 		if(pass) gl._passes.push(this)
 	}
 
@@ -137,13 +139,13 @@ class Draw extends Proxy{
 		rem += '}\n'
 		code += rem
 
-		if(flags.indexOf('js') != -1) out(code)
-		
 		// prepend static type_methods
 		for(var k in js.type_methods){
 			code = js.type_methods[k] + '\n'+ code
 		}
 
+		if(flags.indexOf('js') != -1) out(code)
+		
 		draw.proxy_remote = code
 
 		if(dump) console.log(code)
@@ -840,7 +842,6 @@ class Image extends Proxy{
 			img.src = url
 		}
 		else{
-			out(this)
 			flipped = type.indexOf('flipped') != -1
 			call(self, nest, pthis){
 				pthis.gl._setFrame(self, nest, pthis)
@@ -887,6 +888,11 @@ class Image extends Proxy{
 
 class Device extends Draw{
 
+	_init(){
+		device = this // buck stops here
+		Draw::_init()
+	}
+
 	proxy_props = {
 		antialias:1
 		premultipliedAlpha:1
@@ -911,6 +917,7 @@ class Device extends Draw{
 
 	draw:(){
 		if(fill) clearAll(fill)
+		drawChildren(this)
 	}
 
 	init:(parent){
@@ -968,7 +975,11 @@ class Device extends Draw{
 			}
 		}
 		if(this.debug) gl_tracer(gl)
-
+		
+		anim_req = false
+		gl._shadercache = {}
+		gl._passes = []
+		
 		//canvas.webkitRequestFullscreen()
 		window.onresize = =>{
 			var pixelRatio = window.devicePixelRatio
@@ -986,16 +997,16 @@ class Device extends Draw{
 			frame.ratio = pixelRatio
 			frame.w = sw
 			frame.h = sh
+			if(!anim_req){
+				anim_req = true
+				window.requestAnimationFrame(drawloop)
+			}
 			// todo, fire event?
 		}
-		window.onresize()
-		gl._shadercache = {}
-		gl._passes = []
-		last = 0
-		var count = 0
-		anim_req = false
 		// lets request an init
+		last = 0
 		drawloop(time)=>{
+			anim_req = false
 			// check if we are looping
 			if(anim_hooks.length){
 				anim_req = true
@@ -1017,11 +1028,6 @@ class Device extends Draw{
 			}
 
 			draw()
-			for(var c from children){
-				c.draw()
-			}
-			//if(!window._glstop)console.log('---- FRAME DONE ----')
-			if(count++ == 1) window._glstop = 1
 		}
 
 		changed(node){
@@ -1166,7 +1172,6 @@ class Device extends Draw{
 			else gl.bindFramebuffer(gl.FRAMEBUFFER, old_frame.buf)
 		}
 
-		anim_req = true
-		window.requestAnimationFrame(drawloop)
+		window.onresize()
 	}
 }

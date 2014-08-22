@@ -19,47 +19,61 @@ class Rect extends Draw{
 	pixel: #lightblue
 }
 
-// a layer with matrices
-class Layer extends Draw{
-	// de total matrix
-	m_total
-
-	// matrix for children
-	m_children
-
-	// matrix for self
-	m_self
-	// 
-	x
-	y
-	z
-	
-	x2
-	y2
-	z2
-
-	w
-	h
-	d
-
-	mx
-	my
-	mz
-	// allright so. 
-	// when we, or other values get modified...
-	// we have to recompute our matrices
-	// x y z, w h d are what exactly
-	// x y z are 'origin'
-	// w h d/x2,y2,z2 are only useful for creating
-	// either geometry, or for setting up a unit->view matrix
+class Scene extends Device{
+	m_camera = mat4()
+	draw:(){
+		m_childworld = mat4.identity()
+		drawChildren(this)
+	}
 }
 
-Device{
+// a layer with matrices
+class Layer extends Draw{
+
+	// define object types
+	mesh = vec2[0]()
+	m_world = mat4()
+	m_mesh = mat4()
+
+	draw:(parent){
+		// so the world transform is the parent m_child transform times the local transform
+		// and the child transform 
+		mat4 m_parent = parent.m_childworld
+		
+		// generate m_local from xyz whd
+		mat4 m_local = mat4.T(x, y, z)
+
+		// generate our world matrix
+		m_world = m_parent * m_local
+
+		m_mesh = mat4.identity()
+
+		this{
+			vertex: mesh[] * (m_mesh * m_world * device.m_camera)
+		}
+
+		// we have a special mesh transform matrix for modifying the local mesh only
+		m_mesh = mat4.identity()
+
+		// now lets make these things work
+		if(children){
+			m_child = mat4.identity()
+			m_childworld = m_child * m_world
+			drawChildren(this)
+		}
+	}
+
+	x = 0
+	y = 0
+	z = 0
+	w = 10
+	h = 10
+	d = 10
+}
+
+Scene{
 	fill = #000
-	Rect{
-		x == parent.x + 100
-		y == parent.y + 100
-		w == parent.w - 50
-		h = 50
+	Layer{
+		pixel:#red
 	}
 }

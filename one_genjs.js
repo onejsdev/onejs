@@ -469,7 +469,12 @@ ONE.genjs_ = function(modules, parserCache){
 					return 'ONE.color("'+n.name+'", module.vec3)'
 				}
 			}
-			
+			if(n.kind && n.kind.type == 'Id'){
+				var type = this.find_type(n.kind.name)
+				if(type){
+					n.infer = type
+				}
+			}
 			return this.resolve( n.name, n )
 		}
 		
@@ -1667,12 +1672,17 @@ ONE.genjs_ = function(modules, parserCache){
 			var ret
 			var leftstr
 			
+			var left = this.expand(n.left, n)
+			var right = this.expand(n.right, n)
+
 			// lets check types
 			if(n.left.infer && n.left.infer.slots > 1 || 
 			   n.right.infer && n.right.infer.slots > 1){
 			   	// alright so, we have
 				var left_t = n.left.infer
 				var right_t = n.right.infer
+				if(!left_t) throw new Error('Operator will not do what you want, please type the left side: '+n)
+				if(!right_t) throw new Error('Operator will not do what you want, please type the right side: '+n)
 				var left_name = left_t.name
 				var right_name = right_t.name
 				var name = this.bin_op_table[n.op]
@@ -1681,8 +1691,6 @@ ONE.genjs_ = function(modules, parserCache){
 				// operators are static struct calls
 				return this.struct_method(n, type, left_name +'_'+ name + '_' + right_name, [n.left, n.right])
 			}
-			var left = this.expand(n.left, n)
-			var right = this.expand(n.right, n)
 			var left_t = n.left.type
 			var right_t = n.right.type
 			
@@ -1714,6 +1722,11 @@ ONE.genjs_ = function(modules, parserCache){
 		}
 		
 		this.Logic = function( n ){
+			if(n.parent && n.parent.type == 'Block'){
+				return 'this.constraint('+
+					this.Quote(n, n) + ')'
+			}
+
 			var left = this.expand(n.left, n)
 			var right = this.expand(n.right, n)
 			var left_t = n.left.type
@@ -1827,6 +1840,9 @@ ONE.genjs_ = function(modules, parserCache){
 				if(arg.type == 'Rest') throw new Error('... is not supported in typed calls')
 			}
 			ret += ')'
+
+			n.infer = type
+
 			return ret
 		}
 		
@@ -2362,7 +2378,7 @@ ONE.genjs_ = function(modules, parserCache){
 			return  this.expand(n.left, n) + ' = ' + this.Quote( n )
 		}
 
-		this.Quote = function( n ){
+		this.Quote = function( n, from ){
 			// we need to check for % vars and pass them into parse.
 			var esc = outer.ToEscaped
 			var tpl = esc.templates = Object.create(null)
@@ -2370,9 +2386,9 @@ ONE.genjs_ = function(modules, parserCache){
 			esc.scope = this.scope
 			// now we need to set the template object
 			esc.depth = this.depth
-			var body = esc.expand(n.quote, n)
+			var body = esc.expand(from || n.quote, n)
 			// cache the AST for parse()
-			parserCache[body] = n.quote
+			parserCache[body] = from || n.quote
 			
 			var obj = ''
 			for(var name in tpl){
