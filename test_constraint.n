@@ -12,28 +12,13 @@ Scene{
 	antialias = true
 	fill = #aero
 	Layer{
-		dump = 1
 		x = 100, y = 100, w = 400, h = 400
-		rz: -Time.sec
-		tex = Image.url('test_texture.jpg')
-		pixel: tex.sample(p)
+		pixel: #green
 		Layer{
-			rz: sin(Time.sec * 5)
-			x = 0, y = 0
+			x = 10, y = 10
+			x == 10
 			sx = 1
-			pixel:mix(#red, #green, p.y)
-			var last
-			for(var i = 0;i<100;i++){
-				var win = Layer{
-					w = 100
-					h = 100
-					rz: 0.2*sin(Time.sec)
-					x = 10
-					pixel:circle(mix(#red,#green,i/100.), hp, (100-i)*0.01*max(w,h))
-				}
-				if(last)win.parent = last
-				last = win
-			}
+			pixel:#red
 		}
 	}
 }

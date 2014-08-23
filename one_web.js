@@ -343,8 +343,8 @@ ONE.browser_boot_ = function(){
 	}
 
 	// initialize ONEJS also on the main thread	
-	//if(!fake_worker) ONE.init()
-	//if(location.hash) ONE.reloader()
+	if(!fake_worker) ONE.init_ast()
+	if(location.hash) ONE.reloader()
 		
 	window.onerror = function(msg, url, line) {
 		var name = url.match(/[^\/]*$/)[0]

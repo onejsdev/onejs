@@ -5,7 +5,7 @@ class Scene extends Device{
 
 	m_camera = mat4()
 
-	m_view = mat4.RT(0,0,0, 0,0,3)
+	m_view = mat4.identity()//mat4.RT(0,0,0, 0,0,3)
 
 	draw:(){
 		clearAll(fill)
@@ -29,6 +29,7 @@ class Layer extends Draw{
 	m_child = mat4.identity()
 
 	vertex: mesh[] * (m_mesh * m_world * device.m_camera)
+
 	p: pixel mesh[]
 	hp: 2.*(pixel mesh[] -.5)
 

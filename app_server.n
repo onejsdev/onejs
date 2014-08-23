@@ -11,7 +11,7 @@ import nodejs
 import htmlscraper
 import math
 
-var live = 2
+var live = 0
 if(live == 2){
 	var addr = "0.0.0.0"
 	var port = 2000

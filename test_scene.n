@@ -24,7 +24,7 @@ Scene{
 				w = 100
 				h = 100
 				x = -100
-				pixel:circle(mix(#red,#white,i/10), hp, max(w,h))
+				pixel:circle(#white, hp, max(w,h))
 			}
 		}
 	}
