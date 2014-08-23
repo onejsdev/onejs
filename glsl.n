@@ -676,7 +676,8 @@ class GenGLSL extends AST.ToCode{
 		//log(n.type)
 		if(n.mark === undefined){
 			// if we are an Id or a Value
-			if(n.type !== 'Id' && n.type !== 'Value')
+			if(n.type !== 'Id' && n.type !== 'Value' && !
+				(n.type == 'Call' && n.fn.type == 'Id' && n.fn.name in glsl_types))
 				n.mark = 1
 		}
 		if(n.mark == 1){ // we are a uniform dependent expression

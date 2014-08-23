@@ -3,26 +3,33 @@ import gl
 import glscene
 
 // my first scenegraph!
+define circle2(vec2 p, float power){
+	return clamp(1-length(p) ** power,0.,1.)
+}
+
+define circle(vec3 col, vec2 p, float pw){
+	return mix(vec4(#black,0),vec4(col,1),clamp(1.-length(p) ** pw,0.,1.))
+}
 
 Scene{
 	antialias = true
 	fill = #aero
 	Layer{
-		x = 0
-		w = 400
-		h = 400
-		y = 0
-		rz = 0.1
+		x = 100, y = 100, w = 400, h = 400
+		rz: -Time.sec
 		tex = Image.url('test_texture.jpg')
 		pixel: tex.sample(p)
 		Layer{
-			dump = 1
 			rz: sin(Time.sec * 5)
-			x = 100
-			y = 100
+			x = 300, y = 100
 			sx = 1
-			sy = 1
-			pixel:#red
+			pixel:mix(#red, #green, p.y)
+			Layer{
+				w = 100
+				h = 100
+				x = -100
+				pixel:circle(#white, hp, max(w,h))
+			}
 		}
 	}
 }

@@ -53,7 +53,7 @@ class Blur extends Draw{
 
 class Test extends Draw{
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(30deg, 90deg*Time.sec, 0, 0, 0, 3+ 35*abs on sin(Time.sec))
+	objmtx: mat4.RT(10deg, 90deg*Time.sec, Time.sec, 0, 0, 3+ 35*abs on sin(Time.sec))
 
 	mesh = vec2Rect(-2, -2, 4, 4)
 	vertex: mesh[] * (objmtx * viewmtx)
