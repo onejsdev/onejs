@@ -1,22 +1,28 @@
-import glscene
 import math
+import gl
+import glscene
 
 // my first scenegraph!
-
-
 
 Scene{
 	antialias = true
 	fill = #aero
 	Layer{
 		x = 0
+		w = 400
+		h = 400
 		y = 0
 		rz = 0.1
-		pixel:#blue
+		tex = Image.url('test_texture.jpg')
+		pixel: tex.sample(p)
 		Layer{
+			dump = 1
+			rz: sin(Time.sec * 5)
 			x = 100
-			rz = 0.5// Time.sec
-			pixel:mix(#black, #white, 1-length(hp))
+			y = 100
+			sx = 1
+			sy = 1
+			pixel:#red
 		}
 	}
 }

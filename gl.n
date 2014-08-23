@@ -106,7 +106,6 @@ class Draw extends Proxy{
 		js.proxy_refs = proxy_refs || (proxy_refs = {})
 
 		proxy_refs.parent = {}
-
 		js.uid = 0
 		
 		if(draw){
@@ -148,9 +147,11 @@ class Draw extends Proxy{
 		
 		draw.proxy_remote = code
 
+		var code = Proxy::proxy() + code
+
 		if(dump) console.log(code)
 
-		return Proxy::proxy() + code
+		return code
 	}
 
 	type: triangle
@@ -171,11 +172,38 @@ class Draw extends Proxy{
 				dist ++
 			}
 			if(typeof prop === 'function') throw new Error('Cannot use ' + name + ' because it doesnt exist on the main thread')
+
 			if(prop !== undefined && typeof prop !== 'function'){
+				if(prop._ast_){ // inline macro-like expansion
+					var old_module = this.module
+					var old_locals = this.locals
+					this.module = prop.module
+					this.locals = prop.locals
+					var ret = expand(prop, n)
+					this.locals = old_locals
+					this.module = old_module
+					return ret
+				}
 				proxy_props[name] = dist
 				n.infer = prop._t_ || float
 				return 'this.' + Array(dist).join('parent.') + name
 			}
+		}
+
+		// resolve a potential proxy_ref
+		Key( n ){
+			if(n.object.type == 'Id'){
+				// TODO fix the resolution order on this one
+				var objname = n.object.name
+				var prop = main_this[objname]
+				if(!(objname in this.scope) && prop && prop.proxy_uid){
+					var bind = proxy_refs[objname] || (proxy_refs[objname] = {})
+					var keyname = n.key.name
+					bind[keyname] = 1
+					return 'this.' + objname + '.' + keyname
+				}
+			}
+			return AST.ToJS::Key(n)
 		}
 
 		Nest( n ){
@@ -837,6 +865,7 @@ class Image extends Proxy{
 		if(url){
 			img = new window.Image()
 			img.onload()=>{
+				// do a repaint.. somehow
 				loaded = true
 			}
 			img.src = url

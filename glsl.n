@@ -768,9 +768,11 @@ class GenGLSL extends AST.ToCode{
 			if(type == 'Id' || type == 'Value' || 
 				type == 'Key' || (type == 'Index' &&
 					(!node.index || node.index.type == 'Value'))){
+				this.locals = prop.locals
 				this.module = prop.module
 				var ret = expand(prop, n)
-				this.module = prop.module
+				this.locals = old_locals
+				this.module = old_module
 				return ret
 			}
 			// use a tempvar
@@ -792,8 +794,10 @@ class GenGLSL extends AST.ToCode{
 				return tmp.name
 			}
 			this.module = prop.module
+			this.locals = prop.locals
 			var ret = expand(prop, n)
 			this.module = old_module
+			this.locals = old_locals
 			return ret
 		}
 		

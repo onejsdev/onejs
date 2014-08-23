@@ -157,7 +157,11 @@ ONE.proxy_ = function(){
 			var refs = this.proxy_refs
 			if(refs){
 				for(var k in refs){
-					code += 'this.' + k + ' = ONE.proxy_obj[this.' + k + ']\n'
+					code += 'var res = ONE.proxy_obj[this.' + k + ']\n'
+					code += 'if(res === undefined) ONE.proxy_obj[this.' + k + '] = [this, "'+k+'"]\n'
+					code += 'else if(Array.isArray(res)) res.push(this, "'+k+'")\n'
+					code += 'else this.'+k+' = res\n'
+
 				}
 			}
 			return code
@@ -226,7 +230,15 @@ ONE.browser_boot_ = function(){
 
 			for(var i = 0, l = msg.length;i < l;i++){
 				var obj = msg[i]
+
+				var arr = ONE.proxy_obj[obj.proxy_uid]
+				if(arr){
+					for(var j = 0, m = arr.length; j<m; j+=2){
+						arr[j][arr[j+1]] = obj
+					}
+				}
 				ONE.proxy_obj[obj.proxy_uid] = obj
+
 				if(obj.proxy_dump) console.log(obj)
 				var code = obj.proxy_code
 				var init = ONE.proxy_code[code]
