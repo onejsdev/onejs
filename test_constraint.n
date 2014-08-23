@@ -23,13 +23,13 @@ Scene{
 			sx = 1
 			pixel:mix(#red, #green, p.y)
 			var last
-			for(var i = 0;i<40;i++){
+			for(var i = 0;i<100;i++){
 				var win = Layer{
 					w = 100
 					h = 100
 					rz: 0.2*sin(Time.sec)
 					x = 10
-					pixel:circle(mix(#red,#green,i/40.), hp, (40-i)*0.01*max(w,h))
+					pixel:circle(mix(#red,#green,i/100.), hp, (100-i)*0.01*max(w,h))
 				}
 				if(last)win.parent = last
 				last = win

@@ -199,7 +199,7 @@ ONE._createWorker = function(){
 // Bootstrap code for the browser, started at the bottom of the file
 ONE.browser_boot_ = function(){
 
-	var fake_worker = true
+	var fake_worker = false
 	var worker
 	
 	// fake worker for debugging
@@ -258,7 +258,7 @@ ONE.browser_boot_ = function(){
 		}
 	}
 
-	if(!fake_worker) ONE.signal_()
+	if(!fake_worker) ONE.init()
 
 	function module_get( url, module ){
 		return ONE.Base.wrapSignal(function(sig){
@@ -343,8 +343,8 @@ ONE.browser_boot_ = function(){
 	}
 
 	// initialize ONEJS also on the main thread	
-	if(!fake_worker) ONE.init()
-	if(location.hash) ONE.reloader()
+	//if(!fake_worker) ONE.init()
+	//if(location.hash) ONE.reloader()
 		
 	window.onerror = function(msg, url, line) {
 		var name = url.match(/[^\/]*$/)[0]
