@@ -3,10 +3,6 @@ import gl
 import glscene
 
 // my first scenegraph!
-define circle2(vec2 p, float power){
-	return clamp(1-length(p) ** power,0.,1.)
-}
-
 define circle(vec3 col, vec2 p, float pw){
 	return mix(vec4(#black,0),vec4(col,1),clamp(1.-length(p) ** pw,0.,1.))
 }
