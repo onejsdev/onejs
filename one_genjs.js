@@ -428,7 +428,7 @@ ONE.genjs_ = function(modules, parserCache){
 						if(!type) throw new Error('template found but no type_method')
 						var total = type.slots
 						for(var j = 0; j < total; j++){
-							ret += this.depth + blk.replace(this.template_regex, j)
+							ret += this.depth + blk.replace(this.template_regex, j) + '\n'
 						}
 						var ch = ret[ret.length - 1]
 						if(ch !== '\n' ){
@@ -498,6 +498,11 @@ ONE.genjs_ = function(modules, parserCache){
 		
 		this.decodeStructAccess = function( n ){
 			var node = n
+
+			if(node.type == 'Index' && node.object.type == 'Id' && node.index.name == "" && node.index.flag == 35){
+				return node.object.name + '[' + this.expand(node.index, n) + ']'
+			}
+
 			while(node){
 				if(node.type == 'Id' || node.type == 'Call'){
 					var base, type, calldebug
@@ -522,6 +527,8 @@ ONE.genjs_ = function(modules, parserCache){
 						// the parent chain and decode our offset
 						if(!isthis) node = node.parent
 						else base = '_'
+
+						// if we access [#] just return the base
 						if(type.size == 0) throw new Error("Trying to access member on abstract value")
 						var off = 0, field = type
 						var idx = ''
@@ -551,7 +558,7 @@ ONE.genjs_ = function(modules, parserCache){
 									// check for swizzling.
 									var swiz = this.check_swizzle( fname, field.slots )
 									if(swiz) break
-									throw new Error('Invalid field '+ fname)
+									throw new Error('Invalid field '+ fname + ' ' +n)
 								}
 								field = next_field
 								off += field.off
@@ -1910,8 +1917,8 @@ ONE.genjs_ = function(modules, parserCache){
 					}
 				}
 				// write directly
-				else if(elem.type == 'Value'){
-					var val = this.expand(elem, n)
+				if(typeof elem == 'number' || elem.type == 'Value'){
+					var val = elem.type?this.expand(elem, n):String(elem)
 					ret += ','
 					for(var i = 0, l = issingle?type.slots:1; i < l; i++){
 						//ret += output+'.'+type.arr+'['
@@ -1954,7 +1961,7 @@ ONE.genjs_ = function(modules, parserCache){
 			return ret
 		}
 
-		this.macro_match_args = function( n, name, body, args ){
+		this.macro_match_args = function( n, macro_name, body, args ){
 			// now we need to expand the args to do the type inference.
 			if(!args.expanded){
 				var exp = args.expanded = []
@@ -1962,7 +1969,6 @@ ONE.genjs_ = function(modules, parserCache){
 					exp[i] = this.expand(args[i], n)
 				}
 			}
-
 			var params
 			if(body.type == 'Function') params = body.params
 			else if(body.type == 'Call') params = body.args
@@ -1978,6 +1984,7 @@ ONE.genjs_ = function(modules, parserCache){
 				if(kind){
 					var infer = args[i].infer
 					if(!infer) return
+
 					// what if kind.name == 'T'
 					var ch
 					var name = kind.name
@@ -2575,7 +2582,7 @@ ONE.genjs_compat_ = function(){
 		return x
 	}
 
-	Math._mix = function(f, a, b){
+	Math._mix = function(a, b, f){
 		return a + f * (b - a)
 	}
 

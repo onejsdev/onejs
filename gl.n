@@ -1034,6 +1034,7 @@ class Device extends Draw{
 		}
 		// lets request an init
 		last = 0
+
 		drawloop(time)=>{
 			anim_req = false
 			// check if we are looping

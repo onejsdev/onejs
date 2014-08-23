@@ -486,6 +486,7 @@ class DepTraceGLSL extends AST.Walk{
 			if(obj.type == 'Id'){
 				var name = obj.name
 				if(name == 'Math'){
+					// we might not be
 					n.infer = float
 					return Post(n)
 				}
@@ -1252,7 +1253,13 @@ class GenUniformJS extends AST.ToJS{
 	Id( n ){
 		var name = n.name
 		if(n.flag == 35){ // is a color
-			return 'this.color("' + name + '")'
+			if(!n.name){
+				if(!this.type_method) throw new Error('Type method template found outside of type_method')
+				this.template_marked = true
+				return this.template_marker
+			}		
+			vec3 col = ONE.color(name)
+			return struct_constructor(n, 0, [col.x, col.y, col.z], vec3)
 		}
 		
 		if(name in glsl_functions || name in glsl_variables){
