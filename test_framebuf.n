@@ -42,12 +42,12 @@ class Blur extends Draw{
 			this{
 				pixel:buf.sample(warp(pixel mesh[]*0.49+0.5))
 			}
-			drawChildren()
+			drawChildren(this)
 		}
 	}
 	draw:(){
 		this{}
-		drawChildren()
+		drawChildren(this)
 	}
 }
 
