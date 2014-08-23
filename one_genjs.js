@@ -1261,7 +1261,7 @@ ONE.genjs_ = function(modules, parserCache){
 			return ret
 		}
 		
-		this.Function = function( n, nametag, extparams, type_method, this_to_var ){
+		this.Function = function( n, nametag, extparams, type_method, this_to_var, inject ){
 			if(n.id) this.scope[n.id.name] = 1
 			// make a new scope
 			var scope = this.scope
@@ -1366,7 +1366,9 @@ ONE.genjs_ = function(modules, parserCache){
 					str_body += this.depth + 'var ' + name + ' = this.' + name + this.newline
 				}
 			}
-			
+			if(inject){
+				str_body += this.depth + inject + this.newline
+			}
 			// expand the function
 			if(n.body.type == 'Block'){
 				// forward class and enum reference
@@ -1831,7 +1833,8 @@ ONE.genjs_ = function(modules, parserCache){
 					this.call_tmpvar + '._t_=module.' + type.name + ',' + this.call_tmpvar + ')'
 
 				if(this.store_tempid){
-					var store = 'this.struct_' + (this.store_tempid++)
+
+					var store =  (this.store_pretemp?this.store_pretemp:'this.struct_')+ (this.store_tempid++)
 					alloc = store + '||(' + store + '=' + alloc + ')'
 				}
 				ret += ', ' + alloc
@@ -1898,7 +1901,7 @@ ONE.genjs_ = function(modules, parserCache){
 				}
 
 				if(this.store_tempid){
-					var store = 'this.struct_' + (this.store_tempid++)
+					var store = (this.store_pretemp?this.store_pretemp:'this.struct_') + (this.store_tempid++)
 					ret = '((' + output + ' = ' +store +') || ' + ret + ')' 
 				}
 

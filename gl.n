@@ -107,13 +107,17 @@ class Draw extends Proxy{
 
 		proxy_refs.parent = {}
 		js.uid = 0
+		js.store_tempid = 1
+		js.store_pretemp = 'this._store1._'
+		code += 'this._store1 = {}, this._store2 = {}\n'
 		
+		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store'
 		if(draw){
 			var flags = js.pull_flags(draw)
 			if(draw.type != 'Function') throw new Error('GL Draw not a function')
 			js.module = draw.module
 			js.locals = draw.locals
-			code += 'this.draw = ' + js.Function(draw, undefined, [], undefined, ['gl']) + '\n'
+			code += 'this.draw = ' + js.Function(draw, undefined, [], undefined, ['gl'], swap) + '\n'
 		}
 
 		if(pass){
@@ -121,9 +125,9 @@ class Draw extends Proxy{
 			if(pass.type != 'Function') throw new Error('GL Draw not a function')
 			js.module = pass.module
 			js.locals = pass.locals
-			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, ['gl']) + '\n'
+			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, ['gl'], swap) + '\n'
 		}
-
+		js.store_tempid = 0
 		// we have to generate redraw binding code for proxy_bind
 		var rem = 'this.remove = function(){\n'
 
@@ -1034,7 +1038,7 @@ class Device extends Draw{
 		}
 		// lets request an init
 		last = 0
-
+		window.count = 0
 		drawloop(time)=>{
 			anim_req = false
 			// check if we are looping
@@ -1043,7 +1047,6 @@ class Device extends Draw{
 				window.requestAnimationFrame(drawloop)
 			}
 
-			//document.title = parseInt(1000/(time-last))+'fps'
 			last = time
 			// call update
 			if(!start) start = time

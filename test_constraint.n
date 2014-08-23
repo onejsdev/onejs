@@ -12,6 +12,7 @@ Scene{
 	antialias = true
 	fill = #aero
 	Layer{
+		dump = 1
 		x = 100, y = 100, w = 400, h = 400
 		rz: -Time.sec
 		tex = Image.url('test_texture.jpg')
