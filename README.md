@@ -14,7 +14,7 @@ OneJS aims to bridge the gap between the GPU and your JS code by unifying the ty
 - Metaprogramming and symbolic assignment syntax x = :y+1 and x:y+1 are the same. x is now the AST node of y+1
 - Backwards compatible with JS with the following changes:  
   Use of label: syntax is re-purposed for 'symbolic assignment', labels will get another syntax
-  Finally safe to not use semicolons in your code: x\n(t || 2) or x\n[1,2] are no longer calls/indexes
+- Finally safe to not use semicolons in your code: x\n(t || 2) or x\n[1,2] are no longer calls/indexes. OneJS tries to deliver all the niceties of coffeescript but keeping backwards compatibility with JS code. So optional commas and string interpolation and tons more.
 
 OneJS aims to be compatible with all current day webbrowsers that support webGL and workers, and also run on nodejs.
 Including now iOS8 and Android. It is a new dawn for the web!
@@ -22,6 +22,8 @@ Including now iOS8 and Android. It is a new dawn for the web!
 Run it (use node 0.11 or higher, check out the use of await, ah its nice to live in the future)
 
 node --harmony one_node.js app_server.n
+
+open in browser:
 http://localhost:2000#test_framebuf
 
 (onejs apps are served using the #hash)
