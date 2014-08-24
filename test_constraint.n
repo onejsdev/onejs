@@ -1,7 +1,6 @@
 import math
 import gl
 import glscene
-import constraint
 
 // my first scenegraph!
 define circle(vec3 col, vec2 p, float pw){
@@ -11,13 +10,20 @@ define circle(vec3 col, vec2 p, float pw){
 Scene{
 	antialias = true
 	fill = #aero
-	Layer{
+
+	var lyr
+	layout(){
+		Scene::layout()
+		out(top.lyr.left)
+	}
+
+	Layer top{
 		x = 100, y = 100, w = 400, h = 400
 		pixel: #green
-		Layer{
-			x = 10, y = 10
-			x == 10
-			sx = 1
+		Layer lyr{
+			y = 10
+			x = 10
+			left + 10 == 100
 			pixel:#red
 		}
 	}

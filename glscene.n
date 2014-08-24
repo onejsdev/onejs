@@ -1,10 +1,53 @@
+// Copyright (C) 2014 OneJS
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//       http://www.apache.org/licenses/LICENSE-2.0
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
 import gl
 import math
+import constraint 
 
 class Scene extends Device{
 
 	m_camera = mat4()
 
+	// set up a constraint solver
+	solver = CS.SimplexSolver.new()
+
+	// when we are adding a node we get called
+	newChild(node){
+		// lets process some constraints
+		var proto = node
+		while(proto && proto.__constraints__){
+			if(proto.hasOwnProperty('__constraints__')){
+				for(var c from proto.__constraints__){
+					var constraint = CS.ASTNodeToConstraint(node, c)
+					var storage = node.__constraint_store__ || (node.__constraint_store__ = [])
+					storage.push(constraint)
+					solver.addConstraint(constraint)
+				}
+			}
+			proto = Object.getPrototypeOf(proto)
+		}
+		if(!layout_timer)
+			layout_timer = setTimeout(layout.bind(this))
+	}
+
+	layout(){
+		layout_timer = undefined
+		solver.solve()
+		// alright so.. how do we get those pesky values to update?
+
+	}
+
+	// allright so lets solve our layout..
 	m_view = mat4.identity()//mat4.RT(0,0,0, 0,0,3)
 
 	draw:(){
@@ -49,7 +92,7 @@ class Layer extends Draw{
 		// draw ourselves
 		this{}
 		// now lets make these things work
-		if(children){
+		if(_children){
 			m_childworld = m_child * m_world
 			drawChildren(this)
 		}

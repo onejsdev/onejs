@@ -1,11 +1,82 @@
-// Cassowary constraint solver.
-// Restructured for ONE.JS 
-// Copyright (C) 1998-2000 Greg J. Badros
-// Use of this source code is governed by http://www.apache.org/licenses/LICENSE-2.0
+// Parts Copyright (C) 1998-2000 Greg J. Badros
 // Parts Copyright (C) 2011, Alex Russell (slightlyoff@chromium.org)
+// Parts Copyright (C) 2014 OneJS
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//       http://www.apache.org/licenses/LICENSE-2.0
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
 
 class CS{
 	
+	// OneJS glue api
+
+	class ASTWalker{
+
+		follow( n ){
+			if(!this[n.type]) throw new Error('Node type ' + n.type + ' not supported in constraint')
+			return this[n.type](n)
+		}
+
+		Id( n ){
+			var name = n.name
+			var v = Variable.new({ name:name + context.proxy_uid, value:context[name]})
+
+			var signame = 'on_' + name
+			if(!context[signame]){
+				context.signal(name)
+			}
+			v._sig = context[signame]
+			context[signame]._var = v
+			return v
+		}
+
+		Value( n ){
+			return n.value
+		}
+
+		Key( n ){
+			
+		}
+
+		Binary( n ){
+			var left = this.follow(n.left)
+			var right = this.follow(n.right)
+			if(n.op == '*') return CS.times(left, right)
+			if(n.op == '+') return CS.plus(left, right)
+			if(n.op == '-') return CS.minus(left, right)
+			if(n.op == '/') return CS.divide(left, right)
+			throw new Error('Operation not supported for constraint '+ n)
+		}
+
+		Logic( n ){
+			var left = this.follow(n.left)
+			var right = this.follow(n.right)
+			if(n.op == '=='){
+				return Equation.new(left, right, Strength.weak, 0)
+			}
+			if(n.op == '<' || n.op == '<='){
+				return Inequality.new(left, CS.LEQ, right, Strength.weak, 0)
+			}
+			if(n.op == '>' || n.op == '>='){
+				return Inequality.new(left, CS.GEQ, right, Strength.weak, 0)
+			}
+			throw new Error('Operation not supported for constraint ' + n)
+		}
+	}
+
+	ASTNodeToConstraint(context, ast){
+		if(ast.type != 'Logic') throw new Error('Only support type=logic '+ast)
+		// allright. lets recursively walk the AST and spawn up our constraint system
+		ASTWalker.context = context
+		return ASTWalker.follow(ast)
+	}
+
 	var epsilon = 1e-8
 
 	debug = false
@@ -16,14 +87,25 @@ class CS{
 	GEQ = 1
 	LEQ = 2
 
+	traceprint(s /*String*/){ if (CS.verbose){ console.log(s) } }
+	fnenterprint(s /*String*/){ console.log("* " + s) }
+	fnexitprint(s /*String*/){ console.log("- " + s) }
+
+	// NOPE none of this.
 	own(obj, cb, context){
 		Object.getOwnPropertyNames(obj).forEach(cb, context||scope)
 		return obj
 	}
 
-	traceprint(s /*String*/){ if (CS.verbose){ console.log(s) } }
-	fnenterprint(s /*String*/){ console.log("* " + s) }
-	fnexitprint(s /*String*/){ console.log("- " + s) }
+	function exprFromVarOrValue(v){
+		if (typeof v == "number" ){
+			return Expression.fromConstant(v)
+		} 
+		else if(CS.Variable.isPrototypeOf(v)){
+			return Expression.fromVariable(v)
+		}
+		return v
+	}
 
 	plus(e1, e2){
 		e1 = exprFromVarOrValue(e1)
@@ -113,16 +195,6 @@ class CS{
 
 	class TooDifficult extends CSError{
 		_description = "The constraints are too difficult to solve"
-	}
-
-	function exprFromVarOrValue(v){
-		if (typeof v == "number" ){
-			return Expression.fromConstant(v)
-		} 
-		else if(v instanceof CS.Variable){
-			return Expression.fromVariable(v)
-		}
-		return v
 	}
 
 	class AbstractConstraint{
@@ -308,10 +380,10 @@ class CS{
 
 		init(a1, a2, a3, a4){
 			// FIXME(slightlyoff): this is just a huge mess.
-			if (Expression.isPrototypeOf(a1) && !a2 || Strength.isPrototoypeOf(a2)){
+			if (Expression.isPrototypeOf(a1) && !a2 || Strength.isPrototypeOf(a2)){
 				Constraint::init(a1, a2, a3)
 			} 
-			else if (AbstractVariable.isPrototoypeOf(a1) &&
+			else if (AbstractVariable.isPrototypeOf(a1) &&
 				Expression.isPrototypeOf(a2)){
 
 				var cv = a1, cle = a2, strength = a3, weight = a4
@@ -901,11 +973,6 @@ class CS{
 		}
 	}
 
-	// Copyright (C) 1998-2000 Greg J. Badros
-	// Use of this source code is governed by http://www.apache.org/licenses/LICENSE-2.0
-	//
-	// Parts Copyright (C) 2011, Alex Russell (slightlyoff@chromium.org)
-
 	class Point{
 		init(x, y, suffix){
 			if (Variable.isPrototypeOf(x)){
@@ -1149,7 +1216,7 @@ class CS{
 			this._slackCounter = 0
 			this._artificialCounter = 0
 			this._dummyCounter = 0
-			this.autoSolve = true
+			this.autoSolve = false
 			this._needsSolving = false
 
 			this._optimizeCount = 0
@@ -2046,6 +2113,7 @@ class CS{
 					// console.log(v.toString(), v.value, expr.constant);
 					v.value = expr.constant
 					changed[v.name] = expr.constant
+					if(v._sig) v._sig.set(expr.constant)
 				}
 				// CS.trace && console.log("v == " + v);
 				// CS.trace && console.log("expr == " + expr);

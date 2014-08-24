@@ -1,3 +1,15 @@
+// Copyright (C) 2014 OneJS
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//       http://www.apache.org/licenses/LICENSE-2.0
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
 ONE.genjs_ = function(modules, parserCache){
 
 	this.typeMap = Object.create(null)
@@ -1375,8 +1387,9 @@ ONE.genjs_ = function(modules, parserCache){
 				var steps = n.body.steps
 				for(var i =0, slen = steps.length;i<slen;i++){
 					var step = steps[i]
-					if(step.type == 'Class' || step.type == 'Enum'){
-						this.scope[step.id.name] = 1
+					var step_type = step.type
+					if(step_type == 'Class' || step_type == 'Enum' || step_type == 'Function'){
+						if(step.id) this.scope[step.id.name] = 1
 					}
 				}
 
@@ -2311,6 +2324,7 @@ ONE.genjs_ = function(modules, parserCache){
 			if(fn.type == 'Id'){
 				cthis = 'this'
 				call = this.expand(fn, n)
+				if(!(fn.name in this.scope) && fn.name in this.globals) fastpath = true
 			}
 			else {
 				// check if we are a property chain
@@ -2378,6 +2392,13 @@ ONE.genjs_ = function(modules, parserCache){
 				if( fn.name == 'signal'){
 					return 'this.wrapSignal(' + this.Function( n, null, ['signal '] ) +'.bind(this))'
 				}
+			}
+			var name = n.fn
+			var id 
+			if(n.fn.type == 'Id' && n.fn.kind){
+				// just use the .call property
+				var exp = this.expand(n.fn.kind, n)
+				return 'this.'+n.fn.name + " = " + exp + '.call('+exp+', ' + this.Function( n ) + ', this, "' + n.fn.name + '")'
 			}
 			// just use the .call property
 			var exp = this.expand(n.fn, n)

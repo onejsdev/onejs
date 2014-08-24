@@ -1,3 +1,15 @@
+// Copyright (C) 2014 OneJS
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//       http://www.apache.org/licenses/LICENSE-2.0
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
 import math
 import track
 import glenums
@@ -27,19 +39,23 @@ define vec4Rect( x, y, w, h, z = 0, ww = 1 ){
 
 class Draw extends Proxy{
 
-	__owner_key__ = 'parent'
-
 	// support the { } syntax but store owner on parent
-	call( pthis, nest, owner ){
+	call( pthis, nest, parent ){
 		var obj = Object.create(this)
-		obj.parent = owner
-		obj.device = obj.parent.device
+		obj.parent = parent
+		
+		if(!parent.children) parent.children = []
+		parent.children.push(obj)
+
+		obj.device = parent.device
 
 		if(obj._init) obj._init()
 		else if(obj.init) obj.init()
 
 		if(nest) nest.call(obj)
 			
+		if(obj.device.newChild) obj.device.newChild(obj)
+
 		return obj
 	}
 
@@ -66,7 +82,7 @@ class Draw extends Proxy{
 	}
 	
 	drawChildren:(parent){
-		if(children) for(var c from children) c.draw(parent || this)
+		if(_children) for(var c from _children) c.draw(parent || this)
 	}
 	
 	// default draw
@@ -75,8 +91,8 @@ class Draw extends Proxy{
 	}
 
 	init:(){
-		if(!parent.children) parent.children = []
-		parent.children.push(this)
+		if(!parent._children) parent._children = []
+		parent._children.push(this)
 		gl = parent.gl
 		scene = parent.scene
 		if(pass) gl._passes.push(this)
@@ -91,10 +107,7 @@ class Draw extends Proxy{
 	// the proxy code generator
 	proxy(){
 		// so lets stringify it.
-		var code = draw.proxy_code
-		if(code) return Proxy::proxy() + code
-
-		code = ''
+		var code = ''
 
 		// make a fresh scope and signals store
 		var js = this.GenDrawJS
@@ -127,7 +140,6 @@ class Draw extends Proxy{
 			js.locals = pass.locals
 			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, ['gl'], swap) + '\n'
 		}
-		js.store_tempid = 0
 		// we have to generate redraw binding code for proxy_bind
 		var rem = 'this.remove = function(){\n'
 
@@ -149,7 +161,7 @@ class Draw extends Proxy{
 
 		if(flags.indexOf('js') != -1) out(code)
 		
-		draw.proxy_remote = code
+		//draw.proxy_code = code
 
 		var code = Proxy::proxy() + code
 
@@ -186,7 +198,7 @@ class Draw extends Proxy{
 					var ret = expand(prop, n)
 					this.locals = old_locals
 					this.module = old_module
-					return ret
+					return '(this.' + name + '=' + ret + ')'
 				}
 				proxy_props[name] = dist
 				n.infer = prop._t_ || float

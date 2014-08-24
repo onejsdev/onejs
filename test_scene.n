@@ -4,7 +4,7 @@ import glscene
 
 // my first scenegraph!
 define circle(vec3 col, vec2 p, float pw){
-	return mix(vec4(#black,0),vec4(col,1),clamp(1.-length(p) ** pw,0.,1.))
+	return mix(vec4(#black,0), vec4(col,1), clamp(1.-length(p) ** pw, 0., 1.))
 }
 
 Scene{
