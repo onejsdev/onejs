@@ -54,7 +54,9 @@ class Draw extends Proxy{
 
 		if(nest) nest.call(obj)
 			
-		if(obj.device.newChild) obj.device.newChild(obj)
+		if(obj.device.onAddChild) obj.device.onAddChild(obj)
+
+		if(parent.onAddChild) parent.onAddChild(obj)
 
 		return obj
 	}
@@ -965,6 +967,11 @@ class Device extends Draw{
 		drawChildren(this)
 	}
 
+	// signal a redraw
+	redraw(){
+		proxyCall('redraw')
+	}
+
 	init:(parent){
 		children = []
 		if(!parent) parent = document.body
@@ -1042,10 +1049,7 @@ class Device extends Draw{
 			frame.ratio = pixelRatio
 			frame.w = sw
 			frame.h = sh
-			if(!anim_req){
-				anim_req = true
-				window.requestAnimationFrame(drawloop)
-			}
+			redraw()
 			// todo, fire event?
 		}
 		// lets request an init
@@ -1075,9 +1079,13 @@ class Device extends Draw{
 			draw()
 		}
 
-		changed(node){
+		redraw(){
+			if(!anim_req){
+				anim_req = true
+				window.requestAnimationFrame(drawloop)
+			}
 		}
-
+		
 		anim_hooks = []
 
 		anim_hook(cb){

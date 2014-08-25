@@ -17,14 +17,14 @@ Scene{
 		out(top.lyr.left)
 	}
 
+	mouse.click(){
+		out("hi!")
+	}
+
 	Layer top{
-		x = 100, y = 100, w = 400, h = 400
+	//	x: mouse.x
+	//	y: mouse.y
+		w = 50, h = 50
 		pixel: #green
-		Layer lyr{
-			y = 10
-			x = 10
-			left + 10 == 100
-			pixel:#red
-		}
 	}
 }

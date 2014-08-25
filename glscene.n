@@ -13,8 +13,11 @@
 import gl
 import math
 import constraint 
+import input
 
 class Scene extends Device{
+
+	mouse = Mouse.new()
 
 	m_camera = mat4()
 
@@ -22,7 +25,7 @@ class Scene extends Device{
 	solver = CS.SimplexSolver.new()
 
 	// when we are adding a node we get called
-	newChild(node){
+	onAddChild(node){
 		// lets process some constraints
 		var proto = node
 		while(proto && proto.__constraints__){
@@ -36,15 +39,14 @@ class Scene extends Device{
 			}
 			proto = Object.getPrototypeOf(proto)
 		}
-		if(!layout_timer)
-			layout_timer = setTimeout(layout.bind(this))
+		if(!layout_timer) layout_timer = setTimeout(onLayout.bind(this))
 	}
 
-	layout(){
+	onLayout(){
 		layout_timer = undefined
 		solver.solve()
 		// alright so.. how do we get those pesky values to update?
-
+		redraw()
 	}
 
 	// allright so lets solve our layout..

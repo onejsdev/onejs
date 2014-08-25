@@ -1,0 +1,191 @@
+class Mouse extends Proxy{
+
+	// we have to wonder what we are setting for a mouse signal
+	// probably x,y	
+
+	// define signals
+	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor
+
+	// signals to survive to the other side
+	proxy_setters = [
+		'move','x','y','isdown','left','right','middle', 'click', 'dblclick'
+	]
+
+	enum cursors{
+		'default'
+		'none'
+		'wait'
+		'text'
+		'pointer'
+
+		'zoom-in'
+		'zoom-out'
+		'grab'
+		'grabbing'
+
+		'ns-resize'
+		'ew-resize'
+		'nwse-resize'
+		'nesw-resize'
+
+		'w-resize'
+		'e-resize'
+		'n-resize'
+		's-resize'
+		'nw-resize'
+		'ne-resize'
+		'sw-resize'
+		'se-resize'
+
+		'help'
+		'crosshair'
+		'move'
+
+		'col-resize'
+		'row-resize'
+
+		'vertical-text'
+		'context-menu'
+		'no-drop'
+		'not-allowed'
+		'alias'
+		'cell'
+		'copy'
+	}
+
+	cursor(value){
+		proxyCall('onCursor', value)
+	}
+
+	init:(){
+		// allright we need to figure out how we send back the mouse events to the worker
+		// are we going to send a vec2? or something else
+
+		onCursor(value){
+			window.style.cursor = value
+		}
+
+		window.addEventListener('click', e => {
+			// lets set x and y
+			click = 1
+		})
+
+		window.addEventListener('dblclick', e => {
+			dblclick = 1
+		})
+
+		window.addEventListener('mousedown', e => {
+			if(e.button === 0 ) left = 1
+			if(e.button === 1 ) middle = 1
+			if(e.button === 2 ) right = 1
+			isdown = 1
+		})
+
+		window.addEventListener('mouseup', e => {
+			if(e.button === 0 ) left = 0
+			if(e.button === 1 ) middle = 0
+			if(e.button === 2 ) right = 0
+			isdown = 0
+		})
+
+		window.addEventListener('mousemove', e => {
+			x = e.pageX
+			y = e.pageY
+		})
+
+
+	}
+}
+
+class Key extends Base{
+
+	function init(){
+		var key = this
+		function keyupdown_toString(){
+			return browserKeyTable[ this.code ]
+		}
+
+		function makeKeyUpDownSignal( repeat, code ){
+			return {
+				repeat: repeat,
+				code: code,
+				toString: keyupdown_toString
+			}
+		}
+		function press_toString(){
+			return String.fromCharCode( this.code )
+		}
+
+		window.addEventListener('keydown', function(e){
+			var t = e.toElement || e.target
+			var k = browserKeyTable[ e.keyCode ]
+			if( k ) key[ k ] = 1
+			var sig = makeKeyUpDownSignal( e.repeat, e.keyCode )
+			key.key = sig
+			if( !t || !t.one_node ) return
+			t.one_node.keydown = sig
+		})
+
+		window.addEventListener('keyup', function(e){
+			var t = e.toElement || e.target
+			var k = browserKeyTable[ e.keyCode ]
+			if( k ) key[ k ] = 0
+			var sig = makeKeyUpDownSignal( e.repeat, e.keyCode )
+
+			if( !t || !t.one_node ) return
+			t.one_node.keyup = sig
+		})
+
+		window.addEventListener('keypress', function(e){
+			var t = e.toElement || e.target
+			var sig = {
+				repeat: e.repeat,
+				code: e.charCode,
+				toString: press_toString
+			}
+			key.press = sig
+			if( !t || !t.one_node ) return
+			t.one_node.keypress = sig
+		})
+	}
+
+	var browserKeyTable = { // slap a usable name on keys
+		8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',
+		19:'pause',20:'caps',27:'escape',
+		32:'space',33:'pgup',34:'pgdn',
+		35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',
+		45:'insert',46:'delete',
+		48:'num0',49:'num1',50:'num2',51:'num3',52:'num4',
+		53:'num5',54:'num6',55:'num7',56:'num8',57:'num9',
+		65:'a',66:'b',67:'c',68:'d',69:'e',70:'f',71:'g',
+		72:'h',73:'i',74:'j',75:'k',76:'l',77:'m',78:'n',
+		79:'o',80:'p',81:'q',82:'r',83:'s',84:'t',85:'u',
+		86:'v',87:'w',88:'x',89:'y',90:'z',
+		91:'leftmeta',92:'rightmeta',
+		96:'pad0',97:'pad1',98:'pad2',99:'pad3',100:'pad4',101:'pad5',
+		102:'pad6',103:'pad7',104:'pad8',105:'pad9',
+		106:'multiply',107:'add',109:'subtract',110:'decimal',111:'divide',
+		112:'f1',113:'f2',114:'f3',115:'f4',116:'f5',117:'f6',
+		118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',
+		144:'numlock',145:'scrollock',186:'semicolon',187:'equals',188:'comma',
+		189:'dash',190:'period',191:'slash',192:'accent',219:'openbracket',
+		220:'backslash',221:'closebracket',222:'singlequote'
+	}
+
+	for(var k in browserKeyTable){
+		var key = browserKeyTable[ k ]
+		this[ k ] = key
+		signal( key, 0 )
+	}
+	signal press, key
+
+	cmd: leftmeta || rightmeta
+	meta: leftmeta || rightmeta
+	
+	wasd: [ a?-1:d?1:0, w?-1:s?1:0 ]
+	arrows: [ left?-1:right?1:0, up?-1:down?1:0 ]
+}
+
+class Touch extends Proxy{
+
+}

@@ -25,7 +25,7 @@ class CS{
 
 		Id( n ){
 			var name = n.name
-			var v = Variable.new({ name:name + context.proxy_uid, value:context[name]})
+			var v = Variable.new({name:name + context.proxy_uid, value:context[name]})
 
 			var signame = 'on_' + name
 			if(!context[signame]){
