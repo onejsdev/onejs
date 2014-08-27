@@ -1391,6 +1391,12 @@ ONE.genjs_ = function(modules, parserCache){
 					if(step_type == 'Class' || step_type == 'Enum' || step_type == 'Function'){
 						if(step.id) this.scope[step.id.name] = 1
 					}
+					else if(step_type == 'Var'){
+						var defs = step.defs
+						for(var j = 0, dlen = defs.length; j < dlen; j++){
+							this.scope[defs[j].id.name] = 1
+						}
+					}
 				}
 
 				n.body.parent = n

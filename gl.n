@@ -729,6 +729,19 @@ class Draw extends WorkerProxy{
 		if(pass) device.passes.push(this)
 	}
 
+	$flagDirty:(){
+		redraw()
+	}
+
+	$redraw:(){
+		var p = this
+		while(p && !p.dirty){
+			p.dirty = true
+			p = p.parent
+		}
+		device.redraw()
+	}
+
 	// the proxy code generator
 	$draw(){
 		// so lets stringify it.
@@ -765,9 +778,18 @@ class Draw extends WorkerProxy{
 			js.locals = pass.locals
 			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, [], swap) + '\n'
 		}
+
+		var rem = 'this._cleanup = function(){\n'
+
+		for(var i = 0;i<js.uid;i++){
+			rem += '\tthis.d'+(i+1)+'_shader = undefined\n'
+		}
+		rem += '}\n'
+
+		code += rem
+
 		/*
 		// we have to generate redraw binding code for proxy_bind
-		var rem = 'this.remove = function(){\n'
 
 		for(var ref in proxy_refs){
 			var props = proxy_refs[ref]

@@ -17,12 +17,12 @@ Scene{
 		out(top.lyr.left)
 	}
 
-	mouse.click(){
-		out("hi!")
+	mouse.click()=>{
+		t.pixel = #red
 	}
 
 	var t = Layer top{
 		w = 50, h = 50
-		pixel: #green
+		pixel:#green
 	}
 }

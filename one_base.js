@@ -51,12 +51,15 @@ ONE.base_ = function(){
 		// allow reference to self on inherited classes
 		if(selfname) obj[selfname] = obj
 
-		if(obj._extend) obj._extend()
+		if(obj._extendPre) obj._extendPre()
 		
 		if( role ){
 			if( typeof role == 'function') role.call(obj, outer)
 			else obj.import(role)
 		}
+
+		if(obj._extendPost) obj._extendPost()
+
 		return obj
 	}
 
