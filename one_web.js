@@ -20,33 +20,34 @@ ONE.worker_boot_ = function(host){
 		if(!Array.isArray(data)) throw new Error('non array message received')
 		for(var i = 0, l = data.length; i < l; i++){
 			var msg = data[i]
-			
-			if(msg._id == 'setter'){ // we have to set a value
-				var obj = this.proxy_obj[msg.proxy_uid]
-				if(!obj) throw new Error('set on nonexistant object ' + msg.proxy_uid)
+
+			if(msg._type == 'signal'){ // we have to set a value
+				var obj = host.proxy_obj[msg._uid]
+				if(!obj) throw new Error('set on nonexistant object ' + msg._uid)
 				obj[msg.name] = msg.value
 			}
-			else if(msg._id == 'call'){
-				var obj = this.proxy_obj[msg.proxy_uid]
-				if(!obj) throw new Error('Call on nonexistant object ' + msg.proxy_uid)
-				obj[msg.name].call(obj, msg.args)
+			else if(msg._type == 'call'){
+				var obj = host.proxy_obj[msg._uid]
+				if(!obj) throw new Error('Call on nonexistant object ' + msg._uid)
+				if(msg.args) obj[msg.name].apply(obj, msg.args)
+				else obj[msg.name].call(obj)
 			}
-			else if(msg._id == 'eval'){ // lets parse and eval a module
-				var ast = ONE.root.$['_' + msg.module]
+			else if(msg._type == 'eval'){ // lets parse and eval a module
+				var ast = ONE.root.__modules__['_' + msg.module]
 				var dt = Date.now()
 				if(!ast){
 					return console.log('Module ' + msg.module + ' not parsed')
 				}
-				ONE.root.$[msg.module] = ONE.root.eval(ast, msg.module)
+				ONE.root.__modules__[msg.module] = ONE.root.eval(ast, msg.module)
 				//console.log('eval '+msg.module+' '+(Date.now()-dt)+'ms')
 			}
-			else if(msg._id == 'parse'){
+			else if(msg._type == 'parse'){
 				var dt = Date.now()
-				ONE.root.$['_' + msg.module] = ONE.root.parse('->{' + msg.value + '\n}', msg.module)
+				ONE.root.__modules__['_' + msg.module] = ONE.root.parse('->{' + msg.value + '\n}', msg.module)
 				//console.log('parse '+msg.module+' '+(Date.now()-dt)+'ms')
 			}
-			else if(msg._id == 'run'){
-				ONE.root.$[msg.module].call(ONE.root)
+			else if(msg._type == 'run'){
+				ONE.root.__modules__[msg.module].call(ONE.root)
 			}
 		}
 	}
@@ -76,15 +77,15 @@ ONE.worker_boot_ = function(host){
 
 	host.proxy_obj = {}
 
-	ONE.proxyInit = function(){
-		var inits = ONE.proxy_inits
-		ONE.proxy_inits = []
-		for(var i = 0, l = inits.length; i<l; i++){
-			inits[i].proxyInit()
+	ONE.proxify = function(){
+		var list = ONE.proxify_list
+		ONE.proxify_list = []
+		for(var i = 0, l = list.length; i<l; i++){
+			list[i]._proxify()
 		}
 	}
 
-	ONE.proxy_inits = []
+	ONE.proxify_list = []
 	ONE.proxy_uid = 1
 	ONE.proxy_free = []
 
@@ -98,121 +99,299 @@ ONE.worker_boot_ = function(host){
 
 ONE.proxy_ = function(){
 
+	// the baseclass for the host objects
+	this.Base.HostProxy = this.Base.extend(function(){
+		
+		this.__proxy_module__ = {}
+		this.__proxy_cache__ = {}
+		this.__class__ = 'HostProxy'
+		this._getsetSig = function(name, worker){
+			var store = '__' + name
+			this[store] = this[name]
 
-	this.Base.Proxy = this.Base.extend(function(){
-		this._init = function(){
-			if(!ONE.proxy_free.length) this.proxy_uid = ONE.proxy_uid++
-			else this.proxy_uid = ONE.proxy_free.pop()
-
-			if(typeof this.init == 'function') this.init.call(this, arguments)
-			// queue our object up for sending it over to the other side
-			if(ONE.proxy_inits.push(this) == 1){
-				setTimeout(ONE.proxyInit, 0)
-			}
+			this.defineProperty(name, {
+				get:function(){
+					return this[store]
+				},
+				set:function(v){
+					this[store] = v
+					// lets forward this
+					worker.sendToWorker({_type:'signal', _uid:this.__proxy__, name:name, value:v})
+				}
+			})
 		}
 
-		this.proxyInit = function(){
-			var msg = {_id:'spawn', proxy_uid: this.proxy_uid}
+		this._initFrom = function(msg, worker, isupdate){
+			var msg_uid = this.__proxy__ = msg._uid
 
-			var src = this.proxy()
-
-			// if our compiler created any objects, lets init them first
-			// otherwise our dependencies cannot be met
-			if(ONE.proxy_inits.length){
-				var inits = ONE.proxy_inits
-				ONE.proxy_inits = []
-				for(var i = 0, l = inits.length; i<l; i++){
-					inits[i].proxy_init()
-				}
-			}
-
-			msg.proxy_code = src
-			// transfer proxied properties
-			var props = this.proxy_props
-			if(props){
-				for(var k in props){
-					var dist = props[k]
-
-					var v = this[k]
-					if(v === undefined){
-						throw new Error('Trying to proxy prop ' + k + ' but is undefined dist(' + dist + ')')
+			// lets initialize ourself from msg,
+			if(!isupdate){
+				for(var k in msg){
+					if(k.charCodeAt(0) != 95){
+						// store it
+						this[k] = msg[k]
 					}
-					if(v && v._signal_) msg[k] = v.value
-					else msg[k] = v
 				}
-			}
-			// transfer proxied references
-			var refs = this.proxy_refs
-			if(refs){
-				for(var k in refs){
-					if(!this[k]) throw new Error('Trying to proxy ref ' + k + ' but is undefined')
-					msg[k] = this[k].proxy_uid
+
+				// define signal forwards
+				var sigs = msg._sigs
+				if(sigs){
+					for(var i = 0, l = sigs.length; i < l; i++){
+						this._getsetSig(sigs[i], worker)
+					}
 				}
-			}
-			
-			var sigs = this.proxy_setters
-			if(sigs){
-				for(var i = 0;i<sigs.length;i++){
-					msg[k] = this[sigs[k]] // copy current signal
+
+				var refs = msg._refs
+				if(refs){
+					for(var i = 0, l = refs.length; i < l; i++){
+						var name = refs[i]
+						var uid = this[name]
+						var obj = worker.proxy_obj[uid]
+						if(obj) this[name] = obj
+						else{
+							// make late resolve array
+							var arr =  worker.proxy_obj[uid] || (worker.proxy_obj[uid] = [])
+							arr.push(this, name)
+						}
+					}
 				}
+				var old_obj = worker.proxy_obj[msg_uid]
+				// clean up late resolve
+				if(Array.isArray(old_obj)){
+					for(var i = 0, l = old_obj.length; i < l; i += 2){
+						old_obj[i][old_obj[i+1]] = this
+					}
+				}
+				worker.proxy_obj[msg_uid] = this				
 			}
 
-			if(this.proxy_dump) msg.proxy_dump = 1
+			if(msg._code){
+				// do some caching
+				var fn = this.__proxy_cache__[msg._code] || 
+						(this.__proxy_cache__[msg._code] = Function('module', msg._code))
 
+				// execute on self to populate class
+				fn.call(this, this.__proxy_module__)
+			}
+
+			// call init
+			if(msg.__class__) this.__class__ = msg.__class__
+
+			if(!this.hasOwnProperty('__class__') && !isupdate && this.init) this.init()
+		}
+	})
+
+	// baseclass for the worker objects
+	this.Base.WorkerProxy = this.Base.extend(function(){
+
+		this.__proxy__ = 0
+		this.__class__ = 'WorkerProxy'
+
+		// used to minimize compilation
+		this.__proxy_cache__ = {}
+
+		// called when someone makes an instance
+		this._init = function(){
+			this._extend()
+			if(this.init) this.init.apply(this, arguments)
+		}
+
+		// called when someone extended us
+		this._extend = function(){
+			if(!ONE.proxy_free.length) this.__proxy__ = ONE.proxy_uid++
+			else this.__proxy__ = ONE.proxy_free.pop()
+			this.defineProperty('__proxy__', { enumerable:false, configurable:true })
+			// store it
+			ONE.host.proxy_obj[this.__proxy__] = this
+
+			// queue up our object proxify
+			if(ONE.proxify_list.push(this) == 1){
+				setTimeout(ONE.proxify, 0)
+			}			
+		}
+
+		this._getsetAST = function(name){
+			if(this.__lookupSetter__(name)) return
+
+			var store = '__' + name
+			this[store] = this[name]
+
+			this.defineProperty(name, {
+				get:function(){
+					return this[store]
+				},
+				set:function(v){
+					this[store] = v
+					if(this.hasOwnProperty('__compilehash__')){
+						if(ONE.proxify_list.push(this) == 1){
+							setTimeout(ONE.proxify, 0)
+						}
+					}
+				}
+			})
+		}
+
+		this._getsetValue = function(name){
+			if(this.__lookupSetter__(name)) return
+
+			var store = '__' + name
+			this[store] = this[name]
+
+			this.defineProperty(name, {
+				get:function(){
+					return this[store]
+				},
+				set:function(v){
+					this[store] = v
+					if(this.hasOwnProperty('__compilehash__')){
+						
+					}
+				}
+			})
+		}
+
+		this._getsetReference = function(name){
+			if(this.__lookupSetter__(name)) return
+
+			var store = '__' + name
+			this[store] = this[name]
+
+			this.defineProperty(name, {
+				get:function(){
+					return this[store]
+				},
+				set:function(v){
+					this[store] = v
+					if(this.hasOwnProperty('__compilehash__')){
+					}
+				}
+			})
+		}
+
+		this._proxify = function(){
+			// create a proxy id
+			var proto = Object.getPrototypeOf(this)
+
+			// iterate the keys we have
+			var comp
+			var msg = {_type:'proxify', _proto:proto.__proxy__, _uid:this.__proxy__}
+
+			var hash = proto.__compilehash__ || ""
+
+			var keys = Object.keys(this)
+			var methods = ""
+
+			// TODO make conversion to getter/setters
+			for(var i = 0, l = keys.length; i < l; i++){
+				var name = keys[i]
+				var prop = this[name]
+				var ch = name.charCodeAt(0)
+
+				if(ch == 36){ //$
+					var base = name.slice(1)
+					if(typeof prop == 'function'){ // execute
+						if(!comp){
+							comp = this.__compiles__ = Object.create(this.__compiles__ || null)	
+						}
+						hash += base + '={compile}\n'
+						comp[base] = prop // store it
+					}
+					else if(prop._ast_){ // its a remote method
+						var js = this.AST.ToJS
+						js.new_state()
+						js.module = prop.module
+						methods += 'this.' + base + ' = ' + js.expand(prop) + '\n'
+						//cache += base + '=' + prop.source + '\n'
+					}
+				}
+				else if(ch != 95){ // doesnt start with _
+					if(this['on_' + name]){ // we haz signal
+						if(!msg._sigs) msg._sigs = []
+						msg._sigs.push(name)
+					}
+					else
+					if(prop && typeof prop == 'object'){
+						if(prop.__proxy__){
+							if(!msg._refs) msg._refs = []
+							msg[name] = prop.__proxy__
+							msg._refs.push(name)
+							this._getsetReference(name)
+						}
+						else if(prop._t_){ // only copy typed properties
+							// make a value-forward getter-setter
+							msg[name] = prop
+							var proto_prop = proto[name]
+							if(proto_prop !== undefined && (!proto_prop._t_ || proto_prop._t_.name != prop._t_.name)){
+								throw new Error('Error, cannot change type from baseclass property '+name+' my type: ' + prop._t_.name)
+							}
+							else hash += name + '=' + prop._t_.name + prop._t_.slots + '\n'
+						}
+						else if(prop._ast_){ // we found an expression, include it in our compile cache key
+							// make a recompile-triggering getter-setter
+							this._getsetAST(name)
+							hash += name + '=' + prop.source + '\n'
+						}
+					}
+					else if(typeof prop != 'function'){
+						// make a value-forward getter-setter
+						this._getsetValue(name)
+
+						msg[name] = prop
+					}
+					
+				}
+			}
+			// only compile things if we are an instance
+			if(!this.hasOwnProperty('__class__') && hash){
+				// lets first check if we actually need to compile by comparing
+				// our __compilehash__ with our prototype chain
+				// ok so what do we need
+				if( (this.__compilehash__ && hash !== this.__compilehash__) || 
+					hash !== proto.__compilehash__ || !proto.__compiled__){
+
+					var code = ''
+					var comp = this.__compiles__
+					for(var name in comp){
+						var prop = comp[name]
+						code += prop.call(this) + '\n'
+					}
+
+					if(code){
+						// ok we have code. now we check if we can place it higher up the prototype chain
+						var last
+						while(proto && proto.__compilehash__ == hash){
+							last = proto
+							proto = Object.getPrototypeOf(proto)
+						}
+
+						if(last){ // lets store it on last
+							last.__compiled__ = true
+							ONE.host.sendToHost({_type:'proxify', _uid:last.__proxy__,  _code:code})
+						}
+						else{
+							this.__compiled__ = true
+							msg._code = code
+						}
+					}
+				}
+			}
+			this.__compilehash__ = hash
+
+			msg._code = msg._code?msg._code + methods:methods
+
+			if(this.hasOwnProperty('__class__')) msg.__class__ = 'Host - '+this.__class__
+			// ok we first send our object with codehash
 			ONE.host.sendToHost(msg)
 		}
-		
-		this.proxy = function( methods ){
-			if(!methods) methods = {init:this.init}
 
-			var code = ''
-			for(var key in methods){
-				var method = methods[key]
-				var proxy_code = method.proxy_code
-				if(proxy_code){
-					code += proxy_code
-					continue
-				}
-
-				if(!method._ast_) throw new Error('invalid proxy method')
-				var js = this.AST.ToJS
-				js.new_state()
-				js.module = method.module
-				code += 'this.' + key + ' = ' + js.expand(method) + '\n'
-
-				method.proxy_code = code
-			}
-			var refs = this.proxy_refs
-			if(refs){
-				for(var k in refs){
-					// remote ID resolve with 'still undefined but might be soon' mode
-					code += 'var res = module.worker.proxy_obj[this.' + k + ']\n'
-					code += 'if(res === undefined) module.worker.proxy_obj[this.' + k + '] = [this, "'+k+'"]\n'
-					code += 'else if(Array.isArray(res)) res.push(this, "'+k+'")\n'
-					code += 'else this.'+k+' = res\n'
-				}
-			}
-
-			var sigs = this.proxy_setters
-			if(sigs){
-				for(var i = 0;i<sigs.length;i++){
-					var k = sigs[i]
-					code += 'this.__' + k + ' = this.'+k+'\n'
-					code += 'this.__defineGetter__("'+k+'",function(){ return this.__'+k+' })\n'
-					code += 'this.__defineSetter__("'+k+'",function(v){ this.__'+k+' = v; module.worker.sendToWorker({_id:"setter", name:"' +  k + '", proxy_uid:this.proxy_uid, value:v})})\n'
-				}
-			}
-
-			return code
-		}
-
-		this.proxyCall = function(name){
+		this.callHost = function(name){
 			if(arguments.length > 1){
-				ONE.host.sendToHost({_id:"call", name:name, proxy_uid: this.proxy_uid, args:Array.prototype.slice.call(arguments,1)})
+				ONE.host.sendToHost({_type:"call", name:name, _uid: this.__proxy__, args:Array.prototype.slice.call(arguments,1)})
 			}
-			else ONE.host.sendToHost({_id:"call", name:name, proxy_uid: this.proxy_uid})
+			else ONE.host.sendToHost({_type:"call", name:name, _uid: this.__proxy__})
 		}
 
+		this.hideProperties(Object.keys(this))
 	})
 }
 
@@ -301,45 +480,29 @@ ONE.browser_boot_ = function(){
 
 			for(var i = 0, l = data.length;i < l;i++){
 				var msg = data[i]
-				if(msg._id == 'signal'){ // we have to set a value
-					var obj = this.proxy_obj[msg.proxy_uid]
-					if(!obj) throw new Error('Signal set on nonexistant object ' + msg.proxy_uid)
+				if(msg._type == 'signal'){ // we have to set a value
+					var obj = this.proxy_obj[msg._uid]
+					if(!obj) throw new Error('Signal set on nonexistant object ' + msg._uid)
 					obj['__' + msg.name] = msg.value
 				}
-				else if(msg._id == 'call'){
-					var obj = this.proxy_obj[msg.proxy_uid]
-					if(!obj) throw new Error('Call on nonexistant object ' + msg.proxy_uid)
+				else if(msg._type == 'call'){
+					var obj = this.proxy_obj[msg._uid]
+					if(!obj) throw new Error('Call on nonexistant object ' + msg._uid)
 					obj[msg.name].call(obj, msg.args)
 				}
-				if(msg._id == 'spawn'){
-
-					var obj = msg
-
-					// is late resolve array
-					var arr = worker.proxy_obj[obj.proxy_uid]
-					if(arr){
-						for(var j = 0, m = arr.length; j<m; j+=2){
-							arr[j][arr[j+1]] = obj
-						}
+				if(msg._type == 'proxify'){
+					// lets check our 
+					var obj = this.proxy_obj[msg._uid]
+					var isupdate = false
+					// clean up late resolve
+					if(obj && !Array.isArray(obj)){
+						isupdate = true
 					}
-					worker.proxy_obj[obj.proxy_uid] = obj
-
-					if(obj.proxy_dump) console.log(obj)
-
-					var code = obj.proxy_code
-					var init = worker.proxy_cache[code]
-					if(!init){
-						try{
-							init = worker.proxy_cache[code] = Function('module', code)
-						}
-						catch(e){
-							console.log("Error in proxy_code ",e, code)
-						}
+					else{
+						if(msg._proto == 0) obj = ONE.Base.HostProxy.new()
+						else obj = Object.create(this.proxy_obj[msg._proto])
 					}
-					// initialize object
-					init.call(obj, proxy_module)
-					if(obj.init) obj.init()
-					//console.log(obj)
+					obj._initFrom(msg, worker, isupdate)
 				}
 			}
 		}
@@ -352,7 +515,7 @@ ONE.browser_boot_ = function(){
 			var elem = document.getElementById(module)
 			if(elem){
 				var value = elem.innerHTML
-				worker.sendToWorker({_id:'parse', module:module, value:value})
+				worker.sendToWorker({_type:'parse', module:module, value:value})
 				return sig.end(value)
 			}
 			// do some XMLHTTP
@@ -363,7 +526,7 @@ ONE.browser_boot_ = function(){
 				if(req.readyState == 4){
 					if(req.status != 200) return sig.throw(req.status)
 					var value = req.responseText
-					worker.sendToWorker({_id:'parse', module:module, value:value})
+					worker.sendToWorker({_type:'parse', module:module, value:value})
 					return sig.end(value)
 				}
 			}
@@ -403,7 +566,7 @@ ONE.browser_boot_ = function(){
 						all.push(load_dep(mod))
 					})
 					ONE.Base.allSignals(all).then(function(){
-						if(first) worker.sendToWorker({_id:'eval', module:module})
+						if(first) worker.sendToWorker({_type:'eval', module:module})
 						else first = false
 						sig.end()
 					}, 
@@ -418,7 +581,7 @@ ONE.browser_boot_ = function(){
 		}
 		
 		load_dep(root).then(function(){
-			worker.sendToWorker({_id:'run', module:root})	
+			worker.sendToWorker({_type:'run', module:root})	
 		})
 	}
 	if(location.hostname.match(/(.*?)\.onejs\.io/)){

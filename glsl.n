@@ -164,14 +164,7 @@ class DepTraceGLSL extends AST.Walk{
 			return Post(n)
 		}
 
-		var prop
-		// lets resolve name
-		var ctx = context
-		while(ctx && prop === undefined){
-			prop = ctx[name]
-			if(ctx.parent == ctx) break
-			ctx = ctx.parent
-		}
+		var prop = context[name]
 
 		// last resort, resolve against locals
 		if(locals && name in locals){
@@ -184,7 +177,7 @@ class DepTraceGLSL extends AST.Walk{
 		
 		// what if we are a type
 		// we are a reference to a remote object
-		if(prop.proxy_uid){
+		if(prop.__proxy__){
 			// what if we reference a texture here?
 			if(prop._sampler2D_){
 				n.mark = 2 // atleast a vertex shader
@@ -268,13 +261,7 @@ class DepTraceGLSL extends AST.Walk{
 			}
 
 			// fetch attributes on parent chain
-			var ctx = context
-			var attrib
-			while(ctx && attrib === undefined){
-				attrib = ctx[name]
-				if(ctx.parent == ctx) break
-				ctx = ctx.parent
-			}
+			var attrib = context[name]
 
 			if(!attrib) throw new Error('cannot fetch attribute '+n.object.name)
 
@@ -760,13 +747,7 @@ class GenGLSL extends AST.ToCode{
 			return expand(def, n)
 		}			
 
-		var prop
-		var ctx = context
-		while(ctx && prop === undefined){
-			prop = ctx[name]
-			if(ctx.parent == ctx) break
-			ctx = ctx.parent
-		}
+		var prop = context[name]
 		// if we are here, we are not a uniform
 
 		if(prop === undefined){			
@@ -833,13 +814,7 @@ class GenGLSL extends AST.ToCode{
 			if(obj) obj = {_t_:obj, _local_:1}
 			else {
 				// fetch attributes on parent chain
-				var ctx = context
-				obj = undefined
-				while(ctx && obj === undefined){
-					obj = ctx[name]
-					if(ctx.parent == ctx) break
-					ctx = ctx.parent
-				}
+				obj = context[name]
 				// check if our property is on the main_this
 				// ifnot lets rename it
 				if(obj !== main_this[name]){
@@ -1098,7 +1073,7 @@ class GenGLSL extends AST.ToCode{
 		}
 
 		// construct a sampler uid
-		var sampler_id = 'sam_' + (image.proxy_uid || context_name) + '_' + hash
+		var sampler_id = 'sam_' + (image.__proxy__ || context_name) + '_' + hash
 
 		// store the sampler, with a
 		var sam
@@ -1283,15 +1258,7 @@ class GenUniformJS extends AST.ToJS{
 			return name
 		}
 
-		var dist = 0
-		var prop
-		var ctx = context
-		while(ctx && prop === undefined){
-			prop = ctx[name]
-			ctx = ctx.parent
-			dist ++
-		}
-		if(dist>1 && context.flatten_distance) dist--
+		var prop = context[name]
 
 		// support locals by storing them on my this and remapping the name
 		
@@ -1303,7 +1270,7 @@ class GenUniformJS extends AST.ToJS{
 				name = main_uid + '_local_' + name
 				main_this[name] = locals[name]
 
-				deps[name] = proxy_props[name] = 1
+				deps[name] = 1
 				return 'this.' + name
 			}
 			else return this.resolve(n.name, n)
@@ -1322,13 +1289,13 @@ class GenUniformJS extends AST.ToJS{
 		
 		if(typeof prop == 'object'){
 			//!TODO convert to signal
-			deps[name] = proxy_props[name] = dist
-			return 'this.' + Array(dist).join('parent.') + name
+			deps[name] = dist
+			return 'this.' + name
 		} 
 		else if(typeof prop == 'number'){
 			//!TODO convert to signal
-			deps[name] = proxy_props[name] = dist
-			return 'this.' + Array(dist).join('parent.') +name
+			deps[name] = dist
+			return 'this.' + name
 		}
 		else throw new Error('Cant generate uniformJS for '+name)
 	}
@@ -1338,8 +1305,7 @@ class GenUniformJS extends AST.ToJS{
 			var prop_name = n.object.name
 			var dep_name = n.object.name + '.' + n.key.name
 			deps[dep_name] = 1
-			proxy_props[prop_name] = 1
-			return 'this.'+dep_name
+			return 'this.' + dep_name
 		}
 		return AST.ToJS::Key(n)
 	}
@@ -1497,3 +1463,4 @@ DecodeBlendEquation( eq ){
 	else throw new Error('Blend equation invalid (main type) ' + eq.type + ' ' + eq.op)
 	return out
 }
+

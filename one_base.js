@@ -25,10 +25,11 @@ ONE.init = function(){
 	this.base_.call(this.Base = {})
 	this.Base.Base = this.Base
 
-	this.Base.hideProperties( Object.keys( ONE.Base ) )
+	this.Base.hideProperties(Object.keys(ONE.Base))
 
 	// make ONE the new root scope
-	this.Base.$ = this.$ = Object.create(this)
+	this.Base.__modules__ = this.__modules__ = Object.create(null)
+	this.Base.__module_instances__ = this.__modules_instances__ = Object.create(null)
 }
 
 ONE.base_ = function(){
@@ -44,11 +45,13 @@ ONE.base_ = function(){
 
 		var obj = Object.create(this)
 
-		if(outer && outer.$) obj.$ = outer.$
 		obj.__class__ = selfname || 'unknown-class'
-
+		obj.defineProperty('__class__', { enumerable:false, configurable:true })
+		
 		// allow reference to self on inherited classes
 		if(selfname) obj[selfname] = obj
+
+		if(obj._extend) obj._extend()
 		
 		if( role ){
 			if( typeof role == 'function') role.call(obj, outer)
@@ -70,7 +73,8 @@ ONE.base_ = function(){
 
 		var obj = Object.create(this)
 
-		this.__owner__ = owner
+		obj.__owner__ = owner
+		obj.defineProperty('__owner__', { enumerable:false, configurable:true })
 
 		if(obj._init) obj._init.apply(obj, arguments)
 		else if(obj.init) obj.init.apply(obj, arguments)
@@ -101,7 +105,7 @@ ONE.base_ = function(){
 	this.load = function( irole ){
 		var role = irole
 		if(typeof irole == 'string'){// try to read it from scope
-			role = this.$[irole]
+			role = this.__modules__[irole]
 			if(!role) throw new Error("Cannot find role "+irole+" on this")
 		}
 
@@ -114,25 +118,20 @@ ONE.base_ = function(){
 		return role
 	}
 
-	// merge a role onto this
-	this.import = function( irole ){
-		var role = irole
-		if( typeof irole == 'string' ){// try to read it from scope
-			role = this.$[irole]
-			if( !role ) throw new Error("Cannot find role "+irole+" on this")
-		}
+	// import a module
+	this.import = function( name ){
+		// lets import a module!
+		var module = this.__modules__[name]
 
-		if( typeof role == 'function' ){
-			role.call( this )
-			return this
-		}
-		
-		if( typeof role == 'object' ){
-			for( var k in role ) this[ k ] = role[ k ]
-			return this
-		}
+		if(!module) throw new Error("Cannot find module "+name)
 
-		throw new Error('could not mix in', irole)
+		var instance = this.__module_instances__[name]
+
+		if(!instance){
+			this.__module_instances__[name] = instance = this.Base.new(this)
+			module.call(instance)
+		}
+		return instance
 	}
 
 	// Internal prefixes:
@@ -400,18 +399,6 @@ ONE.base_ = function(){
 		tm = this.now() - tm
 		console.log("profile " + msg + " " + Math.ceil(tm) + 'ms')
 		return ret
-	}
-
-	// Create a new scope
-	this.scoped = function( name ){
-		if(this.$.scopeof == this) throw new Error("Don't scope more than once")
-		// create a prototype backed scope chain
-		var $ = Object.create(this.$)
-		if(name) this.$[name] = $
-		this.$ = $
-		$.$ = $ // make scope objects scope itself
-		$.scopeof = this
-		return $
 	}
 
 	// Finding the thing you overloaded, for anything besides objects

@@ -1,5 +1,5 @@
+#js
 import math
-import gl
 import glscene
 
 // my first scenegraph!
@@ -21,9 +21,7 @@ Scene{
 		out("hi!")
 	}
 
-	Layer top{
-	//	x: mouse.x
-	//	y: mouse.y
+	var t = Layer top{
 		w = 50, h = 50
 		pixel: #green
 	}

@@ -1,6 +1,7 @@
 import math
 import gl
 import glscene
+import inputdevice
 
 // my first scenegraph!
 define circle(vec3 col, vec2 p, float pw){
@@ -10,9 +11,9 @@ define circle(vec3 col, vec2 p, float pw){
 Scene{
 	antialias = true
 	fill = #aero
-	Layer{
+	var t = Layer{
 		x = 100, y = 100, w = 400, h = 400
-		rz: -Time.sec
+		rz: -time.sec
 		tex = Image.url('test_texture.jpg')
 		pixel: tex.sample(p)
 		Layer{
@@ -29,5 +30,3 @@ Scene{
 		}
 	}
 }
-
-// alright! lets go and make event handling!. how do we do this?
