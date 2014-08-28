@@ -1256,7 +1256,7 @@ ONE.genjs_ = function(modules, parserCache){
 		
 		this.Class = function( n ){
 			
-			var base = n.base?this.expand(n.base, n):'this.Base'
+			var base = n.base? this.expand(n.base, n): 'this.Base'
 			var name = n.id.name
 			
 			var fn = this.find_function(n)

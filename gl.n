@@ -38,22 +38,23 @@ define vec4Rect( x, y, w, h, z = 0, ww = 1 ){
 }
 
 class Draw extends WorkerProxy{
-
+	
 	// support the { } syntax but store owner on parent
 	call( pthis, nest, parent ){
 		var obj = Object.create(this)
 		obj.parent = parent
-		
+
 		if(!parent.children) parent.children = []
 		parent.children.push(obj)
 
 		obj.device = parent.device
 
 		if(obj._init) obj._init()
-		else if(obj.init) obj.init()
-
+		
 		if(nest) nest.call(obj)
-			
+
+		if(obj.init) obj.init()
+
 		if(obj.device.onAddChild) obj.device.onAddChild(obj)
 
 		if(parent.onAddChild) parent.onAddChild(obj)
@@ -130,7 +131,7 @@ class Draw extends WorkerProxy{
 				// TODO fix the resolution order on this one
 				var objname = n.object.name
 				var prop = main_this[objname]
-				if(!(objname in this.scope) && prop && prop.proxy_uid){
+				if(!(objname in this.scope) && prop && prop.__proxy__){
 					var bind = proxy_refs[objname] || (proxy_refs[objname] = {})
 					var keyname = n.key.name
 					bind[keyname] = 1
@@ -720,6 +721,8 @@ class Draw extends WorkerProxy{
 	}
 
 	hideProperties(Object.keys(this))
+	// make a singleton copy of Time
+	time = Time.new()
 
 	$init:(){
 		if(!parent.children) parent.children = []
@@ -734,12 +737,19 @@ class Draw extends WorkerProxy{
 	}
 
 	$redraw:(){
+		// only allow redraw flagging to happen 
+		if(device.anim_req == 0){
+
+		}
 		var p = this
-		while(p && !p.dirty){
-			p.dirty = true
+		while(p && !p._dirty){
+			p._dirty = true
 			p = p.parent
 		}
-		device.redraw()
+		if(!device.anim_req){
+			device.anim_req = true
+			window.requestAnimationFrame(device.drawloop)
+		}		
 	}
 
 	// the proxy code generator
@@ -762,7 +772,7 @@ class Draw extends WorkerProxy{
 		js.store_pretemp = 'this._store1._'
 		code += 'this._store1 = {}, this._store2 = {}\n'
 		
-		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store'
+		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store;this._dirty = false;'
 		if(draw){
 			var flags = js.pull_flags(draw)
 			if(draw.type != 'Function') throw new Error('GL Draw not a function')
@@ -771,6 +781,7 @@ class Draw extends WorkerProxy{
 			code += 'this.draw = ' + js.Function(draw, undefined, [], undefined, [], swap) + '\n'
 		}
 
+		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store'
 		if(pass){
 			var flags = js.pull_flags(pass)
 			if(pass.type != 'Function') throw new Error('GL Draw not a function')
@@ -780,7 +791,6 @@ class Draw extends WorkerProxy{
 		}
 
 		var rem = 'this._cleanup = function(){\n'
-
 		for(var i = 0;i<js.uid;i++){
 			rem += '\tthis.d'+(i+1)+'_shader = undefined\n'
 		}
@@ -949,9 +959,10 @@ class Image extends WorkerProxy{
 		else if(img.w_ <= 1) width = old_frame.w * img.w_
 		else width = img.w_
 
+
 		var height = 0
-		if(img._h === null) height = old_frame.h
-		else if(img._h <= 1) height = old_frame.h * img.h_
+		if(img.h_ === null) height = old_frame.h
+		else if(img.h_ <= 1) height = old_frame.h * img.h_
 		else height = img.h_
 
 		if(!img.buf || img.h != height || img.w != width){
@@ -1068,7 +1079,8 @@ class Image extends WorkerProxy{
 
 class Device extends Draw{
 
-	init(){
+	_init(){
+		Draw::_init()
 		device = this // buck stops here
 	}
 
@@ -1101,28 +1113,32 @@ class Device extends Draw{
 		}
 	}
 
-	$drawloop:(time){
-		anim_req = false
-		// check if we are looping
-		if(anim_hooks.length){
-			anim_req = true
-			window.requestAnimationFrame(drawloop)
-		}
+	frame_id = 0
 
-		last = time
+	$drawloop:(now){
+		if(debug_frames && frame_id > debug_frames) return
+		frame_id ++
+
+		anim_req = false
+
 		// call update
-		if(!start) start = time
-		sec = (time - start) / 1000
+		if(!start) start = now
+		sec = (now - start) / 1000
+
+		time.sec = sec
 
 		for(var p from passes){
 			p.pass(sec)
 		}
 
-		for(var a from anim_hooks){
-			a(sec)
-		}
-
 		draw()
+
+		if(time.hasBinds('sec')){
+			if(!anim_req){
+				anim_req = true
+				window.requestAnimationFrame(drawloop)
+			}
+		}
 	}
 
 	$init:(parent){
@@ -1233,7 +1249,4 @@ class Device extends Draw{
 
 		window.onresize()
 	}
-
-	// make a singleton copy of Time
-	time = Time.new()
 }

@@ -14,7 +14,7 @@ import math
 
 class Time extends WorkerProxy{
 	// The Time object manages the playback of your tracks.
-	signal sec = 0
+	sec = 0
 
 	$init:(){
 

@@ -121,6 +121,57 @@ ONE.proxy_ = function(){
 			})
 		}
 
+		this._bindProp = function(obj, prop){
+			// we have to bind a property.
+			// what does that look like?
+			var bind_store = '_bind_' + prop
+			var store = '__' + prop
+			if(obj[bind_store]){
+				obj[bind_store].push(this)
+			}
+			else{
+				obj[bind_store] = [this]
+			}
+			if(!obj.__lookupSetter__(prop)){
+				// store old value
+				obj[store] = obj[prop]
+				Object.defineProperty(obj, prop, {
+					get:function(){
+						return this[store]
+					},
+					set:function(v){
+						var old = this[store]
+						if(old !== v){ // only forward on change
+							this[store] = v
+
+							var arr = this[bind_store]
+							for(var i = 0, l = arr.length; i < l; i++){
+								var node = arr[i]
+								if(node.flagDirty) node.flagDirty()
+							}
+						}
+					}
+				})
+			}
+		}
+
+		this._unbindProp = function(obj, prop){
+			var bind_store = '_bind_' + prop
+			var arr = obj[bind_store]
+			var i
+			if(!Array.isArray(arr) || (i = arr.indexOf(obj)) == -1){
+				console.log('Unbind property error ' + prop)
+				return
+			}
+			arr.splice(i, 1)
+		}
+
+		this.hasBinds = function(prop){
+			var arr = this['_bind_' + prop]
+			if(!arr || !arr.length) return false
+			return true
+		}
+
 		this._initFrom = function(msg, worker, isupdate){
 			var msg_uid = this.__proxy__ = msg._uid
 
@@ -167,6 +218,7 @@ ONE.proxy_ = function(){
 			}
 			else{
 				if(this._cleanup) this._cleanup()
+				if(this._deinitBinds) this._deinitBinds()
 			}
 
 			if(msg._code){
@@ -180,7 +232,10 @@ ONE.proxy_ = function(){
 			// call init
 			if(msg.__class__) this.__class__ = msg.__class__
 
-			if(!this.hasOwnProperty('__class__') && !isupdate && this.init) this.init()
+			if(!this.hasOwnProperty('__class__')){
+				if(!isupdate && this.init) this.init()
+				if(this._initBinds) this._initBinds()
+			}
 		}
 	})
 
@@ -205,14 +260,16 @@ ONE.proxy_ = function(){
 				setTimeout(ONE.proxify, 0)
 			}
 
-			if(this.init) this.init.apply(this, arguments)
+			//if(this.init) this.init.apply(this, arguments)
 		}
 		
 		// make sure extend pre and post dont fire on us
 		var blockPrePost = this
-		// called when someone extended us
+
+		// called in .extend to make sure we proxify before being used
+		// this is necessary otherwise the getter/setter layer never works
 		this._extendPre = function(){
-			if(this == blockPrePost) return
+			if(this == blockPrePost) return // make sure our current.extend doesnt trigger us
 			if(!ONE.proxy_free.length) this.__proxy__ = ONE.proxy_uid++
 			else this.__proxy__ = ONE.proxy_free.pop()
 			this.defineProperty('__proxy__', { enumerable:false, configurable:true })
@@ -221,17 +278,18 @@ ONE.proxy_ = function(){
 		}
 
 		this._extendPost = function(){
-			if(this == blockPrePost) return
+			if(this == blockPrePost) return // make sure our current.extend doesnt trigger us
 			this._proxify()
 		}
 
+		// the main property proxy on the worker side
 		this._propertyProxy = function(name){
 			if(this.__lookupSetter__(name)) return
 
 			var store = '__' + name
 			this[store] = this[name]
 
-			this.defineProperty(name, {
+			Object.defineProperty(this, name, {
 				get:function(){
 					return this[store]
 				},
@@ -250,16 +308,42 @@ ONE.proxy_ = function(){
 						}
 						else if(old && old._ast_) recompile = true
 
-						if(recompile){
-							return this._recompile(name, v)
+						if(!recompile){
+							return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
 						}
-						ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
+
+						// todo make it do a proper queue
+						this._recompile(name, v)
 					}
 				}
 			})
 		}
+		
+		this._compilePropBinds = function(){
+			var hasbinds = false
+			var binds = this.proxy_refs
+			var init = 'this._initBinds = function(){\n'
+			var deinit = 'this._deinitBinds = function(){\n'
+			for(var bind in binds){
+				hasbinds = true
+				var props = binds[bind]
+				for(var prop in props){
+					init += '\tthis._bindProp(this.'+bind+',"'+prop+'")\n'
+					deinit += '\tthis._unbindProp(this.'+bind+',"'+prop+'")\n'
+				}
+			}
+			if(!hasbinds) return ''
+			init += '}\n'
+			deinit += '}\n'
+			// alright. how does this propertybinding crap look like.
+			// alright so, we wanna bind to 
+			return init+deinit
+		}
 
+		// called by propertyproxy
 		this._recompile = function(id, value){
+			// TODO fuse this with proxify an
+
 			// mark new ast nodes
 			var keys = Object.keys(this)
 			for(var i = 0, l = keys.length; i < l; i++){
@@ -278,13 +362,16 @@ ONE.proxy_ = function(){
 				var prop = comp[name]
 				code += prop.call(this) + '\n'
 			}
+			code += this._compilePropBinds()
 			var msg = {_type:'proxify', _uid:this.__proxy__,  _code:code}
 			if(!value || !value._ast_){
 				msg[id] = value				
 			}
+
 			ONE.host.sendToHost(msg)
 		}
 
+		// initial proxification
 		this._proxify = function(){
 			// create a proxy id
 			var proto = Object.getPrototypeOf(this)
@@ -349,6 +436,18 @@ ONE.proxy_ = function(){
 							else hash += name + '=' + prop._t_.name + prop._t_.slots + '\n'
 						}
 						else if(prop._ast_){ // we found an expression, include it in our compile cache key
+							var locals = prop.locals
+							for(var local_name in locals){
+								// we have to make sure the right thing goes in
+								var local_val = locals[local_name]
+								if(local_val && local_val.__proxy__){
+									msg[local_name] = local_val.__proxy__
+									msg._refs.push(local_name)
+								}
+								else{
+									msg[local_name] = local_val
+								}
+							}
 							// Todo: do storing context values here so we can cache compiles
 							// make a recompile-triggering getter-setter
 							this._propertyProxy(name)
@@ -371,15 +470,22 @@ ONE.proxy_ = function(){
 				if( (this.__compilehash__ && hash !== this.__compilehash__) || 
 					hash !== proto.__compilehash__ || !proto.__compiled__){
 
-					var code = ''
-					var comp = this.__compiles__
-					for(var name in comp){
-						var prop = comp[name]
-						code += prop.call(this) + '\n'
+					// WARNING. we might need more strict rules on compiler cache, but lets try it
+					var code = this.__proxy_cache__[hash] || ''
+
+					if(!code){
+						var comp = this.__compiles__
+						for(var name in comp){
+							var prop = comp[name]
+							code += prop.call(this) + '\n'
+						}
+						this.__proxy_cache__[hash] = code
 					}
 
 					// TODO fix compile caching based on hash
 					if(code){
+						// lets add the property binds
+						code += this._compilePropBinds()
 						// ok we have code. now we check if we can place it higher up the prototype chain
 						var last
 						while(proto && proto.__compilehash__ == hash){
@@ -398,11 +504,11 @@ ONE.proxy_ = function(){
 					}
 				}
 			}
+			else  msg.__class__ = 'Host - '+this.__class__
 			this.__compilehash__ = hash
 
 			msg._code = msg._code?msg._code + methods:methods
 
-			if(this.hasOwnProperty('__class__')) msg.__class__ = 'Host - '+this.__class__
 			// ok we first send our object with codehash
 			ONE.host.sendToHost(msg)
 		}
@@ -527,7 +633,7 @@ ONE.browser_boot_ = function(){
 					// clean up late resolve
 					if(obj && !Array.isArray(obj)){
 						isupdate = true
-						if(obj.flagDirty) obj.flagDirty()
+						if(!obj.hasOwnProperty('__class__') && obj.flagDirty) obj.flagDirty()
 					}
 					else{
 						if(msg._proto == 0) obj = ONE.Base.HostProxy.new()

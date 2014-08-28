@@ -67,7 +67,7 @@ ONE.base_ = function(){
 	this.new = function(){
 		var obj = Object.create(this)
 		if(obj._init) obj._init.apply(obj, arguments)
-		else if(obj.init) obj.init.apply(obj, arguments)
+		if(obj.init) obj.init.apply(obj, arguments)
 		return obj
 	}
 
@@ -80,9 +80,10 @@ ONE.base_ = function(){
 		obj.defineProperty('__owner__', { enumerable:false, configurable:true })
 
 		if(obj._init) obj._init.apply(obj, arguments)
-		else if(obj.init) obj.init.apply(obj, arguments)
-
+		
 		nest.call(obj)
+
+		if(obj.init) obj.init.apply(obj, arguments)
 
 		return obj
 	}

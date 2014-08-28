@@ -1,7 +1,7 @@
+#js
 import math
 import gl
 import glscene
-import inputdevice
 
 // my first scenegraph!
 define circle(vec3 col, vec2 p, float pw){
@@ -17,7 +17,7 @@ Scene{
 		tex = Image.url('test_texture.jpg')
 		pixel: tex.sample(p)
 		Layer{
-			rz: sin(Time.sec * 5)
+			rz: sin(time.sec * 5)
 			x = 300, y = 100
 			sx = 1
 			pixel:mix(#red, #green, p.y)

@@ -65,6 +65,9 @@ class Scene extends Device{
 // a layer with matrices
 class Layer extends Draw{
 
+	// forward the mouse object
+	mouse = Scene.mouse
+
 	// define object types
 	mesh = vec2Rect(0, 0, 1, 1)
 
@@ -94,7 +97,7 @@ class Layer extends Draw{
 		// draw ourselves
 		this{}
 		// now lets make these things work
-		if(_children){
+		if(children){
 			m_childworld = m_child * m_world
 			drawChildren(this)
 		}
