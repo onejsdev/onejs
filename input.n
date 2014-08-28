@@ -1,7 +1,7 @@
 class Mouse extends WorkerProxy{
 
 	// mouse signals
-	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor
+	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor, leftdown, leftup, rightdown, rightup
 
 	enum cursors{
 		'default'
@@ -46,7 +46,7 @@ class Mouse extends WorkerProxy{
 	}
 
 	_cursor = 'default'
-	
+
 	get cursor(){ return _cursor }
 	set cursor(v){ callHost('setCursor', _cursor = v) }
 	$setCursor:(value){
@@ -67,16 +67,16 @@ class Mouse extends WorkerProxy{
 		})
 
 		window.addEventListener('mousedown', e => {
-			if(e.button === 0 ) left = 1
+			if(e.button === 0 ) left = 1, leftdown = 1
 			if(e.button === 1 ) middle = 1
-			if(e.button === 2 ) right = 1
+			if(e.button === 2 ) right = 1, rightdown = 1
 			isdown = 1
 		})
 
 		window.addEventListener('mouseup', e => {
-			if(e.button === 0 ) left = 0
+			if(e.button === 0 ) left = 0, leftup = 1
 			if(e.button === 1 ) middle = 0
-			if(e.button === 2 ) right = 0
+			if(e.button === 2 ) right = 0, rightup = 1
 			isdown = 0
 		})
 
@@ -85,8 +85,6 @@ class Mouse extends WorkerProxy{
 			y = e.pageY
 			move = 1
 		})
-
-
 	}
 }
 

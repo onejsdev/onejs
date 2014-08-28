@@ -1,4 +1,3 @@
-#js
 import math
 import gl
 import glscene
@@ -9,15 +8,27 @@ define circle(vec3 col, vec2 p, float pw){
 }
 
 Scene{
+	debug_rate = true
 	antialias = true
 	fill = #aero
 	var t = Layer{
-		x = 100, y = 100, w = 400, h = 400
-		rz: -time.sec
+		mouse.leftdown()=>{
+			x:mouse.x - .5 * w
+			y:mouse.y - .5 * h
+			oldpx = pixel
+			pixel:#red
+		}
+		mouse.leftup()=>{
+			x = mouse.x - .5 * w
+			y = mouse.y - .5 * h
+			pixel = oldpx
+		}
+		w = 400, h = 400
+		//rz: -time.sec
 		tex = Image.url('test_texture.jpg')
-		pixel: tex.sample(p)
+		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - mouse.x/100.)
 		Layer{
-			rz: sin(time.sec * 5)
+			rz: mouse.x*deg
 			x = 300, y = 100
 			sx = 1
 			pixel:mix(#red, #green, p.y)

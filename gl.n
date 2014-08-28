@@ -764,9 +764,9 @@ class Draw extends WorkerProxy{
 		js.context = this
 		js.main_this = this
 		//js.proxy_props = proxy_props  || (proxy_props = {})
-		js.proxy_refs = proxy_refs || (proxy_refs = {})
+		js.proxy_refs = proxy_refs //|| (proxy_refs = {})
 
-		proxy_refs.parent = {}
+		//proxy_refs.parent = {}
 		js.uid = 0
 		js.store_tempid = 1
 		js.store_pretemp = 'this._store1._'
@@ -940,6 +940,7 @@ class Image extends WorkerProxy{
 	$call:(self, nest, pthis){
 
 		var gl = pthis.gl
+		var device = pthis.device
 		var img_obj = self
 		var old_frame = gl._curFrame
 
@@ -1037,6 +1038,7 @@ class Image extends WorkerProxy{
 		}
 		gl._curFrame = img
 		gl.viewport(0, 0, img.w, img.h)//img.w / gl.ratio, img.h / gl.ratio)
+		device.w = img.w, device.h = img.h
 		
 		if(img_obj.flipped){
 			img_obj.tex = img_obj.buf2.tex
@@ -1117,6 +1119,12 @@ class Device extends Draw{
 
 	$drawloop:(now){
 		if(debug_frames && frame_id > debug_frames) return
+
+		if(debug_rate){
+			document.title = parseInt(1000/(now - last))
+			last = now
+		}
+
 		frame_id ++
 
 		anim_req = false
@@ -1217,8 +1225,8 @@ class Device extends Draw{
 			_gl.viewport(0, 0, sw, sh)
 			// store our w/h and pixelratio on our frame
 			frame.ratio = pixelRatio
-			frame.w = sw
-			frame.h = sh
+			this.w = frame.w = sw
+			this.h = frame.h = sh
 			redraw()
 			// todo, fire event?
 		}

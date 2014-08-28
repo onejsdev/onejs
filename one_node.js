@@ -81,7 +81,7 @@ ONE.nodejs_boot_ = function(){
 			loadFile( obj, file )
 		})
 	//try{
-		obj.$[module] = obj.eval(ast, module)
+		obj.__modules__[module] = obj.eval(ast, module)
 
 		//}catch(e){
 			//console.log(e)
@@ -90,7 +90,7 @@ ONE.nodejs_boot_ = function(){
 	function reload(){
 		var obj = ONE.Base.new()
 		loadFile( obj, root )
-		var call = obj.$[root]
+		var call = obj.__modules__[root]
 		if(call)call.call(obj)
 	}
 

@@ -302,7 +302,7 @@ class DepTraceGLSL extends AST.Walk{
 			var propname = n.key.name
 			var prop = obj[propname]
 
-			if(prop === undefined) throw new Error('Cannot find ' + n.object.name + '.' + propname)
+			//if(prop === undefined) throw new Error('Cannot find ' + n.object.name + '.' + propname)
 
 			// mark signal in our proxy table
 			n.infer = prop && prop._t_ || float

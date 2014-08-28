@@ -56,7 +56,8 @@ class Scene extends Device{
 		clearAll(fill)
 		m_proj = mat4.ortho(0, frame.w / frame.ratio, 0, frame.h / frame.ratio, -1000, 1000)
 		//m_proj =  mat4.perspective(-90deg, -1, -100, 100)
-		m_camera = mat4 m_view * mat4 m_proj 
+		// silently assign camera matrix
+		__m_camera = mat4 m_view * mat4 m_proj 
 		m_childworld = mat4.identity()
 		drawChildren(this) 
 	}
