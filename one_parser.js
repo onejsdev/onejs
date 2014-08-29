@@ -1476,7 +1476,7 @@ ONE.parser_strict_ = function(){
 				// dont allow newline before a function-init
 				if( cantype && this.tokType == this._name && !this.lastSkippedNewlines){
 					var id = this.parseIdent()
-					id.kind = def.id
+					id.typing = def.id
 					def.id = id
 				}
 
@@ -1874,7 +1874,7 @@ ONE.parser_strict_ = function(){
 		if (this.tokType === this._var || (is_typed=this.isIdentifierStart(this.input.charCodeAt(this.tokPos)))){
 			var init = this.startNode()
 			if(is_typed){
-				init.kind = this.parseIdent()
+				init.typing = this.parseIdent()
 				init.defs = this.parseDefs(true)
 				this.finishNode(init, "TypeVar")
 			}
@@ -2018,18 +2018,17 @@ ONE.parser_strict_ = function(){
 		}
 		// parse float x, y to be a TypeVar not (float x), y
 		if(inStatement && (
-			expr.type == 'Index' && expr.object.kind ||
-			expr.type == 'Id' && expr.kind || 
-			expr.type == 'Assign' && expr.left.kind || 
-			expr.type == 'Call' && expr.fn.kind)){
+			expr.type == 'Index' && expr.object.typing ||
+			expr.type == 'Id' && expr.typing || 
+			expr.type == 'Assign' && expr.left.typing || 
+			expr.type == 'Call' && expr.fn.typing)){
 			// lets convert to something that looks like a var decl
-
 			var node = this.startNodeFrom(expr)
 			var defs = node.defs = []
 			if(expr.type == 'Assign'){
 				// make an init def
-				node.kind = expr.left.kind
-				expr.left.kind = undefined
+				node.typing = expr.left.typing
+				expr.left.typing = undefined
 				var def = this.startNodeFrom(expr)
 				def.id = expr.left
 				def.init = expr.right
@@ -2037,19 +2036,19 @@ ONE.parser_strict_ = function(){
 			}
 			else if(expr.type == 'Call'){
 				// make a call init def
-				node.kind = expr.fn.kind
-				expr.fn.kind = undefined
+				node.typing = expr.fn.typing
+				expr.fn.typing = undefined
 				var def = this.startNodeFrom(expr)
 				def.id = expr.fn
 				expr.name = undefined
 				def.init = expr
-				def.init.fn = node.kind
+				def.init.fn = node.typing
 				defs[0] = this.finishNode(def, "Def")
 			}
 			else {
 				// normal def
-				node.kind = expr.kind
-				expr.kind = undefined
+				node.typing = expr.typing
+				expr.typing = undefined
 				def = this.startNodeFrom(expr)
 				def.id = expr
 				defs[0] = this.finishNode(def, "Def")
@@ -2250,9 +2249,9 @@ ONE.parser_strict_ = function(){
 
 			if(base.type !== 'This' && base.type !== 'Id' && base.type !== 'Index' && base.type !== 'Key')
 				return base
-			if(base.kind) this.raise(base.start, "Chaining multiple types has no purpose(yet)")
+			if(base.typing) this.raise(base.start, "Chaining multiple types has no purpose(yet)")
 			var node = this.startNodeFrom(base)
-			node.kind = base
+			node.typing = base
 			node.name = this.tokVal
 			this.eat(this._name) || this.eat(this._string) || this.eat(this._this)
 			return this.parseSubscripts(this.finishNode(node, "Id"))
@@ -2423,13 +2422,13 @@ ONE.parser_strict_ = function(){
 			this.tokType = this._name
 			return this.parseIdent()
 		case this._name:
-			var kind = this.parseIdent()
+			var typing = this.parseIdent()
 			if(!this.lastSkippedNewlines && this.tokType == this._name){
 				var node = this.parseIdent()
-				node.kind = kind
+				node.typing = typing
 				return node
 			}
-			return kind
+			return typing
 		case this._num: 
 			var node = this.startNode()
 			node.kind = "num"

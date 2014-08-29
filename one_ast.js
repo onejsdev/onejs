@@ -240,7 +240,7 @@ ONE.ast_ = function(){
 			Program:{ steps:2 },
 			Empty:{},
 
-			Id: { name:0, flag:0, kind:1 },
+			Id: { name:0, flag:0, typing:1 },
 			Value: { value:0, raw:0, kind:0, multi:0 },
 			This: { },
 
@@ -275,7 +275,7 @@ ONE.ast_ = function(){
 
 			Var: { defs:2, const:0 },
 			Const: { defs:2 },
-			TypeVar: { kind:1, defs:2, dim:1 },
+			TypeVar: { typing:1, defs:2, dim:1 },
 			Struct: { id:1, struct:1, base:1, defs:2, dim:1 },
 			Define: { id:1, value:1 },
 			Enum: { id:1, enums:2 },
@@ -445,7 +445,7 @@ ONE.ast_ = function(){
 				}
 			}
 			this.TypeVar = function( n, p ){
-				if(n.kind.name !== 'import') return
+				if(n.typing.name !== 'import') return
 				var defs = n.defs
 				for(var i = 0, l = defs.length; i < l; i++){
 					var def = defs[i]
@@ -625,7 +625,7 @@ ONE.ast_ = function(){
 					if(flag === 64) return '@' + (n.name!==undefined?n.name:'')
 					if(flag === 35) return '#' + (n.name!==undefined?n.name:'')
 				}
-				if(n.kind) return this.expand(n.kind, n) + ' ' + n.name
+				if(n.typing) return this.expand(n.typing, n) + ' ' + n.name
 				return n.name
 			}
 
@@ -882,7 +882,7 @@ ONE.ast_ = function(){
 			}
 
 			this.TypeVar = function( n ){
-				return this.expand(n.kind, n) + ' ' + 
+				return this.expand(n.typing, n) + ' ' + 
 					this.flat(n.defs, n)
 			}
 

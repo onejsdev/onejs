@@ -1,5 +1,8 @@
 import math
 import gl
+import input
+
+var midi = Midi.new()
 
 define myColor(vec2 p, float anim){
 	return (
@@ -32,7 +35,7 @@ class Rect extends Draw{
 }
 
 class Blur extends Draw{
-	buf = Image.rgba_depth_flipped()//.5,.5)
+	buf = Image.rgba_depth_flipped(.5,.5)
 	mesh = vec2Rect(-1, -1, 2, 2)
 	vertex: mesh[]
 	pixel:	buf.sample(pixel mesh[]*.5+.5)

@@ -10,7 +10,7 @@ define circle(vec3 col, vec2 p, float pw){
 Scene{
 	debug_rate = true
 	antialias = true
-	fill = #aero
+	fill: vec3(midi.cc4, midi.cc5, midi.cc6)
 	var t = Layer{
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w
@@ -19,21 +19,21 @@ Scene{
 			pixel:mix(#blue, #red, p.y)
 		}
 		mouse.leftup()=>{
-			x = mouse.x - .5 * w
+			x = mouse.x - .5 * w 
 			y = mouse.y - .5 * h
 			pixel = oldpx
 		}
 		w = 400, h = 400
-		//rz: -time.sec
+		rz: midi.c11*10
 		tex = Image.url('test_texture.jpg')
-		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - mouse.x/100.)
+		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - midi.cc2*20.)
 		Layer{
 			rz: mouse.x * deg
 			x = 300, y = 100
 			sx = 1
 			pixel:mix(#red, #green, p.y)
 			Layer{
-				rz: mouse.x*deg
+				rz: midi.cc3 * 10
 				w = 100
 				h = 100
 				x = -100

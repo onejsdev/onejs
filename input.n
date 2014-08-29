@@ -1,3 +1,5 @@
+import math 
+
 class Mouse extends WorkerProxy{
 
 	// mouse signals
@@ -180,5 +182,42 @@ class Key extends Base{
 }
 
 class Touch extends WorkerProxy{
+	
+}
 
+class Midi extends WorkerProxy{
+
+	for(var i = 0;i<128;i++){
+		signal('cc'+i, 0)
+	}
+
+	for(var i = 0;i<128;i++){
+		signal('c'+i, 0)
+	}
+
+	$init:(){
+		var pthis = this
+		if(navigator.requestMIDIAccess){
+			navigator.requestMIDIAccess({sysex:true}).then do(_midi)=>{
+				midi = _midi
+				for(var input from midi.inputs()){
+					input.onmidimessage(m)=>{
+						assert(m.data.length == 3)
+						var b1 = m.data[0]
+						var chan = m.data[0]&15
+						var type = m.data[0]>>4
+						this['c'+type] = m.data[2]/127
+						if(type == 11){
+							var code = m.data[1]
+							var value = m.data[2]/127
+							this['cc' + code] = value
+						}
+					}
+				}
+			}
+			catch(e){
+				console.log('MIDI ERROR', e)
+			}
+		}
+	}
 }

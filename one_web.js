@@ -20,7 +20,6 @@ ONE.worker_boot_ = function(host){
 		if(!Array.isArray(data)) throw new Error('non array message received')
 		for(var i = 0, l = data.length; i < l; i++){
 			var msg = data[i]
-
 			if(msg._type == 'signal'){ // we have to set a value
 				var obj = host.proxy_obj[msg._uid]
 				if(!obj) throw new Error('set on nonexistant object ' + msg._uid)
@@ -168,7 +167,6 @@ ONE.proxy_ = function(){
 				return
 			}
 			arr.splice(i, 1)
-
 		}
 
 		this.hasBinds = function(prop){
@@ -254,8 +252,6 @@ ONE.proxy_ = function(){
 			if(ONE.proxify_list.push(this) == 1){
 				setTimeout(ONE.proxify, 0)
 			}
-
-			//if(this.init) this.init.apply(this, arguments)
 		}
 		
 		// make sure extend pre and post dont fire on us
@@ -387,6 +383,7 @@ ONE.proxy_ = function(){
 					if(this['on_' + name]){ // we haz signal
 						if(!msg._sigs) msg._sigs = []
 						msg._sigs.push(name)
+						msg[name] = this['__' + name].value
 					}
 					else
 					if(prop && typeof prop == 'object'){
@@ -451,15 +448,13 @@ ONE.proxy_ = function(){
 							var prop = comp[name]
 							code += prop.call(this) + '\n'
 						}
+						code += this._compilePropBinds()
 						this.__proxy_cache__[hash] = code
-						console.log(this.__class__ + " " + (Date.now() - dt) + "ms")
 					}
 					//else console.log('code cache hit!')
 
 					// TODO fix compile caching based on hash
 					if(code){
-						// lets add the property binds
-						code += this._compilePropBinds()
 						// ok we have code. now we check if we can place it higher up the prototype chain
 						var last
 						while(proto && proto.__compilehash__ == hash){
@@ -552,9 +547,10 @@ ONE.browser_boot_ = function(){
 	worker.msg_queue = []
 
 	worker.msgFlush = function(){
-		this.postMessage(this.msg_queue)
+		var msgs = this.msg_queue
 		this.msg_start = Date.now()
 		this.msg_queue = []
+		this.postMessage(msgs)
 	}.bind(worker)
 
 	worker.sendToWorker = function(msg){

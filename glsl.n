@@ -227,18 +227,18 @@ class DepTraceGLSL extends AST.Walk{
 			}
 			else throw new Error('Add other property types ' + name)
 		}
-		if(n.kind){
+		if(n.typing){
 			// lets set our 'infer' to this type
-			if(n.kind.name == 'pixel'){
+			if(n.typing.name == 'pixel'){
 				n.mark = 3	// mark us as pixel
 			}
-			else if(n.kind.name == 'vertex'){
+			else if(n.typing.name == 'vertex'){
 				n.mark = 2
 			}
 			else {
 				// where do we get our typemap?
-				n.infer = module.types[n.kind.name]
-				if(!n.infer) throw new Error('cannot find type ' + n.kind.name)
+				n.infer = module.types[n.typing.name]
+				if(!n.infer) throw new Error('cannot find type ' + n.typing.name)
 			}
 		}
 		Post(n)
@@ -249,7 +249,7 @@ class DepTraceGLSL extends AST.Walk{
 		Pre(n)
 		if(!n.index){
 			var nmark = n.mark = 2 // mark as attribute
-			if(n.object.kind && n.object.kind.name == 'pixel')
+			if(n.object.typing && n.object.typing.name == 'pixel')
 				nmark = 3
 
 			var name = n.object.name
@@ -399,15 +399,15 @@ class DepTraceGLSL extends AST.Walk{
 			}
 		}
 		else if(n.parent.type === 'TypeVar'){
-			var kind = n.parent.kind
-			if(kind.type == 'Index'){
-				var name = kind.object.name
+			var typing = n.parent.typing
+			if(typing.type == 'Index'){
+				var name = typing.object.name
 				var type = this.find_type(name)
 				type = Object.create(type)
 				type.dim = 1
 			}
 			else{
-				var name = kind.name
+				var name = typing.name
 				type = this.find_type(name)
 			}
 		}
@@ -941,8 +941,8 @@ class GenGLSL extends AST.ToCode{
 
 	// typevar needs its struct definitions
 	TypeVar( n ){
-		var type_name = n.kind.infer.name
-		if(!(type_name in glsl_types)) types[type_name] = n.kind.infer
+		var type_name = n.typing.infer.name
+		if(!(type_name in glsl_types)) types[type_name] = n.typing.infer
 		return type_name + ' ' + flat(n.defs, n)
 	}
 
@@ -1235,6 +1235,16 @@ class GenGLSL extends AST.ToCode{
 	find_define = AST.ToJS.find_define
 	find_type = AST.ToJS.find_type
 }
+
+
+
+
+
+
+
+
+
+
 
 // generate the uniform computation JS
 class GenUniformJS extends AST.ToJS{

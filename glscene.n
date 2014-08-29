@@ -18,6 +18,7 @@ import input
 class Scene extends Device{
 
 	mouse = Mouse.new()
+	midi = Midi.new()
 
 	m_camera = mat4()
 
@@ -51,9 +52,9 @@ class Scene extends Device{
 
 	// allright so lets solve our layout..
 	m_view = mat4.identity()//mat4.RT(0,0,0, 0,0,3)
-
 	draw:(){
-		clearAll(fill)
+		vec3 f = fill
+		clearAll(f)
 		m_proj = mat4.ortho(0, frame.w / frame.ratio, 0, frame.h / frame.ratio, -1000, 1000)
 		//m_proj = mat4.perspective(-90deg, -1, -1000, 1000) * mat4.S(0.01,0.01,0.01)
 		// silently assign camera matrix
@@ -68,7 +69,7 @@ class Layer extends Draw{
 
 	// forward the mouse object
 	mouse = Scene.mouse
-
+	midi = Scene.midi
 	// define object types
 	mesh = vec2Rect(0, 0, 1, 1)
 

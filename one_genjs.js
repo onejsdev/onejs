@@ -207,6 +207,7 @@ ONE.genjs_ = function(modules, parserCache){
 		globals.module = 1
 		globals.window = 1
 		globals.document = 1
+		globals.navigator = 1
 		globals.Buffer = 1
 		globals.require = 1
 		globals.__dirname = 1
@@ -481,8 +482,8 @@ ONE.genjs_ = function(modules, parserCache){
 					return 'ONE.color("'+n.name+'", module.vec3)'
 				}
 			}
-			if(n.kind && n.kind.type == 'Id'){
-				var type = this.find_type(n.kind.name)
+			if(n.typing && n.typing.type == 'Id'){
+				var type = this.find_type(n.typing.name)
 				if(type){
 					n.infer = type
 				}
@@ -1037,7 +1038,7 @@ ONE.genjs_ = function(modules, parserCache){
 		}
 		
 		this.TypeVar = function( n ){
-			var name = n.kind.name
+			var name = n.typing.name
 			if(name == 'signal'){
 				var ret = ''
 				var defs = n.defs
@@ -1104,24 +1105,24 @@ ONE.genjs_ = function(modules, parserCache){
 			var init = (n.init ? this.space+'='+this.space + this.expand(n.init, n) : '')
 			if(n.parent.type == 'TypeVar'){
 				
-				var kind = n.parent.kind
+				var typing = n.parent.typing
 				var name
-				if(kind.type == 'Index'){
-					name = kind.object.name
+				if(typing.type == 'Index'){
+					name = typing.object.name
 					type = this.find_type(name)
 					if(!type) throw new Error('Cannot find type ' + name)
 					type = Object.create(type)
 					type.dim = 1
 				}
 				else{
-					name = kind.name
+					name = typing.name
 					type = this.find_type(name)
 					if(!type) throw new Error('Cannot find type ' + name)
 				}
 			}
-			else if(n.id.kind ){
-				type = this.find_type(n.id.kind.name)
-				if(!type) throw new Error('Cannot find type ' + n.id.kind.name)
+			else if(n.id.typing ){
+				type = this.find_type(n.id.typing.name)
+				if(!type) throw new Error('Cannot find type ' + n.id.typing.name)
 			}
 			else{
 				if(init && n.init.infer) type = n.init.infer
@@ -1196,23 +1197,23 @@ ONE.genjs_ = function(modules, parserCache){
 				// this one adds a field to a struct
 				if(step.type == 'TypeVar'){
 					// lets fetch the size
-					var kind = step.kind
+					var typing = step.typing
 					var typename
 					var arraydim
 					// float[10] x array defs
-					if(kind.type == 'Index'){
-						typename = kind.object.name
-						arraydim = kind.index && kind.index.value
+					if(typing.type == 'Index'){
+						typename = typing.object.name
+						arraydim = typing.index && typing.index.value
 						if(!arraydim) throw new Error('need array dimensions on type')
 					}
-					else if(kind.type == 'Id'){
-						typename = kind.name
+					else if(typing.type == 'Id'){
+						typename = typing.name
 					}
-					else throw new Error('Unknown type-kind in struct')
+					else throw new Error('Unknown type-typing in struct')
 					
 					var field = this.find_type(typename)
 					
-					if(!field) throw new Error('Cant find type ' + step.kind.name )
+					if(!field) throw new Error('Cant find type ' + step.typing.name )
 					// lets add all the defs as fields
 					var defs = step.defs
 					for(var j = 0, deflen = defs.length; j < deflen; j++){
@@ -1344,11 +1345,11 @@ ONE.genjs_ = function(modules, parserCache){
 							str_body += this.depth + 'this.' + name + '=' + name + ';' + this.newline
 						}
 						else {
-							var kind = param.id.kind
-							if(kind){
+							var typing = param.id.typing
+							if(typing){
 								var kname
-								if(kind.type == 'Index') kname = kind.object.name
-								else kname = kind.name
+								if(typing.type == 'Index') kname = typing.object.name
+								else kname = typing.name
 								
 								var type = this.find_type(kname)
 								
@@ -1825,8 +1826,8 @@ ONE.genjs_ = function(modules, parserCache){
 			var gen = type.name + '_' + method_name
 			// lets make a name from our argument types
 			for(var i = 0, l = method.params.length; i < l; i++){
-				var kind = method.params[i].id.kind
-				gen += '_'+(kind && kind.name || 'var')
+				var typing = method.params[i].id.typing
+				gen += '_'+(typing && typing.name || 'var')
 			}
 
 			// make a type_method
@@ -2000,18 +2001,18 @@ ONE.genjs_ = function(modules, parserCache){
 			var generics = Object.create(null)
 			for(var i = 0, l = params.length; i<l; i++){
 				var param = params[i]
-				var kind
-				if(param.type == 'Def') kind = param.id.kind
-				else kind = param.kind
-				if(kind){
+				var typing
+				if(param.type == 'Def') typing = param.id.typing
+				else typing = param.typing
+				if(typing){
 					var infer = args[i].infer
 					if(!infer) return
 
-					// what if kind.name == 'T'
+					// what if typing.name == 'T'
 					var ch
-					var name = kind.name
+					var name = typing.name
 					if(name.length == 1 && (ch = name.charCodeAt(0)) >= 65 && ch <= 90 ){ // generics
-						// lets store kind on our 
+						// lets store typing on our 
 						var prev = generics[name]
 						if(prev){
 							if(prev.name != infer.name) return
@@ -2093,8 +2094,8 @@ ONE.genjs_ = function(modules, parserCache){
 					var params = macro.params
 					var gen = 'macro_' + name
 					for(var i = 0, l = params.length; i < l; i++){
-						var kind = params[i].id.kind
-						gen += '_'+(kind && kind.name || 'var')
+						var typing = params[i].id.typing
+						gen += '_'+(typing && typing.name || 'var')
 					}
 					if(!this.type_methods[gen]){
 
@@ -2390,10 +2391,6 @@ ONE.genjs_ = function(modules, parserCache){
 				if(fn.flag == 35){ // function as a block comment
 					return ''
 				}
-				// animation new
-				if(fn.flag == 64 && fn.name === undefined){
-					return 'this.$.Track.new(this,' + this.Function( n ) +')'
-				}
 				// a signal block
 				if( fn.name == 'signal'){
 					return 'this.wrapSignal(' + this.Function( n, null, ['signal '] ) +'.bind(this))'
@@ -2401,9 +2398,9 @@ ONE.genjs_ = function(modules, parserCache){
 			}
 			var name = n.fn
 			var id 
-			if(n.fn.type == 'Id' && n.fn.kind){
+			if(n.fn.type == 'Id' && n.fn.typing){
 				// just use the .call property
-				var exp = this.expand(n.fn.kind, n)
+				var exp = this.expand(n.fn.typing, n)
 				return 'this.'+n.fn.name + " = " + exp + '.call('+exp+', ' + this.Function( n ) + ', this, "' + n.fn.name + '")'
 			}
 			// just use the .call property
