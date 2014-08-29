@@ -14,7 +14,7 @@
 define out(x)         console.log(x)
 define out(x,y)       console.log(x, y)
 define out(x,y,z)     console.log(x, y, z)
-define out(x,y,z,W)   console.log(x, y, z, W)
+define out(x,y,z,w)   console.log(x, y, z, w)
 
 define sin(vec2 v)    vec2.sin(v)
 define sin(vec3 v)    vec3.sin(v)

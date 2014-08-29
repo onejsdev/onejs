@@ -62,6 +62,8 @@ class Draw extends WorkerProxy{
 		return obj
 	}
 
+
+
 	// API available in draw
 	clearAll:( vec3 col ){
 		gl.clearColor(col[0], col[1], col[2], 1.0)

@@ -159,7 +159,8 @@ class DepTraceGLSL extends AST.Walk{
 		// now what we are a local variable.
 		if(imm_locals && imm_locals[name]){
 			// store the type
-			n.infer = imm_locals[name]
+			var type = imm_locals[name]
+			n.infer = type === 1 ? float : type
 			n.mark = 1
 			return Post(n)
 		}

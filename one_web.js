@@ -523,7 +523,7 @@ ONE._createWorker = function(){
 // Bootstrap code for the browser, started at the bottom of the file
 ONE.browser_boot_ = function(){
 
-	var fake_worker = false
+	var fake_worker = true
 	var worker
 	
 	// fake worker for debugging

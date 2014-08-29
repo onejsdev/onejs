@@ -13,10 +13,10 @@ Scene{
 	fill = #aero
 	var t = Layer{
 		mouse.leftdown()=>{
-			x:mouse.x - .5 * w
-			y:mouse.y - .5 * h
+			x: mouse.x - .5 * w
+			y: mouse.y - .5 * h
 			oldpx = pixel
-			pixel:#red
+			pixel:mix(#blue, #red, p.y)
 		}
 		mouse.leftup()=>{
 			x = mouse.x - .5 * w
@@ -28,15 +28,16 @@ Scene{
 		tex = Image.url('test_texture.jpg')
 		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - mouse.x/100.)
 		Layer{
-			rz: mouse.x*deg
+			rz: mouse.x * deg
 			x = 300, y = 100
 			sx = 1
 			pixel:mix(#red, #green, p.y)
 			Layer{
+				rz: mouse.x*deg
 				w = 100
 				h = 100
 				x = -100
-				pixel:circle(#white, hp, max(w,h))
+				pixel: circle(#white, hp, sin(atan(hp.x,hp.y) * 8.+time.sec)*max(w,h))
 			}
 		}
 	}

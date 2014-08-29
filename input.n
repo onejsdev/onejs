@@ -54,6 +54,8 @@ class Mouse extends WorkerProxy{
 	}
 
 	$init:(){
+		x = 0
+		y = 0
 		// allright we need to figure out how we send back the mouse events to the worker
 		// are we going to send a vec2? or something else
 
