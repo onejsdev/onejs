@@ -37,7 +37,7 @@ Scene{
 				w = 100
 				h = 100
 				x = -100
-				pixel: circle(#white, hp, sin(atan(hp.x,hp.y) * 8.+time.sec)*max(w,h))
+				pixel: circle(#white, hp, sin(atan(hp.x,hp.y) * 8.)*max(w,h))
 			}
 		}
 	}
