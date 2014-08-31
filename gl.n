@@ -62,8 +62,6 @@ class Draw extends WorkerProxy{
 		return obj
 	}
 
-
-
 	// API available in draw
 	clearAll:( vec3 col ){
 		gl.clearColor(col[0], col[1], col[2], 1.0)
@@ -429,6 +427,7 @@ class Draw extends WorkerProxy{
 
 			// pixel shader
 			var pix_shader = `
+				#extension GL_OES_standard_derivatives : enable
 				precision highp float;${pix_type_decl}
 				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
 				void main(){
@@ -447,13 +446,31 @@ class Draw extends WorkerProxy{
 					${vary_assign}
 				}
 			`
+			pix_shader = pix_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')
+			vtx_shader = vtx_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')
+			if(context.dump){
+				var split1 = pix_shader.split(/\n/)
+				pix_shader = ''
+				for(var i =0;i<split1.length;i++){
+					var last = i == split1.length - 1
+					pix_shader += '/*' + (i+1) + '*/' + split1[i] + (last? '':'\n')
+				}
+				var split1 = vtx_shader.split(/\n/)
+				vtx_shader = ''
+				for(var i =0;i<split1.length;i++){
+					var last = i == split1.length - 1
+					vtx_shader += '/*' + (i+1) + '*/' + split1[i] + (last? '':'\n')
+				}
+			}
+
+
 			// the shader compiler code body
 			ret += `
 				var gl = this.gl
 				var shader = this.${uid}_shader
 				if(!shader){
-					var pix_source = "${pix_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')}"
-					var vtx_source = "${vtx_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')}"
+					var pix_source = "${pix_shader}"
+					var vtx_source = "${vtx_shader}"
 					var cache_key = pix_source + vtx_source
 					shader = gl._shadercache[cache_key]
 					if(!shader){
@@ -512,7 +529,7 @@ class Draw extends WorkerProxy{
 				var deps = GenUniformJS.deps = Object.create(null)
 
 				var js = GenUniformJS.expand(uni.node, n)
-
+				console.log(js, uni.node)
 				var guid = jsblob_guid_lut[js] || (jsblob_guid_lut[js] = ++jsblob_guid)
 				
 				var if_str = ''
@@ -646,11 +663,13 @@ class Draw extends WorkerProxy{
 					if(!(tex = this.${sam.source}.tex || this.${sam.source}.${sam_name})){
 						this.${sam.source}.${sam_name} = tex = gl.createTexture()
 						gl.bindTexture(${glc.TEXTURE_2D}, tex)
-						gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, this.${sam.source}.img)
-						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})
-						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_MAG_FILTER}, ${glc[state.MAG_FILTER]})
-						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_S}, ${glc[state.WRAP_S]})
-						gl.texParameteri(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_T}, ${glc[state.WRAP_T]})
+						gl.pixelStorei(${glc.UNPACK_FLIP_Y_WEBGL}, false)
+						gl.pixelStorei(${glc.UNPACK_PREMULTIPLY_ALPHA_WEBGL}, false)						
+						gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, this.${sam.source}.buf || this.${sam.source}.img)
+						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})
+						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_MAG_FILTER}, ${glc[state.MAG_FILTER]})
+						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_S}, ${glc[state.WRAP_S]})
+						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_T}, ${glc[state.WRAP_T]})
 					`
 					if(sam.ismip) ret += `
 						gl.generateMipmap(${glc.TEXTURE_2D})
@@ -661,6 +680,10 @@ class Draw extends WorkerProxy{
 					gl.activeTexture(${glc.TEXTURE0 + tex_id})
 					gl.bindTexture(${glc.TEXTURE_2D}, tex)
 					gl.uniform1i(shader.ul_${sam_name}, ${tex_id})
+				} 
+				else{
+					var notify = this.${sam.source}._notify || (this.${sam.source}._notify = {})
+					notify[this.__proxy__] = this
 				}
 				`
 				tex_id ++ 
@@ -822,7 +845,10 @@ class Draw extends WorkerProxy{
 
 		if(flags.indexOf('js') != -1) out(code)
 		
-		if(dump) console.log(code)
+		if(dump){
+			// lets fancy up the shader code with linenumbers
+			console.log(code)
+		}
 
 		return code
 	}
@@ -933,6 +959,16 @@ class Image extends WorkerProxy{
 			WRAP_T:CLAMP_TO_EDGE
 		})
 	}
+
+	flipped:(vec2 v){
+		return texture2D(this, vec2(v.x, 1-v.y), {
+			MIN_FILTER:NEAREST
+			MAG_FILTER:NEAREST
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
 	// speed up proxy enumeration
 	hideProperties(Object.keys(this))
 
@@ -1069,8 +1105,12 @@ class Image extends WorkerProxy{
 		if(url){
 			img = new window.Image()
 			img.onload()=>{
-				// do a repaint.. somehow
 				loaded = true
+				if(_notify){
+					for(var k in _notify){
+						_notify[k].flagDirty()
+					}
+				}
 			}
 			img.src = url
 		}
@@ -1170,10 +1210,13 @@ class Device extends Draw{
 
 		// extension cache
 		_gl._getExtension(name){
-			var ext = gl[name]
+			var ext = _gl[name]
 			if(ext) return ext
-			return gl[name] = gl.getExtension(name)
+			return _gl[name] = _gl.getExtension(name)
 		}
+
+		// require derivatives
+		_gl._getExtension('OES_standard_derivatives')
 
 		// debugtracer for gl api
 		function gl_tracer(gl){

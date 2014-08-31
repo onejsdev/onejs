@@ -1,0 +1,40 @@
+#js
+import math
+import gl
+import input
+import glyphy
+import network
+
+Device{
+	fill = #aero
+	var atl
+	Draw{
+		atl = glyphy_atlas = GlyphyAtlas.url('at_dump.png')
+			
+		u_item_geom_x = 64.
+		u_item_geom = ivec2(64,8)
+		u_atlas_size = vec2(2048, 1024)
+	//	u_atlas_info = ivec4(2048, 1024, 64, 8)
+
+		// type mark it
+		mesh = vec4[]()
+		http.getbinary('vb_dump.bin').then do(value){
+			// alright we now have to pass this to our renderer
+			var v = new Float32Array(value)
+			v._t_ = vec4
+			mesh = 	v
+		}
+
+		dump = 1
+		vertex: mesh[].xy*(vec2(0.2,-0.2))+vec2(-0.9,0.9)
+
+		u_boldness = 0.1
+		u_gamma_adjust = 1
+		u_outline = false
+		u_debug = false
+		u_contrast = 1.
+		u_outline_thickness = 1.
+		
+		pixel: glyphy()
+	}
+}

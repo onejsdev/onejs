@@ -169,8 +169,10 @@ define smoothstep(e0, e1, v)                    Math._smoothstep(e0, e1, v)
 
 define length(v)                  v.len()
 
-define distance(T a, T b)         a.distance(b)
-define dot(a, b)                  a.dot(b)
+// TODO fix this!
+//define distance(T a, T b)         a.distance(b)
+define distance(a, b)			  float.distance(a, b)
+define dot(a, b)                  float.dot(a, b)
 define cross(vec3 a, vec3 b)      vec3.cross(a, b)
 
 define normalize(T v)             T.normalize(v)
@@ -230,6 +232,17 @@ define degrees(vec2 v) vec2.degrees(x)
 define degrees(vec3 v) vec3.degrees(x)
 define degrees(vec4 v) vec4.degrees(x)
 define degrees(d)      d*deg
+
+define dFdy(vec2 v) vec2.dFdy(v)
+define dFdy(vec3 v) vec3.dFdy(v)
+define dFdy(vec4 v) vec4.dFdy(v)
+define dFdy(v)      d
+
+define dFdx(vec2 v) vec2.dFdx(v)
+define dFdx(vec3 v) vec3.dFdx(v)
+define dFdx(vec4 v) vec4.dFdx(v)
+define dFdx(v)      v
+
 
 struct vec{
 
@@ -440,6 +453,18 @@ struct bvec4{
 	bool x, y, z, w
 }
 
+struct ivec2{
+	int x, y
+}
+
+struct ivec3{
+	int x, y, z
+}
+
+struct ivec4{
+	int x, y, z, w
+}
+
 struct vec2 extends vec{
 	float x, y
 
@@ -447,6 +472,26 @@ struct vec2 extends vec{
 		var r = 2PI * random()
 		x = cos(r) * scale
 		y = sin(r) * scale
+	}
+
+	vec2_min_vec2( vec2 a, vec2 b ){
+		x = a[0] - b[0]
+		y = a[1] - b[1]
+	}
+
+	vec2_add_vec2( vec2 a, vec2 b ){
+		x = a[0] * b[0]
+		y = a[1] * b[1]
+	}
+
+	vec2_div_vec2( vec2 a, vec2 b ){
+		x = a[0] - b[0]
+		y = a[1] - b[1]
+	}
+
+	vec2_mul_vec2( vec2 a, vec2 b ){
+		x = a[0] * b[0]
+		y = a[1] * b[1]
 	}
 
 	vec2_mul_mat2( mat3 m, vec2 v ){
@@ -465,6 +510,11 @@ struct vec2 extends vec{
 		var vx = v.x, vy = v.y
 		x = m[0] * vx + m[4] * vy + m[12]
 		y = m[1] * vx + m[5] * vy + m[13]
+	}
+
+	vec2_mul_float( vec2 m, float f ){
+		x = m[0] * f
+		y = m[1] * f
 	}
 
 	lessThan( vec2 v ){

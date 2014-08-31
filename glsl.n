@@ -42,6 +42,7 @@ class DepTraceGLSL extends AST.Walk{
 	Pre( n ){
 		n.infer = undefined
 		n.mark = undefined
+		n.highmark = undefined
 	}
 
 	Post( n, overload_mark ){
@@ -55,6 +56,10 @@ class DepTraceGLSL extends AST.Walk{
 				else if(pmark < nmark) parent.mark = nmark
 			}
 			if(!parent.infer) parent.infer = n.infer
+		}
+		if(nmark > highmark) redo_function_mark = nmark
+		if(n.flags & 8){
+			console.log(n)
 		}
 	}
 
@@ -71,7 +76,7 @@ class DepTraceGLSL extends AST.Walk{
 		n.parent = parent
 		Pre(n)
 		if(n.kind != 'num') throw new Error('Only numeric values supported in shaders')
-		if(n.raw.indexOf('.') != -1) n.infer = float
+		if(n.raw.indexOf('.') != -1 || n.raw.indexOf('e') != -1) n.infer = float
 		else n.infer = int
 		Post(n)
 	}
@@ -84,6 +89,7 @@ class DepTraceGLSL extends AST.Walk{
 		AST.Walk::For(n, parent)
 		scope = old_scope
 		marks = old_marks
+		if(highmark > (n.mark||0)) n.mark = highmark
 		n.for_mark = n.mark
 		AST.Walk::For(n, parent)
 	}
@@ -96,6 +102,7 @@ class DepTraceGLSL extends AST.Walk{
 		AST.Walk::ForTo(n, parent) // first walk
 		scope = old_scope
 		marks = old_marks
+		if(highmark > (n.mark||0)) n.mark = highmark
 		n.for_mark = n.mark // store mark
 		AST.Walk::ForTo(n, parent) // second walk
 	}
@@ -109,6 +116,7 @@ class DepTraceGLSL extends AST.Walk{
 		AST.Walk::ForFrom(n, parent)
 		scope = old_scope
 		marks = old_marks
+		if(highmark > (n.mark||0)) n.mark = highmark
 		n.for_mark = n.mark
 		AST.Walk::ForFrom(n, parent)
 	}
@@ -117,6 +125,10 @@ class DepTraceGLSL extends AST.Walk{
 		n.parent = parent
 		Pre(n)
 		var name = n.name
+		//if(n.name == '_scopes_'){
+			//console.log(Object.keys(this.scope), Object.keys(this.marks))
+		//	return Post(n)
+		//}
 		if(n.flag == 35){
 			n.infer = vec3
 			return Post(n)// is color
@@ -165,7 +177,7 @@ class DepTraceGLSL extends AST.Walk{
 			return Post(n)
 		}
 
-		var prop = context[name]
+		var prop = context[name] || main_this[name]
 
 		// last resort, resolve against locals
 		if(locals && name in locals){
@@ -174,7 +186,9 @@ class DepTraceGLSL extends AST.Walk{
 			main_this[name] = prop
 		}
 
-		if(prop === undefined) throw new Error('Cannot resolve ' + name)
+		if(prop === undefined){
+			throw new Error('Cannot resolve ' + name)
+		}
 		
 		// what if we are a type
 		// we are a reference to a remote object
@@ -192,6 +206,7 @@ class DepTraceGLSL extends AST.Walk{
 		}
 		if(prop._ast_){ // expression
 			if(prop.type != 'Value'){
+				//TODO this thing dont work anymore with re-passing
 				if(this.refcount[name]) this.refcount[name]++
 				else this.refcount[name] = 1
 			}
@@ -224,6 +239,10 @@ class DepTraceGLSL extends AST.Walk{
 			else if(typeof prop == 'number'){
 				n.mark = 1
 				n.infer = float
+			}
+			else if(typeof prop == 'boolean'){
+				n.mark = 1
+				n.infer = bool
 			}
 			else throw new Error('Add other property types ' + name)
 		}
@@ -287,6 +306,18 @@ class DepTraceGLSL extends AST.Walk{
 		return AST.Walk::Index(n)
 	}
 	
+	var swizzle_type_grid = {
+		'vec2':{2:vec2,3:vec3,4:vec4}
+		'vec3':{2:vec2,3:vec3,4:vec4}
+		'vec4':{2:vec2,3:vec3,4:vec4}
+		'ivec2':{2:ivec2,3:ivec3,4:ivec4}
+		'ivec3':{2:ivec2,3:ivec3,4:ivec4}
+		'ivec4':{2:ivec2,3:ivec3,4:ivec4}
+		'bvec2':{2:bvec2,3:bvec3,4:bvec4}
+		'bvec3':{2:bvec2,3:bvec3,4:bvec4}
+		'bvec4':{2:bvec2,3:bvec3,4:bvec4}
+	}
+
 	Key( n, parent ){
 		n.parent = parent
 		Pre(n)
@@ -338,14 +369,16 @@ class DepTraceGLSL extends AST.Walk{
 			n.infer = int
 			return Post(n)
 		}
-		var type = fields[key_name]
+		
+		var type = fields[key_name] || fields[AST.fieldAliases[key_name]]
+
 		if(!type && n.object.infer.name in glsl_types){
 			// validate swizzlingl. this code must deserve a prize.
+
+			var type_switch = swizzle_type_grid[n.object.infer.name]
 			var swiz = check_swizzle( key_name, n.object.infer.slots )
 			if(swiz){
-				if(swiz.length == 2) type = vec2
-				else if(swiz.length  == 3) type = vec3
-				else if(swiz.length  == 4) type = vec4
+				type = type_switch[swiz.length]
 			}
 		}
 		if(!type) throw new Error('type '+n.object.infer.name+' has no field ' + key_name + '(' + n + ')')
@@ -412,8 +445,11 @@ class DepTraceGLSL extends AST.Walk{
 			}
 		}
 		else throw new Error('Unsupported Def encountered')
+		if(highmark > (n.mark || 0)) n.mark = highmark
 		n.infer = scope[n.id.name] = type
 		marks[n.id.name] = n.mark
+		//console.log(n.id.name, n.mark, Object.keys(marks))
+
 		Post(n)
 	}
 
@@ -426,10 +462,11 @@ class DepTraceGLSL extends AST.Walk{
 			this[n.arg.type](n.arg, n)
 			if(oldmark > n.mark || n.mark === undefined) n.mark = oldmark
 		}
-		if(return_type && return_type != n.infer){
-			throw new Error('Multiple return types detected '+return_type.name + ' and ' + n.infer)
+		if(return_type && return_type.name != n.infer.name){
+			throw new Error('Multiple return types detected '+return_type.name + ' and ' + n.infer.name)
 		}
 		return_type = n.infer
+		if(highmark > (n.mark||0)) n.mark = highmark
 		Post(n)
 	}
 
@@ -518,7 +555,12 @@ class DepTraceGLSL extends AST.Walk{
 				name = n.fn.name
 
 				//!HACK todo fix this
-				if(name == 'length'){
+				if(name == 'dFdx' || name == 'dFdy'){
+					for(var arg from n.args) this[arg.type](arg, n)
+					n.mark = 3
+					return Post(n)
+				}
+				else if(name == 'length'){
 					for(var arg from n.args) this[arg.type](arg, n)
 					n.infer = float
 					return Post(n)
@@ -558,10 +600,10 @@ class DepTraceGLSL extends AST.Walk{
 			}
 
 			// type infer the args
-			var highmark = 0
+			var new_highmark = 0
 			for(var arg from n.args){
 				this[arg.type](arg, n)
-				if(arg.mark > highmark) highmark = arg.mark
+				if(arg.mark > new_highmark) new_highmark = arg.mark
 			}
 
 			// lets check if we are calling a macro
@@ -577,11 +619,16 @@ class DepTraceGLSL extends AST.Walk{
 				if(macro.type == 'Function'){
 					// lets type infer trace an actual macro call
 					var old_scope = scope
+					var old_marks = marks
 					var old_return = return_type
 					var old_module = this.module
 					var old_generics = generics
+					var old_highmark = highmark
+					var old_redo_function_mark = redo_function_mark
+					highmark = new_highmark
 					generics = macro_generics
 					return_type = undefined
+					redo_function_mark = undefined
 					var mparams = macro.params
 					scope = Object.create(null)
 					marks = Object.create(null)
@@ -591,13 +638,29 @@ class DepTraceGLSL extends AST.Walk{
 						if(arg.infer.name == 'object') throw new Error('Object arguments to function not implemented yet')
 						var name = mparams[i].id.name
 						scope[name] = arg.infer
-						marks[name] = highmark//arg.mark
+						marks[name] = new_highmark//arg.mark
 					}
 					// lets set the arguments on the scope
+					// if this one bails with false
 					this[macro.type](macro, n)
+					if(redo_function_mark){ // we have to do it again
+						scope = Object.create(null)
+						marks = Object.create(null)
+						for(var i, arg from n.args){
+							var name = mparams[i].id.name
+							scope[name] = arg.infer
+							marks[name] = redo_function_mark//arg.mark
+						}
+						highmark = redo_function_mark
+						redo_function_mark = undefined
+						this[macro.type](macro, n)
+					}
 					this.module = old_module
+					redo_function_mark = old_redo_function_mark
 					generics = old_generics
+					highmark = old_highmark
 					scope = old_scope
+					marks = old_marks
 					n.infer = return_type
 					// bubble up mark from function
 					if(n.mark === undefined || n.mark < macro.mark) n.mark = macro.mark
@@ -661,12 +724,39 @@ class DepTraceGLSL extends AST.Walk{
 		Post(n)
 	}
 
+	If(n, parent){
+		AST.Walk::If(n, parent)
+		if(highmark > (n.mark||0)) n.mark = highmark
+		Post(n)
+	}
+
+	Logic(n, parent){
+		AST.Walk::Logic(n, parent)
+		parent.infer = undefined
+		n.infer = bool
+		Post(n)
+	}
+
 	check_swizzle = AST.ToJS.check_swizzle
 	find_define = AST.ToJS.find_define
 	find_type = AST.ToJS.find_type
 	find_macro = AST.ToJS.find_macro
 	macro_match_args = AST.ToJS.macro_match_args
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // generate the GLSL
 class GenGLSL extends AST.ToCode{
@@ -677,13 +767,14 @@ class GenGLSL extends AST.ToCode{
 		//log(n.type)
 		if(n.mark === undefined){
 			// if we are an Id or a Value
-			if(n.type !== 'Id' && n.type !== 'Value' && !
-				(n.type == 'Call' && n.fn.type == 'Id' && n.fn.name in glsl_types))
+			if(n.type !== 'Unary' && n.type !== 'Id' && n.type !== 'Value' && 
+				!(n.type == 'Call' && n.fn.type == 'Id' && n.fn.name in glsl_types))
 				n.mark = 1
 		}
-		if(n.mark == 1){ // we are a uniform dependent expression
+		if(n.mark == 1 && n.infer){ // we are a uniform dependent expression
+			console.log('To Uniform: '+n.toString())
 			// okay
-			if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
+			//if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
 			// okay so, we are a uniform. we splice in
 			// a temp uniform, and we define it
 			var type_name = n.infer.name
@@ -699,7 +790,9 @@ class GenGLSL extends AST.ToCode{
 			return uni.name
 		}
 		// output vertex varying
-		if(pixel && n.mark == 2){
+		if(pixel && n.mark == 2 && n.infer){
+			console.log('To Vertexshader: '+n.toString())
+
 			// alright we need to output a vertex varying
 			var type_name = n.infer.name
 			var vary = {
@@ -751,7 +844,7 @@ class GenGLSL extends AST.ToCode{
 		var prop = context[name]
 		// if we are here, we are not a uniform
 
-		if(prop === undefined){			
+		if(prop === undefined){
 			throw new Error("cannot resolve " + name)
 		}
 		// temporary variable generation
@@ -794,7 +887,7 @@ class GenGLSL extends AST.ToCode{
 			var ret = expand(prop, n)
 			this.module = old_module
 			this.locals = old_locals
-			return ret
+			return '(' + ret + ')'
 		}
 		
 		throw new Error('Dont know what to do with '+name)
@@ -877,7 +970,7 @@ class GenGLSL extends AST.ToCode{
 
 	Unary( n, parent ){
 		if(n.op.length != 1) throw new Error('Unary '+n.op+' not supported in shaders')
-		return AST.ToCode::Unary( n. parent)
+		return AST.ToCode::Unary(n, parent)
 	}
 
 	Binary( n ){
@@ -889,6 +982,7 @@ class GenGLSL extends AST.ToCode{
 		var right = this.expand(n.right, n)
 
 		// auto int to float cast
+		/*
 		if(left_i == 'int' && right_i != 'int'){
 			if(left_t == 'Value') left = n.left.raw + '.'
 			else left = 'float(' + left + ')'
@@ -896,9 +990,9 @@ class GenGLSL extends AST.ToCode{
 		else if(right_i == 'int' && left_i != 'int'){
 			if(right_t == 'Value') right = n.right.raw + '.'
 			else right = 'float(' + right + ')'
-		}
+		}*/
 		// auto vector upgrade
-		else if(left_i == 'mat4'){
+		if(left_i == 'mat4'){
 			if(right_i == 'vec2') right = 'vec4(' + right + ',0.,1.)'
 			else if(right_i == 'vec3') right = 'vec4(' + right + ',1.)'
 		}
@@ -993,6 +1087,7 @@ class GenGLSL extends AST.ToCode{
 			return n.infer.name + ' ' + name + dim +' = ' + expand(n.init, n)
 		}
 		else if(n.parent.type === 'TypeVar'){
+
 			if(n.init) return name + dim + ' = ' + expand(n.init, n)
 			return name + dim
 		}
@@ -1305,6 +1400,10 @@ class GenUniformJS extends AST.ToJS{
 		} 
 		else if(typeof prop == 'number'){
 			//!TODO convert to signal
+			deps[name] = dist
+			return 'this.' + name
+		}
+		else if(typeof prop == 'boolean'){
 			deps[name] = dist
 			return 'this.' + name
 		}

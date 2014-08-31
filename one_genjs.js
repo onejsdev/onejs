@@ -36,6 +36,11 @@ ONE.genjs_ = function(modules, parserCache){
 		Float64:8
 	}
 
+	this.fieldAliases = {
+		'r':'x','g':'y','b':'z','a':'w',
+		's':'x','t':'y','p':'z','q':'w',
+	}
+
 	this.ToJS = this.ToCode.extend(this, function(outer){
 		
 		this.newline = '\n'
@@ -512,7 +517,8 @@ ONE.genjs_ = function(modules, parserCache){
 		this.decodeStructAccess = function( n ){
 			var node = n
 
-			if(node.type == 'Index' && node.object.type == 'Id' && node.index.name == "" && node.index.flag == 35){
+			if(node.type == 'Index' && !node.index) throw new Error('Cannot do empty index')
+			if(node.type == 'Index' && node.object.type == 'Id' && node.index && node.index.name == "" && node.index.flag == 35){
 				return node.object.name + '[' + this.expand(node.index, n) + ']'
 			}
 
@@ -590,7 +596,11 @@ ONE.genjs_ = function(modules, parserCache){
 						else if(voff == '') voff = '0'
 
 						if(swiz && n.parent && n.parent.type != 'Assign'){
-							var ret_type = this.find_type('vec'+swiz.length)
+							var prep = 'vec'
+							if(type.name.charAt(0) == 'i') prep = 'ivec'
+							if(type.name.charAt(0) == 'b') prep = 'bvec'
+
+							var ret_type = this.find_type(prep+swiz.length)
 							// pick the return type
 							this.find_function(n).call_var = 1
 							var output = this.call_tmpvar
@@ -1231,7 +1241,7 @@ ONE.genjs_ = function(modules, parserCache){
 							//type.arr = field.arr
 						}
 						else if(type.view !== field.view){
-							throw new Error('Dont support mixed type structs yet in JS')
+							//throw new Error('Dont support mixed type structs yet in JS')
 							type.view = 0
 						}
 					}
@@ -1694,7 +1704,9 @@ ONE.genjs_ = function(modules, parserCache){
 
 		this.bin_op_table = {
 			'*':'mul',
-			'+':'add'
+			'+':'add',
+			'-':'min',
+			'/':'div'
 		}
 
 		this.Binary = function( n ){
@@ -1974,7 +1986,7 @@ ONE.genjs_ = function(modules, parserCache){
 			for(var i = 0,l = args.length; i < l; i++ ){
 				walker.call(this, args[i], n, l == 1, type)
 			}
-			if(slot%nslots) throw new Error('Incorrect number of fields used in '+name+'() constructor, got '+slot+' expected (multiple of) '+nslots)
+			if(slot%nslots) throw new Error('Incorrect number of fields used in '+name+'() constructor, got '+slot+' expected (multiple of) '+nslots + ' ' +n.toString() )
 			func.type_nesting--
 			
 			ret += ','+output+')'
@@ -2393,7 +2405,7 @@ ONE.genjs_ = function(modules, parserCache){
 				}
 				// a signal block
 				if( fn.name == 'signal'){
-					return 'this.wrapSignal(' + this.Function( n, null, ['signal '] ) +'.bind(this))'
+					return 'this.wrapSignal(' + this.Function( n, null, ['signal'] ) +'.bind(this))'
 				}
 			}
 			var name = n.fn

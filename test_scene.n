@@ -3,7 +3,7 @@ import gl
 import glscene
 
 // my first scenegraph!
-define circle(vec3 col, vec2 p, float pw){
+define circle(col, vec2 p, float pw){
 	return mix(vec4(#black,0), vec4(col,1), clamp(1.-length(p) ** pw, 0., 1.))
 }
 
@@ -30,6 +30,7 @@ Scene{
 		Layer{
 			rz: mouse.x * deg
 			x = 300, y = 100
+		
 			sx = 1
 			pixel:mix(#red, #green, p.y)
 			Layer{

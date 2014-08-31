@@ -27,10 +27,12 @@ glsl_variables = {
 	gl_MaxTextureImageUnits:int
 	gl_MaxFragmentUniformVectors:int
 	gl_MaxDrawBuffers:int
+	discard:int
 }
 
 enum glsl_types{
-	half, float, double, short, long, int
+	half, float, double, short, long, int,
+	bool,
 	mat2, mat3, mat4
 	vec2, vec3, vec4
 	ivec2, ivec3, ivec4
@@ -58,7 +60,8 @@ enum glsl_functions{
 	lessThan, lessThanEqual
 	greaterThan, greaterThanEqual
 	equal, notEqual
-	any, all, not
+	any, all, not,
+	dFdx, dFdy,
 	texture2DLod
 	texture2DProjLod
 	textureCubeLod
@@ -186,11 +189,18 @@ glc = {
 }
 
 glsl_uniform_map = {
+	bool: 'uniform1i'
 	float: 'uniform1f'
 	int:   'uniform1i'
 	vec2:  'uniform2f'
 	vec3:  'uniform3f'
 	vec4:  'uniform4f'
+	ivec2:  'uniform2i'
+	ivec3:  'uniform3i'
+	ivec4:  'uniform4i'
+	bvec2:  'uniform2i'
+	bvec3:  'uniform3i'
+	bvec4:  'uniform4i'
 }
 
 glsl_uniform_matrix = {

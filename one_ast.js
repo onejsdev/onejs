@@ -570,7 +570,9 @@ ONE.ast_ = function(){
 					if(blk === undefined) throw new Error('ast node ' + node.type + ' returned undefined in block')
 					if(blk[0] == '(' || blk[0] == '[') ret += this.depth + ';' + blk
 					else ret += this.depth + blk
+
 					if(this.term) ret += this.term
+
 					var ch = ret[ret.length - 1]
 					if(ch !== '\n' ){
 						ret += this.newline, this.line++
@@ -772,6 +774,7 @@ ONE.ast_ = function(){
 
 				if(n.else){
 					var ch = ret[ret.length - 1]
+					if( ch !== '}' && this.term) ret += this.term
 					if( ch !== '\n' ) ret += this.newline
 					ret += this.depth + 'else ' + this.expand(n.else, n)
 				}
@@ -945,6 +948,9 @@ ONE.ast_ = function(){
 			}
 
 			this.Unary = function( n ){
+				if(n.arg === undefined){
+					console.log(n.toDump())
+				}
 				var arg = this.expand(n.arg, n)
 				var atype = n.arg.type
 
