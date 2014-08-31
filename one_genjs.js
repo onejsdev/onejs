@@ -499,11 +499,11 @@ ONE.genjs_ = function(modules, parserCache){
 		this.Value = function( n ){
 			if(n.raw === undefined) return n.value
 			if(n.kind == 'string' && n.raw[0] == '`'){
-				return '"'+n.raw.slice(1,-1).replace(/\n/g,'\\n').replace(/"/g,'\\"')+'"'
+				return '"'+n.raw.slice(1,-1).replace(/\r?\n/g,'\\n').replace(/"/g,'\\"')+'"'
 			}
 			if(n.multi){
 				if(n.kind == 'regexp') return n.value
-				return n.raw.replace(/\n/g,'\\n')
+				return n.raw.replace(/\r\n/g,'\\n')
 			}
 			if(n.kind == 'num'){
 				var ch = n.raw.charCodeAt(1)
