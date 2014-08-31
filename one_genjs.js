@@ -503,7 +503,7 @@ ONE.genjs_ = function(modules, parserCache){
 			}
 			if(n.multi){
 				if(n.kind == 'regexp') return n.value
-				return n.raw.replace(/\r\n/g,'\\n')
+				return n.raw.replace(/\r?\n/g,'\\n')
 			}
 			if(n.kind == 'num'){
 				var ch = n.raw.charCodeAt(1)
@@ -844,7 +844,7 @@ ONE.genjs_ = function(modules, parserCache){
 				}
 				else {
 					if(item.value !== undefined){
-						ret += item.value.replace(/\n/g,'\\n').replace(/"/g,'\\"')
+						ret += item.value.replace(/\r?\n/g,'\\n').replace(/"/g,'\\"')
 					}
 				}
 			}
