@@ -7,12 +7,9 @@ import network
 
 Device{
 	fill = #black
-	var atl
-	atl = glyphy_atlas = GlyphyAtlas.url('at_dump.png')
 
 	Draw{
-		atl = glyphy_atlas = GlyphyAtlas.new()//GlyphyAtlas.url('at_dump.png')
-
+		atl = glyphy_atlas = GlyphyAtlas.url('at_dump.png')
 		u_item_geom_x = 64.
 		u_item_geom = ivec2(64,8)
 		u_atlas_size = vec2(2048, 1024)
@@ -30,19 +27,20 @@ Device{
 			//var dat = new Uint8Array(2048*1024*4)
 			var dat = new Uint8Array(value)
 			// here you can fiddle in dat
-			
-			glyphy_atlas = Image.array(value, 2048, 1024)
+			//glyphy_atlas = Image.array(value, 2048, 1024)
 		}
 
 		//dump = 1
-		vertex: mesh[].xy*(vec2(0.2,-0.2))+vec2(-0.9,0.9)
-
-		u_boldness = 0.1
+		fgcolor: #aero
+		displace: (sin(time.sec*4. + 8.*up.x)+ sin(time.sec*4. + 8.*up.y))*0.8
+		vertex: mesh[].xy*(vec2(0.05,-0.07))+vec2(-0.9,0.9)
+		up:pixel mesh[].xy
+		u_boldness = -.05
 		u_gamma_adjust = 1
 		u_outline = true
 		u_debug = false
 		u_contrast = 1.
-		u_outline_thickness = 1.
+		u_outline_thickness = 2.
 		
 		pixel: glyphy()
 	}

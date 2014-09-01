@@ -1750,11 +1750,11 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			// normal binop
 			if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' ||
-				(left_t == 'Binary' || left_t == 'Logic') && n.left.prio < n.prio)
+				(left_t == 'Binary' || left_t == 'Logic') && n.left.prio <= n.prio)
 				left = '(' + left + ')'
 			
 			if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' ||
-				(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio)
+				(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio <= n.prio)
 				right = '(' + right + ')'
 
 			var ret = left + this.space + n.op + this.space + right

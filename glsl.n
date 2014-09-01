@@ -767,9 +767,9 @@ class GenGLSL extends AST.ToCode{
 		//log(n.type)
 		if(n.mark === undefined){
 			// if we are an Id or a Value
-			if(n.type !== 'Unary' && n.type !== 'Id' && n.type !== 'Value' && 
-				!(n.type == 'Call' && n.fn.type == 'Id' && n.fn.name in glsl_types))
-				n.mark = 1
+			//if(n.type !== 'Unary' && n.type !== 'Id' && n.type !== 'Value' && 
+			//	!(n.type == 'Call' && n.fn.type == 'Id' && n.fn.name in glsl_types))
+			//	n.mark = 1
 		}
 		if(n.mark == 1 && n.infer){ // we are a uniform dependent expression
 			if(context.dump>1)console.log('To Uniform: '+n.toString())
@@ -1010,11 +1010,11 @@ class GenGLSL extends AST.ToCode{
 
 		// paren detect
 		if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' || 
-			(left_t == 'Binary' || left_t == 'Logic') && n.left.prio < n.prio) 
+			(left_t == 'Binary' || left_t == 'Logic') && n.left.prio <= n.prio) 
 			left = '(' + left + ')'
 
 		if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' || 
-			(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio) 
+			(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio <= n.prio) 
 			right = '(' + right + ')'
 		
 		if(n.op == '**'){
@@ -1037,7 +1037,10 @@ class GenGLSL extends AST.ToCode{
 	TypeVar( n ){
 		var type_name = n.typing.infer.name
 		if(!(type_name in glsl_types)) types[type_name] = n.typing.infer
+		if(n.typing.typing && n.typing.typing.name == 'const')
+			return 'const '+type_name + ' ' + flat(n.defs, n)
 		return type_name + ' ' + flat(n.defs, n)
+
 	}
 
 	ForTo = AST.ToJS.ForTo
@@ -1262,9 +1265,14 @@ class GenGLSL extends AST.ToCode{
 					if(i) args += ', ', argdef += ', '
 					args += this.expand(arg, n)//[arg.type](arg, n)
 					var type_name = arg.infer.name
-					var param_name = params[i].id.name
+					var param_id = params[i].id
+					var param_name = param_id.name
 					new_scope[param_name] = arg.infer
-					argdef += type_name + ' ' + param_name
+					if(param_id.typing && param_id.typing.typing)
+						argdef += 'const '+type_name + ' ' + param_name
+					else
+						argdef += type_name + ' ' + param_name
+
 					gen += '_' + type_name
 				}
 				if(new_context) context = new_context

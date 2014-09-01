@@ -302,7 +302,7 @@ ONE.parser_strict_ = function(){
 	this._throw = {keyword: "throw", beforeExpr: true}
 	this._try = {keyword: "try"}
 	this._var = {keyword: "var"}
-	this._const = {keyword: "const"}
+	//this._const = {keyword: "const"}
 	this._while = {keyword: "while", isLoop: true}
 	this._with = {keyword: "with"}
 	this._new = {keyword: "new", beforeExpr: true}
@@ -1478,6 +1478,12 @@ ONE.parser_strict_ = function(){
 					var id = this.parseIdent()
 					id.typing = def.id
 					def.id = id
+					// support second type
+					if( cantype && this.tokType == this._name && !this.lastSkippedNewlines){
+						var id = this.parseIdent()
+						id.typing = def.id
+						def.id = id
+					}
 				}
 
 				if( !this.lastSkippedNewlines && this.tokType == this._parenL){
@@ -1704,8 +1710,8 @@ ONE.parser_strict_ = function(){
 				this.raise(node.start, "Missing catch or finally clause")
 			return this.finishNode(node, "Try")
 
-		case this._const:
-			node.const = true;
+		//case this._const:
+		//	node.const = true;
 		case this._var:
 			this.next()
 			this.parseVar(node)
@@ -2249,11 +2255,12 @@ ONE.parser_strict_ = function(){
 
 			if(base.type !== 'This' && base.type !== 'Id' && base.type !== 'Index' && base.type !== 'Key')
 				return base
-			if(base.typing) this.raise(base.start, "Chaining multiple types has no purpose(yet)")
+			//if(base.typing) this.raise(base.start, "Chaining multiple types has no purpose(yet)")
 			var node = this.startNodeFrom(base)
 			node.typing = base
 			node.name = this.tokVal
-			this.eat(this._name) || this.eat(this._string) || this.eat(this._this)
+			this.eat(this._name) || this.eat(this._string) || this.eat(this._this) 
+
 			return this.parseSubscripts(this.finishNode(node, "Id"))
 
 		case this._dotdot:

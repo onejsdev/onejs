@@ -219,7 +219,8 @@ define LN2       0.6931471805599453
 define LN10      2.302585092994046
 define LOG2E     1.4426950408889634
 define LOG10E    0.4342944819032518
-define SQRT_1_2  0.7071067811865476
+define SQRT_1_2  0.70710678118654757
+				 
 define SQRT2     1.4142135623730951
 
 define mix(T a, T b, float v) T.mix(a, b, v)

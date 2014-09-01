@@ -428,7 +428,8 @@ class Draw extends WorkerProxy{
 			// pixel shader
 			var pix_shader = `
 				#extension GL_OES_standard_derivatives : enable
-				precision highp float;${pix_type_decl}
+				precision highp float;
+				precision highp int;${pix_type_decl}
 				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
 				void main(){
 					${pix_tmpcode}
@@ -438,7 +439,8 @@ class Draw extends WorkerProxy{
 
 			// vertex shader
 			var vtx_shader = `
-				precision highp float;${vtx_type_decl}
+				precision highp float;
+				precision highp int;${vtx_type_decl}
 				${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
 				void main(){
 					${vtx_tmpcode}
@@ -449,6 +451,8 @@ class Draw extends WorkerProxy{
 			pix_shader = pix_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')
 			vtx_shader = vtx_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')
 			if(context.dump){
+				console.log(pix_shader.replace(/\\n\\\n\t\t\t\t\t\t/g,'\n'))
+
 				var split1 = pix_shader.split(/\n/)
 				pix_shader = ''
 				for(var i =0;i<split1.length;i++){
@@ -669,6 +673,18 @@ class Draw extends WorkerProxy{
 							gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, img.w, img.h, 0, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, new Uint8Array(img.data)) 
 						}
 						else{
+							// lets hack it!
+							//var cvs = document.createElement('canvas')
+							//var ctx = cvs.getContext('2d')
+							//ctx.width = img.img.width
+							//ctx.height = img.img.height
+							//ctx.drawImage(img.img, 0, 0)
+							//document.body.appendChild(cvs)
+							//gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, cvs)
+
+							//gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, img.w, img.h, 0, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, 
+							//	ctx.getImageData(0,0,ctx.width,ctx.height)) 
+
 							gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, img.img)
 						}
 						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})

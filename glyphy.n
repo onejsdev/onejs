@@ -3,7 +3,7 @@ import gl
 
 define GLYPHY_INFINITY 1e9
 define GLYPHY_EPSILON 1e-5
-define GLYPHY_MAX_NUM_ENDPOINTS 16
+define GLYPHY_MAX_NUM_ENDPOINTS 32
 
 struct glyphy_arc_t{
 	vec2  p0
@@ -89,19 +89,19 @@ define glyphy_arc_wedge_contains(glyphy_arc_t a, vec2 p){
 define glyphy_arc_wedge_signed_dist_shallow(glyphy_arc_t a, vec2 p){
 	vec2 v = normalize(a.p1 - a.p0)
 
-	float line_d = dot(p - a.p0, .5*glyphy_ortho(v))
+	float line_d = dot(p - a.p0, glyphy_ortho(v))// * .1abs on sin(time.sec+p.x)
 	if(a.d == 0.) 
 		return line_d
 
 	float d0 = dot((p - a.p0), v)
 	if(d0 < 0.) 
-		return sign(line_d) * distance(p, a.p0)
+		return sign(line_d) * distance(p, a.p0) 
 
 	float d1 = dot((a.p1 - p), v)
 	if(d1 < 0.) 
 		return sign(line_d) * distance(p, a.p1)
 
-	float r = 2. * a.d *(d0 * d1) /(d0 + d1)
+	float r = 2. * a.d *(d0 * d1) /( d0 + d1)
 	if(r * line_d > 0.) 
 		return sign(line_d) * min(abs(line_d + r), min(distance(p, a.p0), distance(p, a.p1)))
 	return line_d + r
@@ -249,7 +249,7 @@ define glyphy_point_dist(vec2 p, ivec2 nominal_size, ivec2 _atlas_pos){
 		return min_dist
 
 	glyphy_arc_endpoint_t endpoint_prev, endpoint
-	//endpoint_prev = glyphy_arc_endpoint_decode(glyphy_atlas.lookup(arc_list.offset, _atlas_pos), nominal_size)
+	endpoint_prev = glyphy_arc_endpoint_decode(glyphy_atlas.lookup(arc_list.offset, _atlas_pos), nominal_size)
 	for(int i = 1; i < GLYPHY_MAX_NUM_ENDPOINTS; i++) {
 		if(i >= arc_list.num_endpoints) {
 			break
@@ -265,7 +265,6 @@ class GlyphyAtlas extends Image{
 	lookup:(int offset, ivec2 _atlas_pos){
 		//ivec4 atlas = u_atlas_info
 		//ivec2 item_geom = atlas.zw
-
 		vec2 pos =(vec2(_atlas_pos.xy * u_item_geom +
 			ivec2(mod(float(offset), u_item_geom_x), offset / u_item_geom.x)) +
 			vec2(.5, .5)) / u_atlas_size
@@ -298,9 +297,9 @@ define glyphy(){
 	vec2 dpdy = dFdy(p)
 	float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 
-	vec4 color = vec4(1,1,1,1)
+	vec4 color = vec4(fgcolor,1)//vec4(1,1,1,1)
 
-	float gsdist = glyphy_sdf(p, nominal_size, atlas_pos)
+	float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) + displace
 	float sdist = gsdist / m * u_contrast
 
 	if(!u_debug) {
