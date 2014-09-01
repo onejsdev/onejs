@@ -99,139 +99,6 @@ ONE.worker_boot_ = function(host){
 
 ONE.proxy_ = function(){
 
-	// the baseclass for the host objects
-	this.Base.HostProxy = this.Base.extend(function(){
-		
-		this.__proxy_module__ = {}
-		this.__proxy_cache__ = {}
-		this.__class__ = 'HostProxy'
-		this._getsetSig = function(name, worker){
-			var store = '__' + name
-			this[store] = this[name]
-
-			this.defineProperty(name, {
-				get:function(){
-					return this[store]
-				},
-				set:function(v){
-					this[store] = v
-					// lets forward this
-					
-				}
-			})
-		}
-
-		this._bindProp = function(obj, prop, worker){
-			// we have to bind a property.
-			// what does that look like?
-			var bind_store = '_bind_' + prop
-			var store = '__' + prop
-			if(obj !== this){
-				if(obj[bind_store]){
-					obj[bind_store].push(this)
-				}
-				else{
-					obj[bind_store] = [this]
-				}
-			}
-
-			if(!obj.__lookupSetter__(prop)){
-				// store old value
-				obj[store] = obj[prop]
-				Object.defineProperty(obj, prop, {
-					get:function(){
-						return this[store]
-					},
-					set:function(v){
-						var old = this[store]
-						if(old !== v){ // only forward on change
-							this[store] = v
-							var arr = this[bind_store]
-							if(arr) for(var i = 0, l = arr.length; i < l; i++){
-								var node = arr[i]
-								if(node.flagDirty) node.flagDirty()
-							}
-						}
-						if(worker) worker.sendToWorker({_type:'signal', _uid:this.__proxy__, name:prop, value:v})
-					}
-				})
-			}
-		}
-
-		this._unbindProp = function(obj, prop){
-			var bind_store = '_bind_' + prop
-			var arr = obj[bind_store]
-			var i
-			if(!Array.isArray(arr) || (i = arr.indexOf(this)) == -1){
-				console.log('Unbind property error ' + prop)
-				return
-			}
-			arr.splice(i, 1)
-		}
-
-		this.hasBinds = function(prop){
-			var arr = this['_bind_' + prop]
-			if(!arr || !arr.length) return false
-			return true
-		}
-
-		this._initFrom = function(msg, worker, isupdate){
-			var msg_uid = this.__proxy__ = msg._uid
-
-			if(isupdate){
-				if(this._cleanup) this._cleanup()
-				if(this._deinitBinds) this._deinitBinds()
-			}
-
-			// copy stuff from msg
-			for(var k in msg){
-				if(k.charCodeAt(0) != 95){
-					// store it
-					this[k] = msg[k]
-				}
-			}
-
-			// define signal forwards
-			var sigs = msg._sigs
-			if(sigs){
-				for(var i = 0, l = sigs.length; i < l; i++){
-					this._bindProp(this, sigs[i], worker)
-				}
-			}
-
-			var refs = msg._refs
-			if(refs){
-				for(var i = 0, l = refs.length; i < l; i++){
-					var name = refs[i]
-					var uid = this[name]
-					var obj = worker.proxy_obj[uid]
-					if(obj && !Array.isArray(obj)) this[name] = obj
-					else{
-						// make late resolve array
-						var arr =  obj || (worker.proxy_obj[uid] = [])
-						arr.push(this, name)
-					}
-				}
-			}
-
-			if(msg._code){
-				// do some caching
-				var fn = this.__proxy_cache__[msg._code] || 
-						(this.__proxy_cache__[msg._code] = Function('module', msg._code))
-				// execute on self to populate class
-				fn.call(this, this.__proxy_module__)
-			}
-
-			// call init
-			if(msg.__class__) this.__class__ = msg.__class__
-
-			if(!this.hasOwnProperty('__class__')){
-				if(!isupdate && this.init) this.init()
-				if(this._initBinds) this._initBinds()
-			}
-		}
-	})
-
 	// baseclass for the worker objects
 	this.Base.WorkerProxy = this.Base.extend(function(){
 		this.__proxy__ = 0
@@ -490,6 +357,142 @@ ONE.proxy_ = function(){
 
 		this.hideProperties(Object.keys(this))
 	})
+
+
+	// the baseclass for the host objects
+	this.Base.HostProxy = this.Base.extend(function(){
+		
+		this.__proxy_module__ = {}
+		this.__proxy_cache__ = {}
+		this.__class__ = 'HostProxy'
+		this._getsetSig = function(name, worker){
+			var store = '__' + name
+			this[store] = this[name]
+
+			this.defineProperty(name, {
+				get:function(){
+					return this[store]
+				},
+				set:function(v){
+					this[store] = v
+					// lets forward this
+					
+				}
+			})
+		}
+
+		this._bindProp = function(obj, prop, worker){
+			// we have to bind a property.
+			// what does that look like?
+			var bind_store = '_bind_' + prop
+			var store = '__' + prop
+			if(obj !== this){
+				if(obj[bind_store]){
+					obj[bind_store].push(this)
+				}
+				else{
+					obj[bind_store] = [this]
+				}
+			}
+
+			if(!obj.__lookupSetter__(prop)){
+				// store old value
+				obj[store] = obj[prop]
+				Object.defineProperty(obj, prop, {
+					get:function(){
+						return this[store]
+					},
+					set:function(v){
+						var old = this[store]
+						if(old !== v){ // only forward on change
+							this[store] = v
+							var arr = this[bind_store]
+							if(arr) for(var i = 0, l = arr.length; i < l; i++){
+								var node = arr[i]
+								if(node.flagDirty) node.flagDirty()
+							}
+						}
+						if(worker) worker.sendToWorker({_type:'signal', _uid:this.__proxy__, name:prop, value:v})
+					}
+				})
+			}
+		}
+
+		this._unbindProp = function(obj, prop){
+			var bind_store = '_bind_' + prop
+			var arr = obj[bind_store]
+			var i
+			if(!Array.isArray(arr) || (i = arr.indexOf(this)) == -1){
+				console.log('Unbind property error ' + prop)
+				return
+			}
+			arr.splice(i, 1)
+		}
+
+		this.hasBinds = function(prop){
+			var arr = this['_bind_' + prop]
+			if(!arr || !arr.length) return false
+			return true
+		}
+
+		this._initFrom = function(msg, worker, isupdate){
+			var msg_uid = this.__proxy__ = msg._uid
+
+			if(isupdate){
+				if(this._cleanup) this._cleanup()
+				if(this._deinitBinds) this._deinitBinds()
+			}
+
+			// copy stuff from msg
+			for(var k in msg){
+				if(k.charCodeAt(0) != 95){
+					// store it
+					this[k] = msg[k]
+				}
+			}
+
+			// define signal forwards
+			var sigs = msg._sigs
+			if(sigs){
+				for(var i = 0, l = sigs.length; i < l; i++){
+					this._bindProp(this, sigs[i], worker)
+				}
+			}
+
+			var refs = msg._refs
+			if(refs){
+				for(var i = 0, l = refs.length; i < l; i++){
+					var name = refs[i]
+					var uid = this[name]
+					var obj = worker.proxy_obj[uid]
+					if(obj && !Array.isArray(obj)) this[name] = obj
+					else{
+						// make late resolve array
+						var arr =  obj || (worker.proxy_obj[uid] = [])
+						arr.push(this, name)
+					}
+				}
+			}
+
+			if(msg._code){
+				// do some caching
+				var fn = this.__proxy_cache__[msg._code] || 
+						(this.__proxy_cache__[msg._code] = Function('module', msg._code))
+				// execute on self to populate class
+				fn.call(this, this.__proxy_module__)
+			}
+
+			// call init
+			if(msg.__class__) this.__class__ = msg.__class__
+
+			if(!this.hasOwnProperty('__class__')){
+				if(!isupdate && this.init) this.init()
+				if(this._initBinds) this._initBinds()
+			}
+		}
+	})
+
+
 }
 
 ONE._createWorker = function(){
@@ -580,10 +583,17 @@ ONE.browser_boot_ = function(){
 				var msg = data[i]
 
 				if(msg._type == 'setref'){
-					var obj = this.proxy_obj[msg._uid]
-					if(!obj) throw new Error('Ref set on nonexistant object ' + msg._uid)
-					obj[msg.name] = this.proxy_obj[msg.value]
-					if(obj.flagDirty) obj.flagDirty()
+					var on_obj = this.proxy_obj[msg._uid]
+					if(!on_obj) throw new Error('Ref set on nonexistant object ' + msg._uid)
+					var tgt_obj = this.proxy_obj[msg.value]
+					if(!tgt_obj || Array.isArray(tgt_obj)){ // make late resolve array
+						var arr =  tgt_obj || (this.proxy_obj[msg.value] = [])
+						arr.push(on_obj, msg.name)						
+					}
+					else{
+						on_obj[msg.name] = tgt_obj
+					}
+					if(on_obj.flagDirty) on_obj.flagDirty()
 				}
 				if(msg._type == 'setvalue'){
 					var obj = this.proxy_obj[msg._uid]
@@ -613,7 +623,9 @@ ONE.browser_boot_ = function(){
 
 						if(Array.isArray(old_obj)){
 							for(var j = 0, k = old_obj.length; j < k; j += 2){
-								old_obj[j][old_obj[j+1]] = obj
+								var tgt_obj = old_obj[j]
+								var name = old_obj[j+1]
+								tgt_obj[name] = obj
 							}
 						}
 						this.proxy_obj[msg._uid] = obj

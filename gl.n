@@ -529,7 +529,7 @@ class Draw extends WorkerProxy{
 				var deps = GenUniformJS.deps = Object.create(null)
 
 				var js = GenUniformJS.expand(uni.node, n)
-				console.log(js, uni.node)
+				//console.log(js, uni.node)
 				var guid = jsblob_guid_lut[js] || (jsblob_guid_lut[js] = ++jsblob_guid)
 				
 				var if_str = ''
@@ -566,7 +566,6 @@ class Draw extends WorkerProxy{
 			ret += 	`
 					}
 					this.${uid}_shader = shader`
-
 
 			// create sub attribute buffers
 			for(var name in sub_attribs){
@@ -657,15 +656,21 @@ class Draw extends WorkerProxy{
 				var state = sam.state
 				// alright we now have to set up the texture.
 				ret += `
-				if(this.${sam.source}.loaded){
+				var img = this.${sam.source}
+				if(img.loaded){
 					var tex
 					//console.log(this.${sam.source})
-					if(!(tex = this.${sam.source}.tex || this.${sam.source}.${sam_name})){
-						this.${sam.source}.${sam_name} = tex = gl.createTexture()
+					if(!(tex = img.tex || img.${sam_name})){
+						img.${sam_name} = tex = gl.createTexture()
 						gl.bindTexture(${glc.TEXTURE_2D}, tex)
 						gl.pixelStorei(${glc.UNPACK_FLIP_Y_WEBGL}, false)
-						gl.pixelStorei(${glc.UNPACK_PREMULTIPLY_ALPHA_WEBGL}, false)						
-						gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, this.${sam.source}.buf || this.${sam.source}.img)
+						gl.pixelStorei(${glc.UNPACK_PREMULTIPLY_ALPHA_WEBGL}, false)
+						if(img.data){
+							gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, img.w, img.h, 0, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, new Uint8Array(img.data)) 
+						}
+						else{
+							gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, img.img)
+						}
 						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})
 						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_MAG_FILTER}, ${glc[state.MAG_FILTER]})
 						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_WRAP_S}, ${glc[state.WRAP_S]})
@@ -706,11 +711,13 @@ class Draw extends WorkerProxy{
 				gl.disable(${glc.BLEND})
 				`
 				}
-				ret += `
+				else{
+					ret += `
 				gl.enable(${glc.BLEND})
 				gl.blendEquation(${color_blend.op})
 				gl.blendFunc(${color_blend.src},${color_blend.dst})
-				`
+					`
+				}
 			}
 
 			// fix the depth check
@@ -861,6 +868,8 @@ class Image extends WorkerProxy{
 	_sampler2D_ =  1
 	_image_ = 1
 
+	buf = 0
+
 	init(type, w, h){
 		if(type){
 			this.type = type
@@ -872,6 +881,15 @@ class Image extends WorkerProxy{
 	url(geturl){
 		var obj = new()
 		obj.url = geturl
+		return obj
+	}
+
+	array(data, w, h){
+		var obj = new()
+		obj.data = data
+		data._t_ = 1 // make sure its transferred
+		obj.w = w
+		obj.h = h
 		return obj
 	}
 
@@ -960,8 +978,17 @@ class Image extends WorkerProxy{
 		})
 	}
 
-	flipped:(vec2 v){
-		return texture2D(this, vec2(v.x, 1-v.y), {
+	point:(vec2 v){
+		return texture2D(this, vec2(v.x, v.y), {
+			MIN_FILTER:NEAREST
+			MAG_FILTER:NEAREST
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	point_flipped:(vec2 v){
+		return texture2D(this, vec2(v.x, 1.-v.y), {
 			MIN_FILTER:NEAREST
 			MAG_FILTER:NEAREST
 			WRAP_S:CLAMP_TO_EDGE
@@ -1103,6 +1130,7 @@ class Image extends WorkerProxy{
 	// remote initializer
 	$init:(parent){
 		if(url){
+			// if its a .bin file we load it with XHR
 			img = new window.Image()
 			img.onload()=>{
 				loaded = true
@@ -1114,7 +1142,10 @@ class Image extends WorkerProxy{
 			}
 			img.src = url
 		}
-		else{
+		else if(data){
+			loaded = true
+		}
+		else if(type){
 			flipped = type.indexOf('flipped') != -1
 		}
 	}

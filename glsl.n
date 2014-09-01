@@ -772,7 +772,7 @@ class GenGLSL extends AST.ToCode{
 				n.mark = 1
 		}
 		if(n.mark == 1 && n.infer){ // we are a uniform dependent expression
-			console.log('To Uniform: '+n.toString())
+			if(context.dump>1)console.log('To Uniform: '+n.toString())
 			// okay
 			//if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
 			// okay so, we are a uniform. we splice in
@@ -791,7 +791,7 @@ class GenGLSL extends AST.ToCode{
 		}
 		// output vertex varying
 		if(pixel && n.mark == 2 && n.infer){
-			console.log('To Vertexshader: '+n.toString())
+			if(context.dump>1)console.log('To Vertexshader: '+n.toString())
 
 			// alright we need to output a vertex varying
 			var type_name = n.infer.name
