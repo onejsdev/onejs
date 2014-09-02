@@ -382,10 +382,16 @@ ONE.proxy_ = function(){
 		}
 
 		this._bindProp = function(obj, prop, worker){
-			// we have to bind a property.
+
 			// what does that look like?
 			var bind_store = '_bind_' + prop
 			var store = '__' + prop
+
+			if(Array.isArray(obj)){ // we are a late bind
+				obj.push(this, null, prop)
+				return
+			}
+
 			if(obj !== this){
 				if(obj[bind_store]){
 					obj[bind_store].push(this)
@@ -398,6 +404,7 @@ ONE.proxy_ = function(){
 			if(!obj.__lookupSetter__(prop)){
 				// store old value
 				obj[store] = obj[prop]
+				if(typeof obj !='object') throw new Error('not object')
 				Object.defineProperty(obj, prop, {
 					get:function(){
 						return this[store]
@@ -470,6 +477,7 @@ ONE.proxy_ = function(){
 						// make late resolve array
 						var arr =  obj || (worker.proxy_obj[uid] = [])
 						arr.push(this, name)
+						this[name] = arr
 					}
 				}
 			}
@@ -610,27 +618,37 @@ ONE.browser_boot_ = function(){
 					// lets check our 
 					var old_obj = this.proxy_obj[msg._uid]
 					var obj
-					var isupdate = false
 					// clean up late resolve
 					if(old_obj && !Array.isArray(old_obj)){
-						isupdate = true
 						if(!old_obj.hasOwnProperty('__class__') && old_obj.flagDirty) old_obj.flagDirty()
 						obj = old_obj
+	
+						obj._initFrom(msg, worker, true)
 					}
 					else{
 						if(msg._proto == 0) obj = ONE.Base.HostProxy.new()
 						else obj = Object.create(this.proxy_obj[msg._proto])
 
+						obj._initFrom(msg, worker, false)
+
+						// do all late binds
 						if(Array.isArray(old_obj)){
-							for(var j = 0, k = old_obj.length; j < k; j += 2){
+							for(var j = 0, k = old_obj.length; j < k; ){
 								var tgt_obj = old_obj[j]
 								var name = old_obj[j+1]
-								tgt_obj[name] = obj
+								if(name == null){
+									name = old_obj[j+2]
+									tgt_obj._bindProp(obj, name)
+									j += 3
+								}
+								else{
+									tgt_obj[name] = obj
+									j += 2
+								}
 							}
 						}
 						this.proxy_obj[msg._uid] = obj
 					}
-					obj._initFrom(msg, worker, isupdate)
 				}
 			}
 		}

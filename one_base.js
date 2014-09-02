@@ -269,7 +269,7 @@ ONE.base_ = function(){
 			}
 		}
 
-		if(this_sig){
+		if(this_sig && this_sig._signal_){
 			if(top_val !== this_sig.value)
 				stack.push(new StackValue(this_sig.value))
 

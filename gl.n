@@ -796,7 +796,7 @@ class Draw extends WorkerProxy{
 		}
 		if(!device.anim_req){
 			device.anim_req = true
-			window.requestAnimationFrame(device.drawloop)
+			if(device.drawloop)window.requestAnimationFrame(device.drawloop)
 		}		
 	}
 

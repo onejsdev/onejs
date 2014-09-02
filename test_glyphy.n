@@ -7,12 +7,13 @@ import network
 
 Device{
 	fill = #black
-
+	antialias = false
 	Draw{
-		atl = glyphy_atlas = GlyphyAtlas.url('at_dump.png')
+		mouse = Mouse.new()
+		atl = glyphy_atlas = GlyphyAtlas.new()//('at_dump.png')
 		u_item_geom_x = 64.
 		u_item_geom = ivec2(64,8)
-		u_atlas_size = vec2(2048, 1024)
+		u_atlas_size = vec2(4096, 1024)
 		// type mark it
 		mesh = vec4[]()
 		http.getbinary('vb_dump.bin').then do(value){
@@ -27,51 +28,24 @@ Device{
 			//var dat = new Uint8Array(2048*1024*4)
 			var dat = new Uint8Array(value)
 			// here you can fiddle in dat
-			//glyphy_atlas = Image.array(value, 2048, 1024)
+			glyphy_atlas = Image.array(value, 4096, 1024)
 		}
 
 		//dump = 1
 		fgcolor: #white
-		displace: (sin(time.sec*4. + 8.*up.x)+ sin(time.sec*4. + 8.*up.y))*0.8
+		displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
 		//displace: 0.
-		vertex: mesh[].xy*(vec2(0.15,-0.17))+vec2(-0.9,0.9)
+		vertex: mesh[].xy*(vec2(0.065,-0.097)*8.abs on sin(0.1*time.sec))+vec2(-0.9,0.9+mouse.x/1000 )
 		up:pixel mesh[].xy
-		u_boldness = -.05
+		u_boldness: 0.15*(sin(4time.sec+mesh[].x+mesh[].y))
+		u_boldness: 0.1
 		u_gamma_adjust = 1
-		u_outline = true
+		u_outline = false
 		u_debug = false
 		u_contrast = 1.
-		u_outline_thickness = 2.
+		u_outline_thickness: 4.+2.*(sin(4time.sec+sin(4.mesh[].x)+sin(mesh[].y)))
+		u_outline_thickness = 2
 		
 		pixel: glyphy()
-	}
-
-	#Draw{
-		http.getbinary('at_dump.bin').then do(value){
-			// alright we now have to pass this to our renderer
-			var dat = new Uint8Array(2048*1024*4)
-			var dat = new Uint8Array(value)
-			//console.log(dat[0], dat[1], dat[2],dat[3])
-			//dat[0] = 128
-			//dat[1] = 128
-			//dat[2] = 128
-			image = Image.array(value, 2048, 1024)
-		}
-		dump = 1
-		blend: pixel
-		image = atl
-		mesh = vec2Rect(0,0,1,1)
-		vertex:mesh[]
-		p:pixel mesh[]
-		colswitch:(){
-			vec4 col= image.point(p*0.01)
-			if(col.b == 0x80/255.){
-				return #red
-			}
-			return #black
-		}
-		pixel:vec4(image.point((p*0.01)).bbb,1)
-		pixel:colswitch()
-		//pixel:vec3(128./256.,128./256.,128./256.)
 	}
 }
