@@ -85,7 +85,6 @@ class Layer extends Draw{
 
 	draw:(parent){
 		mat4 m_parent = parent.m_childworld
-
 		// set our matrix
 		var dx = ax*w, dy = ay*h, dz = az*d
 		mat4 m_local = mat4.TSRT(-dx,-dy,-dz ,sx,sy,sz, rx,ry,rz, x+dx,y+dy,z+dz)

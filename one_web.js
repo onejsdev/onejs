@@ -388,6 +388,7 @@ ONE.proxy_ = function(){
 			var store = '__' + prop
 
 			if(Array.isArray(obj)){ // we are a late bind
+				console.log('late binding', this, obj, prop)
 				obj.push(this, null, prop)
 				return
 			}
@@ -471,13 +472,15 @@ ONE.proxy_ = function(){
 				for(var i = 0, l = refs.length; i < l; i++){
 					var name = refs[i]
 					var uid = this[name]
-					var obj = worker.proxy_obj[uid]
-					if(obj && !Array.isArray(obj)) this[name] = obj
-					else{
-						// make late resolve array
-						var arr =  obj || (worker.proxy_obj[uid] = [])
-						arr.push(this, name)
-						this[name] = arr
+					if(typeof uid == 'number'){ // we need to resolve it
+						var obj = worker.proxy_obj[uid]
+						if(obj && !Array.isArray(obj)) this[name] = obj
+						else{
+							// make late resolve array
+							var arr =  obj || (worker.proxy_obj[uid] = [])
+							arr.push(this, name)
+							this[name] = arr
+						}
 					}
 				}
 			}
@@ -620,14 +623,19 @@ ONE.browser_boot_ = function(){
 					var obj
 					// clean up late resolve
 					if(old_obj && !Array.isArray(old_obj)){
+						//console.log('update!')
 						if(!old_obj.hasOwnProperty('__class__') && old_obj.flagDirty) old_obj.flagDirty()
 						obj = old_obj
 	
 						obj._initFrom(msg, worker, true)
 					}
 					else{
+						//if(!msg.__class__){
+						//	console.log('instancing', this.proxy_obj[msg._proto].__class__)
+						//}
 						if(msg._proto == 0) obj = ONE.Base.HostProxy.new()
 						else obj = Object.create(this.proxy_obj[msg._proto])
+						this.proxy_obj[msg._uid] = obj
 
 						obj._initFrom(msg, worker, false)
 
@@ -636,18 +644,17 @@ ONE.browser_boot_ = function(){
 							for(var j = 0, k = old_obj.length; j < k; ){
 								var tgt_obj = old_obj[j]
 								var name = old_obj[j+1]
-								if(name == null){
+								if(name == null){ // its a late property bind
 									name = old_obj[j+2]
 									tgt_obj._bindProp(obj, name)
 									j += 3
 								}
-								else{
+								else{ // its a late reference resolve
 									tgt_obj[name] = obj
 									j += 2
 								}
 							}
 						}
-						this.proxy_obj[msg._uid] = obj
 					}
 				}
 			}
