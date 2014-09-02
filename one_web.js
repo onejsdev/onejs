@@ -292,10 +292,15 @@ ONE.proxy_ = function(){
 					else if(typeof prop != 'function'){
 						// make a value-forward getter-setter
 						this._propertyProxy(name)
+						var proto_prop = proto[name]
+						if(proto_prop && proto_prop._ast_) 
+							hash += name + '=#\n'
 						msg[name] = prop
 					}
 				}
 			}
+			this.__compilehash__ = hash
+			// we do have to 
 			// only compile things if we are an instance
 			if(!this.hasOwnProperty('__class__')){
 				// lets first check if we actually need to compile by comparing
@@ -322,9 +327,11 @@ ONE.proxy_ = function(){
 
 					// TODO fix compile caching based on hash
 					if(code){
+						
 						// ok we have code. now we check if we can place it higher up the prototype chain
 						var last
 						while(proto && proto.__compilehash__ == hash){
+							console.log('movin it up on ', this.__proxy__)
 							last = proto
 							proto = Object.getPrototypeOf(proto)
 						}
@@ -630,9 +637,6 @@ ONE.browser_boot_ = function(){
 						obj._initFrom(msg, worker, true)
 					}
 					else{
-						//if(!msg.__class__){
-						//	console.log('instancing', this.proxy_obj[msg._proto].__class__)
-						//}
 						if(msg._proto == 0) obj = ONE.Base.HostProxy.new()
 						else obj = Object.create(this.proxy_obj[msg._proto])
 						this.proxy_obj[msg._uid] = obj
