@@ -15,7 +15,7 @@ Device{
 	antialias = false
 	Draw{
 		mouse = Mouse.new()
-		atl = glyphy_atlas = GlyphyAtlas.new()//('at_dump.png')
+		atl = glyphy_atlas = GlyphyAtlas.url('at_dump.png')
 		u_item_geom_x = 64.
 		u_item_geom = ivec2(64,8)
 		u_atlas_size = vec2(4096, 1024)
@@ -31,31 +31,30 @@ Device{
 		http.getbinary('at_dump.bin').then do(value){
 			// alright we now have to pass this to our renderer
 			//var dat = new Uint8Array(2048*1024*4)
-			var dat = new Uint8Array(value)
+			//var dat = new Uint8Array(value)
 			// here you can fiddle in dat
-			glyphy_atlas = Image.array(value, 4096, 1024)
+			//glyphy_atlas = Image.array(value, 4096, 1024)
 		}
 
 		//dump = 1
-		fgcolor: #red
-		learn(Colorize)
+		img = Image.url('test_texture.jpg')
+		fgcolor: #white//img.sample(mod(pixel mesh[].xy,vec2(1.,1.))).rgb
 
-		mouse.click()=>{
-			forget(Colorize)
-		}
-
-		displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
-		//displace: 0.
-		vertex: mesh[].xy*(vec2(0.065,-0.097)*8.abs on sin(0.1*time.sec))+vec2(-0.9,0.9+mouse.x/1000 )
+		//displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
+		displace: 0.
+		//vertex: mesh[].xy*(vec2(0.065,-0.097)*8.abs on sin(0.1*time.sec))+vec2(-0.9-mouse.x/1000,0.9+mouse.y/1000 )
+		vertex: mesh[].xy*(vec2(0.15,-0.27))+vec2(-0.9-mouse.x/100,0.9+mouse.y/100 )
+		
 		up:pixel mesh[].xy
-		u_boldness: 0.15*(sin(4time.sec+mesh[].x+mesh[].y))
-		u_boldness: 0.1
+		u_boldness: 0.25*(sin(4time.sec+mesh[].x+mesh[].y))
+		//u_boldness: 0.1
 		u_gamma_adjust = 1
-		u_outline = false
+		u_outline = true
+		//u_outline: mod(pixel mesh[].x+pixel mesh[].y+0.1*time.sec,.1)>.05
 		u_debug = false
 		u_contrast = 1.
 		u_outline_thickness: 4.+2.*(sin(4time.sec+sin(4.mesh[].x)+sin(mesh[].y)))
-		u_outline_thickness = 2
+		//u_outline_thickness = 2
 		
 		pixel: glyphy()
 	}

@@ -303,6 +303,7 @@ define glyphy(){
 	float sdist = gsdist / m * u_contrast
 
 	if(!u_debug) {
+
 		sdist -= u_boldness * 10.
 		
 		if(u_outline)

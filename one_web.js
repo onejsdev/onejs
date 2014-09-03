@@ -331,7 +331,7 @@ ONE.proxy_ = function(){
 						// ok we have code. now we check if we can place it higher up the prototype chain
 						var last
 						while(proto && proto.__compilehash__ == hash){
-							console.log('movin it up on ', this.__proxy__)
+							//console.log('movin it up on ', this.__proxy__)
 							last = proto
 							proto = Object.getPrototypeOf(proto)
 						}
@@ -395,7 +395,6 @@ ONE.proxy_ = function(){
 			var store = '__' + prop
 
 			if(Array.isArray(obj)){ // we are a late bind
-				console.log('late binding', this, obj, prop)
 				obj.push(this, null, prop)
 				return
 			}

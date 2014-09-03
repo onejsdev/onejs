@@ -318,7 +318,7 @@ ONE.base_ = function(){
 		if(!marker){
 			var top = stack[stack.length - 1]
 			if(top === undefined){
-				this[k] = undefined
+				this[key] = undefined
 			}
 			else {
 				if(top instanceof StackValue){
@@ -328,7 +328,10 @@ ONE.base_ = function(){
 				}
 				else{
 					var newtop_sig = top[sigkey]
-					if(newtop_sig) this[key] = newtop_sig.value
+					if(newtop_sig !== undefined){
+						if(newtop_sig._signal_) this[key] = newtop_sig.value
+						else this[key] = newtop_sig
+					}
 					else {
 						if(!this[sigkey] || typeof top.v != 'function')
 							this[key] = top[key]
@@ -341,24 +344,31 @@ ONE.base_ = function(){
 		// fetch value on this
 		var this_val
 		var this_sig = this[sigkey]
-		if(this_sig) this_val = this_sig.value
+		if(this_sig !== undefined){
+			if(this_sig._signal_) this_val = this_sig.value
+			else this_val = this_sig
+		} 
 		else this_val = this[key]
 
 		// fetch value on marker
 		var marker_val
 		var marker_sig = marker[sigkey]
-		if(marker_sig) marker_val = marker_sig.value
+		if(marker_sig !== undefined){
+			if(marker_sig._signal_)
+				marker_val = marker_sig.value
+			else marker_val = marker_sig
+		}
 		else marker_val = marker[key]
 
 		// look up the marker in our stack
 		var idx = stack.indexOf(marker)
 
 		if(idx != -1){ // okay so.
-			if(marker_sig){ // unmerge the markers signal
+			if(marker_sig && marker_sig._signal_){ // unmerge the markers signal
 				if(!this_sig) throw new Error('marker has signal, but this has not')
 				this_sig.unmergeSignal(marker_sig)
 			}// remove the listener
-			else if(this_sig && typeof marker_val == 'function'){
+			else if(this_sig && this_sig._signal_ && typeof marker_val == 'function'){
 				this_sig.removeListener(marker_val, 'set_list')
 			}
 			// we are top of the stack, and we havent messed with the value
