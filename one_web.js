@@ -108,7 +108,7 @@ ONE.proxy_ = function(){
 		this.__proxy_cache__ = {}
 
 		// called when someone makes an instance
-		this._init = function(){
+		this._constructor = function(){
 			if(!ONE.proxy_free.length) this.__proxy__ = ONE.proxy_uid++
 			else this.__proxy__ = ONE.proxy_free.pop()
 			this.defineProperty('__proxy__', { enumerable:false, configurable:true })
@@ -503,7 +503,7 @@ ONE.proxy_ = function(){
 			if(msg.__class__) this.__class__ = msg.__class__
 
 			if(!this.hasOwnProperty('__class__')){
-				if(!isupdate && this.init) this.init()
+				if(!isupdate && this.constructor) this.constructor()
 				if(this._initBinds) this._initBinds()
 			}
 		}
@@ -616,7 +616,10 @@ ONE.browser_boot_ = function(){
 					var obj = this.proxy_obj[msg._uid]
 					if(!obj) throw new Error('Value set on nonexistant object ' + msg._uid)
 					obj[msg.name] = msg.value
-					if(obj.flagDirty) obj.flagDirty()
+					if(obj.hasOwnProperty('__class__')){
+						console.log('Warning, sending update to a prototype ', msg)
+					}
+					else if(obj.flagDirty) obj.flagDirty()
 				}
 				else if(msg._type == 'call'){
 					var obj = this.proxy_obj[msg._uid]

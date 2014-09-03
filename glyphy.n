@@ -17,7 +17,6 @@
  * Google Author(s): Behdad Esfahbod, Maysum Panju
  */
 
-
 import math
 import gl
 

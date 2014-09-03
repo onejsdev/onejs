@@ -34,6 +34,7 @@ Scene{
 			sx = 1
 			pixel:mix(#red, #green, p.y)
 			Layer{
+				dump = 1
 				rz: midi.cc3 * 10
 				w = 100
 				h = 100

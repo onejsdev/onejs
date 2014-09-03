@@ -106,7 +106,7 @@ class HttpServer{
 
 	routes = []
 
-	init( port, addr ){
+	constructor( port, addr ){
 
 		server = _http.createServer() do( req, res ){
 			var url = _url.parse(req.url)

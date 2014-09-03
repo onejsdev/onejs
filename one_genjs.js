@@ -1,3 +1,4 @@
+
 // Copyright (C) 2014 OneJS
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
@@ -171,14 +172,14 @@ ONE.genjs_ = function(modules, parserCache){
 		globals.RegExp = 1
 		globals.Function = 1
 		globals.undefined = 1
+		globals.Int8Array = 1
 		globals.Float32Array = 1
 		globals.Float64Array = 1
 		globals.Int16Array = 1
 		globals.Int32Array = 1
-		globals.Int8Array = 1
+		globals.Uint8Array = 1
 		globals.Uint16Array = 1
 		globals.Uint32Array = 1
-		globals.Uint8Array = 1
 		globals.Uint8ClampedArray = 1
 		globals.ParallelArray = 1
 		globals.Map = 1
@@ -1267,7 +1268,7 @@ ONE.genjs_ = function(modules, parserCache){
 		
 		this.Class = function( n ){
 			
-			var base = n.base? this.expand(n.base, n): 'this.Base'
+			var base = n.base? this.expand(n.base, n): 'ONE.__Base__'
 			var name = n.id.name
 			
 			var fn = this.find_function(n)
@@ -1577,7 +1578,7 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			var ret
 			
-			ret = 'this.signal("'+id+'",'
+			ret = 'this.__signal__("'+id+'",'
 
 			// and it also supports local vars
 			// we need to check for % vars and pass them into parse.
@@ -2405,7 +2406,7 @@ ONE.genjs_ = function(modules, parserCache){
 				}
 				// a signal block
 				if( fn.name == 'signal'){
-					return 'this.wrapSignal(' + this.Function( n, null, ['signal'] ) +'.bind(this))'
+					return 'this.__wrapSignal__(' + this.Function( n, null, ['signal'] ) +'.bind(this))'
 				}
 			}
 			var name = n.fn
@@ -2461,7 +2462,7 @@ ONE.genjs_compat_ = function(){
 	this.await = function( generator, bound, _catch ){
 		var ret = function(){
 			var iter = generator.apply(this, arguments)
-			return ONE.Base.wrapSignal(function(sig){
+			return ONE.__Base__.wrapSignal(function(sig){
 				function error(e){
 					sig.throw(e)
 				}

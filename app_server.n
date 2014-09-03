@@ -133,6 +133,7 @@ class StaticServer extends HttpServer{
 		var fullpath = Path.join(fs_root, path)
 
 		out(`Reading ${path}`)
+		var header =  {"Content-Type": mime.fromFilename(fullpath), "Content-encoding":"deflate"}
 
 		// read and return the file
 		var exist = await fs.exists(fullpath)
@@ -141,10 +142,25 @@ class StaticServer extends HttpServer{
 			res.end('File not found')
 			return
 		}
+		// lets read the stat
+		var stat = await fs.stat(fullpath)
 
-		var stream = fs.createReadStream(fullpath)
-		res.writeHead(200, {"Content-Type": mime.fromFilename(fullpath)})
-		stream.pipe(res)
+		var cache_file = Path.join(fs_root, 'cache/cache_'+path.replace(/[\.\\\/]/g,'_')+'_'+stat.mtime.getTime()+stat.ctime.getTime())
+
+		var cache_exist = await fs.exists(cache_file)
+		if(cache_exist){
+			var stream = fs.createReadStream(cache_file)
+			res.writeHead(200, header)
+			stream.pipe(res)
+			return
+		}
+
+		var data = await fs.readFile(fullpath)
+		var compr = await zlib.deflate(data)
+		res.writeHead(200, header)
+		res.write(compr)
+		res.end()
+		fs.writeFile(cache_file, compr)
 		watch(fullpath)
 	}
 
@@ -163,9 +179,9 @@ class StaticServer extends HttpServer{
 		}
 	}
 
-	init( port, addr ){
+	constructor( port, addr ){
 		out(`Starting webserver on ${addr}:${port}`)
-		super()
+		HttpServer::constructor(port, addr)
 	}
 }
 

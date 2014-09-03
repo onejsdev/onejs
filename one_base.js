@@ -22,14 +22,16 @@ ONE.init = function(){
 	
 	this.__class__ = 'ONE'
 	// create base class
-	this.base_.call(this.Base = {})
-	this.Base.Base = this.Base
+	this.base_.call(this.__Base__ = {})
+	this.__Base__.__Base__ = this.__Base__
+	this.Base =  this.__Base__ 
+	this.Base.Base = this.__Base__
 
-	this.Base.hideProperties(Object.keys(ONE.Base))
+	this.__Base__.hideProperties(Object.keys(ONE.__Base__))
 
 	// make ONE the new root scope
-	this.Base.__modules__ = this.__modules__ = Object.create(null)
-	this.Base.__module_instances__ = this.__modules_instances__ = Object.create(null)
+	this.__Base__.__modules__ = this.__modules__ = Object.create(null)
+	this.__Base__.__module_instances__ = this.__modules_instances__ = Object.create(null)
 }
 
 ONE.base_ = function(){
@@ -66,8 +68,8 @@ ONE.base_ = function(){
 	// new an object with variable arguments and automatic parent/owner
 	this.new = function(){
 		var obj = Object.create(this)
-		if(obj._init) obj._init.apply(obj, arguments)
-		if(obj.init) obj.init.apply(obj, arguments)
+		if(obj._constructor) obj._constructor.apply(obj, arguments)
+		if(obj.constructor) obj.constructor.apply(obj, arguments)
 		return obj
 	}
 
@@ -79,11 +81,11 @@ ONE.base_ = function(){
 		obj.__owner__ = owner
 		obj.defineProperty('__owner__', { enumerable:false, configurable:true })
 
-		if(obj._init) obj._init.apply(obj, arguments)
+		if(obj._constructor) obj._constructor.apply(obj, arguments)
 		
 		nest.call(obj)
 
-		if(obj.init) obj.init.apply(obj, arguments)
+		if(obj.constructor) obj.constructor.apply(obj, arguments)
 
 		return obj
 	}
@@ -132,7 +134,7 @@ ONE.base_ = function(){
 		var instance = this.__module_instances__[name]
 
 		if(!instance){
-			this.__module_instances__[name] = instance = this.Base.new(this)
+			this.__module_instances__[name] = instance = this.__Base__.new(this)
 			module.call(instance)
 		}
 		return instance
@@ -159,7 +161,7 @@ ONE.base_ = function(){
 			var role = arguments[ i ]
 
 			if(typeof role == 'function'){
-				var obj = Object.create(ONE.Base)
+				var obj = Object.create(ONE.__Base__)
 				obj.__teach__ = this
 				obj.__role__ = role
 				if(i == 0 && arguments.length > 1) role.apply(obj, Array.prototype.slice(arguments, 1))
@@ -471,7 +473,7 @@ ONE.base_ = function(){
 		else { // we have to find our overload in the entire keyspace
 			for(var k in this) {
 				// filter out the internal properties
-				if( !(k in ONE.Base) && k[0] != '_' && (k[1] != '$' || k[1] != '_') && 
+				if( !(k in ONE.__Base__) && k[0] != '_' && (k[1] != '$' || k[1] != '_') && 
 					(k[0] != '$' || k.length > 1 )){
 					fn = this.overloads( k, me )
 					if( fn && typeof fn == 'function' ) {
@@ -526,8 +528,8 @@ ONE.base_ = function(){
 		Object.defineProperty( this, key, def )
 	}
 
-
 	// lets store some constraints
+	this.__constraint__ = 
 	this.constraint = function(expr){
 		if(!this.hasOwnProperty('__constraints__')){
 			Object.defineProperty(this, '__constraints__', {enumerable:false, configurable:true, value:[]})
@@ -535,6 +537,7 @@ ONE.base_ = function(){
 		this.__constraints__.push(expr)
 	}
 
+	this.__signal__ = 
 	this.signal = function( key, value, setter ){
 		var signalStore = '__' + key
 		var sig =  this[signalStore]
@@ -586,6 +589,7 @@ ONE.base_ = function(){
 
 	this.trace = function(){ console.log.apply(console, arguments); return arguments[0];}
 
+	this.__Signal__ =
 	this.Signal = {}
 
 	this.Signal.__class__ = 'Signal'
@@ -652,11 +656,11 @@ ONE.base_ = function(){
 	// listen to the end  / error
 	this.Signal.then = function( end_cb, error_cb ){
 		if(this.ended){
-			if(this.errored) window.setTimeout(function(){
+			if(this.errored) setTimeout(function(){
 					error_cb.call(this, this.exception)	
 				}.bind(this), 0)
 			else {
-				window.setTimeout(function(){
+				setTimeout(function(){
 					end_cb.call(this, this.value)	
 				}.bind(this), 0)
 			}
@@ -864,6 +868,7 @@ ONE.base_ = function(){
 
 	
 	// signal wrapper
+	this.__wrapSignal__ =
 	this.wrapSignal = function( wrap ){
 		var sig = Object.create(this.Signal)
 		sig.parent = this
@@ -915,4 +920,24 @@ ONE.base_ = function(){
 		return sig
 	}
 
+	this.deepEqual = function(a, b){
+		if(typeof a == 'object'){
+			if(Array.isArray(a)){
+				if(!Array.isArray(b) || a.length != b.length) return false
+				for(var i = 0, l  = a.length;i<l;i++){
+					if(a[i] !== b[i]) return false
+				}
+				return true
+			}
+			var k_a = Object.keys(a)
+			var k_b = Object.keys(b)
+			if(k_a.length !== k_b.length) return false
+			for(var i = 0, l = k_a.length; i<l; i++){
+				var key = k_a[i]
+				if(a[key] !== b[key]) return false
+			}
+			return true
+		}
+		return a === b
+	}
 }
