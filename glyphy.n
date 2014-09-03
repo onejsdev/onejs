@@ -305,7 +305,7 @@ define glyph_vertex_transcode(vec2 v){
   return vec4(corner * nominal_size, g * 4)
 }
 
-define glyphy(){
+define glyphy_draw(vec4 force){
 	vec4 glyph = glyph_vertex_transcode(mesh[].zw)
 	ivec2 nominal_size = (ivec2(mod(glyph.zw, 256.)) + 2) / 4
 	ivec2 atlas_pos = ivec2(glyph.zw) / 256

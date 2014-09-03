@@ -29,7 +29,9 @@ class Text extends Draw{
 	up:pixel mesh[].xy
 	vertex: mesh[].xy
 
-	pixel: glyphy()
+	glyphy: glyphy_draw(pixel mesh[])
+
+	pixel: glyphy
 
 	// just for the compiler
 	glyphy_atlas = GlyphyAtlas
