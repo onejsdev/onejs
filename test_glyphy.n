@@ -35,7 +35,7 @@ class Text extends Draw{
 	glyphy_atlas = GlyphyAtlas
 	glyphy_font_table = {}
 
-	font = 'fonts/code_font1.glf'
+	font = 'fonts/code_font1_ascii.glf'
 	font_size = 1
 	value = ''
 
