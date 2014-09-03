@@ -42,12 +42,14 @@ class Text extends Draw{
 	value = ''
 
 	updateGeometry(info){
-		u_item_geom_x = info.item_w
-		u_item_geom = ivec2(info.item_w, info.item_h)
-		u_atlas_size = vec2(info.tex_w, info.tex_h)
-		glyphy_atlas = info.atlas
-		glyphy_info = info
-
+		if(info){
+			u_item_geom_x = info.item_w
+			u_item_geom = ivec2(info.item_w, info.item_h)
+			u_atlas_size = vec2(info.tex_w, info.tex_h)
+			glyphy_atlas = info.atlas
+			glyphy_info = info
+		}
+		if(!glyphy_info) return
 		var length = value.length
 		// alloc a buffer
 		vec4[] buf = vec4[length * 6]()
@@ -174,6 +176,12 @@ Device{
 	fill = #black
 	antialias = false
 	Text{
+
+		setInterval(=>{
+			value = `this is ${Math.random()*100000} text!\nDynamic text update!
+			`
+			updateGeometry()
+		}, 10)
 
 		value = 'Hello world!\nIT WORK'
 		displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
