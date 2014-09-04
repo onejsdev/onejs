@@ -29,15 +29,15 @@ class Text extends Draw{
 	up:pixel mesh[].xy
 	vertex: mesh[].xy
 
-	glyphy: glyphy_draw(pixel mesh[])
+	glyphy_color: glyphy_draw(pixel mesh[])
 
-	pixel: glyphy
+	pixel: glyphy_color
 
 	// just for the compiler
 	glyphy_atlas = GlyphyAtlas
 	glyphy_font_table = {}
 
-	font = 'fonts/code_font1_ascii.glf'
+	font = 'fonts/code_font2_ascii.glf'
 	font_size = 1
 	value = ''
 
@@ -181,7 +181,7 @@ Device{
 			value = `this is ${Math.random()*100000} text!\nDynamic text update!
 			`
 			updateGeometry()
-		}, 10)
+		}, 16)
 
 		value = 'Hello world!\nIT WORK'
 		displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2

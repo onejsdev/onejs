@@ -16,14 +16,6 @@
  * Google Author(s): Behdad Esfahbod, Maysum Panju, Wojciech Baranowski
  */
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
-#include "glyphy-common.hh"
-#include "glyphy-geometry.hh"
-#include "glyphy-arc-bezier.hh"
-
 using namespace GLyphy::Geometry;
 using namespace GLyphy::ArcBezier;
 
