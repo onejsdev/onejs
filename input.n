@@ -55,7 +55,7 @@ class Mouse extends WorkerProxy{
 		document.body.style.cursor = value
 	}
 
-	$init:(){
+	$constructor:(){
 		x = 0
 		y = 0
 		// allright we need to figure out how we send back the mouse events to the worker
