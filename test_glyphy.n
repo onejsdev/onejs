@@ -27,7 +27,7 @@ Scene{
 			}
 			value = t
 			updateGeometry()
-		}, 16)
+		}, 200)
 		font_size = 1.
 		u_outline = false
 		u_boldness:0.05
