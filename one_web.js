@@ -56,7 +56,20 @@ ONE.worker_boot_ = function(host){
 	host.msg_start = 0
 	host.msg_queue = []
 	host.msgFlush = function(){
+		try{
 		this.postMessage(this.msg_queue)
+		}catch(e){
+			var q = this.msg_queue
+			for(var i = 0;i<q.length;i++){
+				var keys = Object.keys(q[i])
+				for(var j = 0;j<keys.length;j++){
+					var x = q[i][keys[j]]
+					if(typeof x == 'object'){
+						console.log(keys[j] +' '+ Object.keys(x).join(','))
+					}
+				}
+			}
+		}
 		this.msg_start = Date.now()
 		this.msg_queue = []
 	}.bind(host)
@@ -538,7 +551,7 @@ ONE._createWorker = function(){
 // Bootstrap code for the browser, started at the bottom of the file
 ONE.browser_boot_ = function(){
 
-	var fake_worker = true
+	var fake_worker = false
 	var worker
 	
 	// fake worker for debugging
