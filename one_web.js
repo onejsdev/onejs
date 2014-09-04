@@ -540,6 +540,7 @@ ONE._createWorker = function(){
 		'\nONE.color_ = ' + ONE.color_.toString() +
 		'\nONE.parser_strict_ = ' + ONE.parser_strict_.toString() +
 		'\nONE.worker_boot_ = ' + ONE.worker_boot_.toString() +
+		'\nONE.origin = "'+window.location.origin+'"'+
 		'\nONE.worker_boot_(self)'
 
 	var blob = new Blob([source], { type: "text/javascript" })

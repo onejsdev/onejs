@@ -3,7 +3,7 @@ class http{
 	getbinary(url){
 		return signal{
 			var req = new XMLHttpRequest()
-			url = 'http://localhost:2000/' + url
+			url = ONE.origin + '/' + url
 			req.open("GET", url, true)
 			console.log(url)
 			req.responseType = 'arraybuffer'
