@@ -17,7 +17,7 @@ Scene{
 		sx:.1+6.abs on pow(sin(0.5*time.sec),8.)
 		var data = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!@$%^&*()"
 		setInterval(=>{
-			var t = 'Welcome to fonts evaluated on the GPU thanks to glyphy!'
+			var t = 'Welcome to fonts evaluated on the GPU thanks to glyphy! Right now this is likely to bottleneck your gpu memory bandwidth, small font caching coming'
 			for(var j = 0;j<300;j++){
 				for(var k = 0;k<6;k++)
 					for(var i = 0;i<data.length;i++){
