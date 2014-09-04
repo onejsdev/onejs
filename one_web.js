@@ -13,6 +13,9 @@
 
 // ONEJS boot up fabric for webbrowser
 
+// toggle fake worker on or off
+ONE.fake_worker = false
+
 ONE.worker_boot_ = function(host){
 
 	host.onmessage = function(event){
@@ -58,7 +61,8 @@ ONE.worker_boot_ = function(host){
 	host.msgFlush = function(){
 		try{
 		this.postMessage(this.msg_queue)
-		}catch(e){
+		}
+		catch(e){
 			var q = this.msg_queue
 			for(var i = 0;i<q.length;i++){
 				var keys = Object.keys(q[i])
@@ -278,10 +282,11 @@ ONE.proxy_ = function(){
 							// make a value-forward getter-setter
 							msg[name] = prop
 							var proto_prop = proto[name]
-							if(proto_prop !== undefined && (!proto_prop._t_ || proto_prop._t_.name != prop._t_.name)){
-								throw new Error('Error, cannot change type from baseclass property '+name+' my type: ' + prop._t_.name)
-							}
-							else hash += name + '=' + prop._t_.name + prop._t_.slots + '\n'
+							//if(proto_prop !== undefined && (!proto_prop._t_ || proto_prop._t_.name != prop._t_.name)){
+							//	throw new Error('Error, cannot change type from baseclass property '+name+' my type: ' + prop._t_.name)
+							//}
+							//else 
+							hash += name + '=' + prop._t_.name + prop._t_.slots + '\n'
 						}
 						else if(prop._ast_){ // we found an expression, include it in our compile cache key
 							var locals = prop.locals
@@ -548,15 +553,13 @@ ONE._createWorker = function(){
 	var worker = new Worker(this._worker_url)
 	return worker
 }
-
+ONE.origin = window.location.origin
 // Bootstrap code for the browser, started at the bottom of the file
 ONE.browser_boot_ = function(){
-
-	var fake_worker = false
 	var worker
 	
 	// fake worker for debugging
-	if(fake_worker){
+	if(ONE.fake_worker){
 		worker = {
 			postMessage: function(msg){
 				host.onmessage({data:msg})
@@ -681,7 +684,7 @@ ONE.browser_boot_ = function(){
 		}
 	}
 
-	if(!fake_worker) ONE.init()
+	if(!ONE.fake_worker) ONE.init()
 
 	function module_get( url, module ){
 		return ONE.Base.wrapSignal(function(sig){
@@ -766,7 +769,7 @@ ONE.browser_boot_ = function(){
 	}
 
 	// initialize ONEJS also on the main thread	
-	if(!fake_worker) ONE.init_ast()
+	if(!ONE.fake_worker) ONE.init_ast()
 	if(location.hash) ONE.reloader()
 		
 	window.onerror = function(msg, url, line) {

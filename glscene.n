@@ -14,6 +14,7 @@ import gl
 import math
 import constraint 
 import input
+import glyphy
 
 class Scene extends Device{
 
@@ -123,4 +124,11 @@ class Layer extends Draw{
 	w = 100
 	h = 100
 	d = 0
+}
+
+class Text extends Layer{
+	load(Glyphy)
+	color: #white
+	vertex: glyphy_pos * (m_mesh * m_world * device.m_camera)
+	pixel: glyphy_color
 }

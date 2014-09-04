@@ -1,195 +1,36 @@
 //#js
 import math
 import gl
-import input
-import glyphy
-import network
+import glscene
 
-class Text extends Draw{
-	// give it some default info for the compiler
-	u_item_geom_x = 64.
-	u_item_geom = ivec2(64,8)
-	u_atlas_size = vec2(4096, 1024)
-
-	u_boldness: 0.25*(sin(4time.sec+mesh[].x+mesh[].y))
-	u_boldness = 0.1
-	u_gamma_adjust = 1
-	u_outline = true
-	u_debug = false
-	u_contrast = 1.
-	u_outline_thickness = 2
-
-	// type mark it
-	mesh = vec4[]()
-
-	fgcolor: #white//img.sample(mod(pixel mesh[].xy,vec2(1.,1.))).rgb
-
-	displace: 0.
-
-	up:pixel mesh[].xy
-	vertex: mesh[].xy
-
-	glyphy_color: glyphy_draw(pixel mesh[])
-
-	pixel: glyphy_color
-
-	// just for the compiler
-	glyphy_atlas = GlyphyAtlas
-	glyphy_font_table = {}
-
-	font = 'fonts/code_font2_ascii.glf'
-	font_size = 1
-	value = ''
-
-	updateGeometry(info){
-		if(info){
-			u_item_geom_x = info.item_w
-			u_item_geom = ivec2(info.item_w, info.item_h)
-			u_atlas_size = vec2(info.tex_w, info.tex_h)
-			glyphy_atlas = info.atlas
-			glyphy_info = info
-		}
-		if(!glyphy_info) return
-		var length = value.length
-		// alloc a buffer
-		vec4[] buf = vec4[length * 6]()
-		var o = 0
-		var px = 0
-		var py = font_size
-		// alright lets convert some text babeh!
-		for(var i = 0; i < length; i++){
-			var unicode = value.charCodeAt(i)
-			if(unicode == 10){
-				px = 0
-				py += font_size
-				continue
-			}
-			var glyph = glyphy_info.glyphs[unicode]
-			if(!glyph){
-				px += font_size
-				continue
-			}
-
-			// 0___14 
-			// |   /|
-			// |  / |
-			// | /  |
-			// |/   | 
-			// 23---5
-			// lets add some vertices
-			var gx = ((glyph.atlas_x<<6) | glyph.nominal_w)<<1
-			var gy = ((glyph.atlas_y<<6) | glyph.nominal_h)<<1
-			buf[o].x = px + font_size * glyph.min_x
-			buf[o].y = py - font_size * glyph.min_y
-			buf[o].z = gx
-			buf[o].w = gy
-			o++
-			buf[o+3].x = buf[o].x = px + font_size * glyph.max_x
-			buf[o+3].y = buf[o].y = py - font_size * glyph.min_y
-			buf[o+3].z = buf[o].z = gx | 1
-			buf[o+3].w = buf[o].w = gy
-			o++
-			buf[o+1].x = buf[o].x = px + font_size * glyph.min_x
-			buf[o+1].y = buf[o].y = py - font_size * glyph.max_y
-			buf[o+1].z = buf[o].z = gx
-			buf[o+1].w = buf[o].w = gy | 1
-			o+=3
-			buf[o].x = px + font_size * glyph.max_x
-			buf[o].y = py - font_size * glyph.max_y
-			buf[o].z = gx | 1
-			buf[o].w = gy | 1
-			o++
-			px += glyph.advance
-			//console.log(o)
-		}
-		mesh = buf
-	}	
-
-	constructor(){
-		var info = glyphy_font_table[font]
-		if(!info){
-			glyphy_font_table[font] = signal{
-				http.getbinary(font).then do (value){
-					// lets parse the font
-					vuint16 = new Uint16Array(value)
-					vuint32 = new Uint32Array(value)
-					vfloat32 = new Float32Array(value)
-					vuint8 = new Uint8Array(value)
-
-					if(vuint32[0] != 0x01F01175){
-						throw new Error('Error in font file')
-					}
-
-					var info = glyphy_info = {}
-
-					// lets parse the glyph set
-					info.tex_w = vuint16[2]
-					info.tex_h = vuint16[3]
-					info.item_w = vuint16[4]
-					info.item_h = vuint16[5]
-
-					var length = info.count = vuint32[3] / (7*4)
-
-					if(length>10000) throw new Error('Font seems incorrect')
-					var off = 4
-
-					var glyphs = info.glyphs = {}
-
-					for(var i = 0;i<length;i++){
-						var unicode = vuint32[off++]
-						glyphs[unicode] = {
-							min_x: vfloat32[off++]
-							min_y: vfloat32[off++]
-							max_x: vfloat32[off++]
-							max_y: vfloat32[off++]
-							advance: vfloat32[off++]
-							nominal_w: vuint8[off*4]
-							nominal_h: vuint8[off*4+1]
-							atlas_x: vuint8[off*4+2]
-							atlas_y: vuint8[off*4+3]
-						}
-						off++
-					}
-
-					u_item_geom_x = info.item_w
-					u_item_geom = ivec2(info.item_w, info.item_h)
-					u_atlas_size = vec2(info.tex_w, info.tex_h)
-
-					info.atlas = 
-					glyphy_atlas = Image.array(value.slice(off * 4), info.tex_w, info.tex_h)
-					// lets go and generate some glyphs!
-					signal.end(info)
-					updateGeometry(info)
-				}
-			}
-		}
-		else if(info._signal_){
-			info.then do(info){
-				updateGeometry(info)
-			}
-		} 
-		else updateGeometry(info)
-	}
-}
-
-Device{
+Scene{
+	//frame_rate = true
 	fill = #black
 	antialias = false
+	Layer{
+		w:device.w
+		h:device.h
+		pixel:mix(#111,#555,hp.y)
+	}
 	Text{
-
+		sy:3.abs on pow(sin(0.5*time.sec),8.)
+		sx:3.abs on pow(sin(0.5*time.sec),8.)
+		var data = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!@$%^&*()"
 		setInterval(=>{
-			value = `this is ${Math.random()*100000} text!\nDynamic text update!
-			`
+			var t = 'Welcome to fonts evaluated on the GPU thanks to glyphy!'
+			for(var j = 0;j<300;j++){
+				for(var k = 0;k<6;k++)
+					for(var i = 0;i<data.length;i++){
+						t += data[parseInt(Math.random()*data.length)]
+					}
+				t += '\n'
+			}
+			value = t
 			updateGeometry()
-		}, 16)
-
-		value = 'Hello world!\nIT WORK'
+		}, 200)
+		font_size = 1.
+		u_outline = true
 		displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
-		//vertex: mesh[].xy*(vec2(0.065,-0.097)*8.abs on sin(0.1*time.sec))+vec2(-0.9-mouse.x/1000,0.9+mouse.y/1000 )
-		//displace: 0.
-		vertex: mesh[].xy*(vec2(0.15,-0.27))+vec2(-0.9,0.9 )
-		//u_outline: mod(pixel mesh[].x+pixel mesh[].y+0.1*time.sec,.1)>.05
-		u_outline_thickness: 4.+2.*(sin(4time.sec+sin(8.mesh[].x)+sin(4.mesh[].y)))
-		//pixel:#red
+		u_outline_thickness: 3.+2.*(sin(4time.sec+sin(8.mesh[].x)+sin(4.mesh[].y)))
 	}
 }

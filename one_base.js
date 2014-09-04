@@ -107,7 +107,7 @@ ONE.base_ = function(){
 		this.v = v
 	}
 	
-	// load a property bag into a new object
+	// load a property bag onto my object
 	this.load = function( irole ){
 		var role = irole
 		if(typeof irole == 'string'){// try to read it from scope
@@ -116,12 +116,16 @@ ONE.base_ = function(){
 		}
 
 		if(typeof role == 'function'){
-			var base = this.Base.new(this)
 			role.call(base)
-			return base
+			return
 		}
 
-		return role
+		if(typeof role == 'object'){
+			for(var key in role){
+				// we might have to copy things
+				this[key] = role[key]
+			}
+		}
 	}
 
 	// import a module

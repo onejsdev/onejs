@@ -12,6 +12,9 @@ Scene{
 	antialias = true
 	fill: vec3(midi.cc4, midi.cc5, midi.cc6)
 	var t = Layer{
+		Text{
+			value = 'HELLO\nWORLD'
+		}
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w
 			y: mouse.y - .5 * h
@@ -29,12 +32,11 @@ Scene{
 		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - midi.cc2*20.)
 		Layer{
 			rz: mouse.x * deg
-			x = 300, y = 100
+			x = 300, y = 300
 		
 			sx = 1
 			pixel:mix(#red, #green, p.y)
 			Layer{
-				dump = 1
 				rz: midi.cc3 * 10
 				w = 100
 				h = 100

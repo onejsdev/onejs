@@ -673,18 +673,6 @@ class Draw extends WorkerProxy{
 							gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, img.w, img.h, 0, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, new Uint8Array(img.data)) 
 						}
 						else{
-							// lets hack it!
-							//var cvs = document.createElement('canvas')
-							//var ctx = cvs.getContext('2d')
-							//ctx.width = img.img.width
-							//ctx.height = img.img.height
-							//ctx.drawImage(img.img, 0, 0)
-							//document.body.appendChild(cvs)
-							//gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, cvs)
-
-							//gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, img.w, img.h, 0, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, 
-							//	ctx.getImageData(0,0,ctx.width,ctx.height)) 
-
 							gl.texImage2D(${glc.TEXTURE_2D}, 0, ${glc.RGBA}, ${glc.RGBA}, ${glc.UNSIGNED_BYTE}, img.img)
 						}
 						gl.texParameterf(${glc.TEXTURE_2D}, ${glc.TEXTURE_MIN_FILTER}, ${glc[state.MIN_FILTER]})
@@ -1207,9 +1195,9 @@ class Device extends Draw{
 	frame_id = 0
 
 	$drawloop:(now){
-		if(debug_frames && frame_id > debug_frames) return
+		if(max_frames && frame_id > max_frames) return
 
-		if(debug_rate){
+		if(frame_rate){
 			document.title = parseInt(1000/(now - last))
 			last = now
 		}

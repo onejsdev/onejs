@@ -5,7 +5,6 @@ class http{
 			var req = new XMLHttpRequest()
 			url = ONE.origin + '/' + url
 			req.open("GET", url, true)
-			console.log(url)
 			req.responseType = 'arraybuffer'
 			req.onreadystatechange = function(){
 				if(req.readyState == 4){
