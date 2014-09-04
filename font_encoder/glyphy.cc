@@ -425,5 +425,6 @@ int main (int argc, char** argv)
 		add_glyph_to_lut_and_atlas (i, font, 1, lut_buf, &size, TOLERANCE);
 	}
 
-	demo_write_gpu_font("test.glf", lut_buf, size, atlas);
+	demo_write_gpu_font(argv[4], lut_buf, size, atlas);
+	printf("Done\n");
 }
