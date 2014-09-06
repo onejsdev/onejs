@@ -64,7 +64,7 @@ class Test extends Draw{
 	p:pixel mesh[]
 
 	param1 = 1
-	bg = Image.url('test_texture.jpg')
+	bg = Texture.url('test_texture.jpg')
 	sp:spiral(p, 2., time.sec)
 	pixel: bg.sample(.25p + .5) **
 		myColor(sp, time.sec * 1.)
