@@ -1,3 +1,4 @@
+
 // Copyright (C) 2014 OneJS
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,10 +27,6 @@ ONE.ast_ = function(){
 	var parser = {}
 	ONE.parser_strict_.call( parser )
 
-	var parserCache = {}
-
-	var modules = {}
-
 	// external parse api
 	this.parse = function( source, filename ){
 		return this._parse(source, undefined, undefined, undefined, filename, true)
@@ -38,28 +35,27 @@ ONE.ast_ = function(){
 	// internal parse api used by compiler
 	this._parse = function( source, module, locals, template, filename, noclone ){
 		parser.sourceFile = filename || ''
-        
-		var node = parserCache[source]
+        //console.log('parsing', source)
+		var node = module && module.parser_cache[source]
 		if(! node ){
 			node = parser.parse_strict( source )
 			if(node.steps.length == 1){
 				node = node.steps[0]
 			}
-			parserCache[source] = node
+			if(module) module.parser_cache[source] = node
 		}
-        
+
 		if(!noclone){
 			if( template ){
 				var template_nodes = []
-				node = node.clone( template_nodes )
+				node = this.AST.clone( node, template_nodes )
 			} 
 			else {
-				node = node.clone()
+				node = this.AST.clone( node )
 			}
 		}
 		node.locals = locals
 		node.source = source
-		node.pthis = this
 		node.module = module
         
 		// we now need to process our template-replaces
@@ -79,7 +75,6 @@ ONE.ast_ = function(){
 				tgt.arg = undefined
 				if(typeof src == 'object'){
 					copy[src.type](src, tgt)
-					tgt.pthis = this
 				} 
 				else{
 					tgt.type = 'Value'
@@ -108,8 +103,7 @@ ONE.ast_ = function(){
 		var js = this.AST.ToJS
         
 		// set up new compile state
-		js.new_state()
-		modules[filename] = js.module
+		js.new_state(ONE.__modules__[filename])
         
 		// if passing a function we return that
 		if(ast.type == 'Function'){
@@ -136,12 +130,12 @@ ONE.ast_ = function(){
             
 			try{
 				if( typeof process !== 'undefined'){
-					var fn = Function.call(null, 'module', 'require', '__dirname', code)(js.module, require, __dirname)
+					var fn = Function.call(null, '__module__', 'require', '__dirname', code)(js.module, require, __dirname)
 				}
 				else{
 					var prof = flags && flags.indexOf('profile') != -1 && Date.now()
                     
-                    var fn = Function.call(null, 'module', code)(js.module)
+                    var fn = Function.call(null, '__module__', code)(js.module)
                     
 					if(prof) console.log('Profile ' +filename + ' '+ (Date.now()-prof)+'ms')
 				}
@@ -150,6 +144,7 @@ ONE.ast_ = function(){
 			catch(e){
 				console.log("Eval error " + e + code)
 			}
+			js.module.generated_js = code
 			return fn
 		}
         
@@ -160,6 +155,112 @@ ONE.ast_ = function(){
         
 		var run = Function(code)
 		return run.call(this)
+	}
+
+	this.serializeModule = function(module){
+		var blob = {
+			name: module.name,
+			generated_js: module.generated_js,
+			types:{},
+			local_types:{},
+			parser_cache:{},
+			imports:[],
+			exports:{},
+			defines:{},
+			macros:{}
+		}
+		// lets serialize the types
+		var types = module.types
+		for(var type_name in types){
+			var in_type = types[type_name]
+			blob.types[type_name] = this.typeCopy( in_type)
+		}
+
+		// lets serialize the types
+		var local_types = module.local_types
+		for(var type_name in local_types){
+			var in_type = local_types[type_name]
+			blob.local_types[type_name] = 1//this.typeCopy(in_type)
+		}
+
+		// parser cache
+		var parser_cache = module.parser_cache
+		for(var cache_node in parser_cache){
+			blob.parser_cache[cache_node] = this.Clean.run(parser_cache[cache_node])
+		}
+		// imports
+		for(var i = 0;i<module.imports.length;i++){
+			blob.imports.push(module.imports[i].name)
+		}
+		// exports
+		for(var export_name in module.exports){
+			blob.exports[export_name] = 1
+		}
+
+		// defines
+		for(var define_name in module.defines){
+			blob.defines[define_name] = this.Clean.run(module.defines[define_name])
+		}
+
+		// macros
+		for(var macro_name in module.macros){
+			blob.macros[macro_name] = this.Clean.run(module.macros[macro_name])
+		}
+		var json =  JSON.stringify(blob)
+		
+		return json
+	}
+
+	this.deserializeModule = function(module_name, json_blob){
+		var dt = Date.now()
+		var module = ONE.__modules__[module_name] = JSON.parse(json_blob)
+		ONE.total_deserialize += Date.now() - dt
+		// lets resolve imports
+		for(var i = 0;i<module.imports.length;i++){
+			var other_name = module.imports[i]
+			var other = ONE.__modules__[ other_name ]
+			if(!other) console.log('import not found '+other_name)
+			else module.imports[i] = other
+		}
+		// resolve the local types
+		for(var name in module.local_types){
+			var im = module.imports
+			for(var i = 0, l = im.length; i < l;i++){
+				var type
+				var types = im[i].types
+				if(types && (type = types[name])){
+					module.local_types[name] = type
+					break
+				}
+			}
+		}
+		var new_defines = Object.create(null)
+		// defines
+		for(var define_name in module.defines){
+			new_defines[define_name] = module.defines[define_name]
+		}
+		module.defines = new_defines
+
+		// macros
+		var new_macros = Object.create(null)
+		for(var macro_name in module.macros){
+			new_macros[macro_name] = module.macros[macro_name]
+		}
+		module.macros = new_macros
+
+		// types
+		var new_types = Object.create(null)
+		for(var type_name in module.types){
+			new_types[type_name] = module.types[type_name]
+		}
+		module.types = new_types
+		
+		var dt = Date.now()
+		module.compiled_function = Function.call(null, '__module__', module.generated_js)(module)
+		ONE.total_compile += Date.now() - dt
+		//console.log(module.compiled_function)
+		//console.log(module.name, module)
+		return module
 	}
 
 	// im sure this is slow, but who cares.
@@ -178,57 +279,12 @@ ONE.ast_ = function(){
 			console.log(stack[i].getThis())
 		}
 	}
+	parser.Node = Object.create(null)
 
 	// AST node
-	parser.Node = this.AST = this.Base.extend(function(outer){
+	this.AST = this.Base.extend(function(outer){
 
 		this._ast_ = 1
-
-		// AST nodes can be bound to signals as expressions
-		this.bind_signal = function( owner, sig, old ){
-            
-			var deps = this.ToSignalExpr.deps = []
-			var code = 'return ' + this.ToSignalExpr.expand( this ) 
-            
-			// it gets executed on the this of the object
-			var recalc = new Function( code )
-            
-			function onSig(){
-				sig.bypass( recalc.call( owner ) )
-			}
-			sig.recalc = onSig
-			sig.deps = []
-            
-			for(var i = 0, l = deps.length; i < l; i+= 2){
-				var obj = deps[i]
-				var key = deps[i+1]
-                
-				if(obj !== null){
-					obj = owner.resolve( obj )
-				} 
-				else obj = owner
-                
-				var dep = obj[ key ]
-				if(sig.deps.indexOf( dep ) === -1){
-					sig.deps.push( dep )
-					if( dep !== undefined && typeof dep.on === 'function' ){
-						dep.on(onSig)
-					}
-				}
-			}
-			// set value
-			sig.bypass( recalc.call( owner ) )
-            
-			return this
-		}
-		
-		this.unbind_signal = function( sig ){
-			var deps = sig.deps
-			var fn = sig.recalc
-			for(var i = 0, l = deps.length; i < l; i++){
-				deps[i].off(fn)
-			}
-		}
 
 		// AST structure definition
 		// 0 is value
@@ -313,7 +369,7 @@ ONE.ast_ = function(){
 		this.Clone = this.Base.extend("Clone")
 		this.Copy = this.Base.extend("Copy")
 		this.Walk = this.Base.extend("Walk")
-
+		this.Clean = this.Base.extend("Clean")
 		// Generate AST Tools clone and copy
 		function ToolGenerator(){
 			var ast = this.Structure;
@@ -322,6 +378,13 @@ ONE.ast_ = function(){
 			for( var type in ast ){
 				var tag = ast[ type ]
 				var walk = '\tn.parent = p\nif(this.Pre)this.Pre(n)\n'
+				var clean = '\tdelete n.parent\n'+
+							'\tdelete n.infer\n'+
+							'\tdelete n.comments\n'+
+							'\tdelete n.genstart\n'+
+							'\tdelete n.genend\n'+
+							'\tdelete n.start\n'+
+							'\tdelete n.end\n'
 
 				var copy = '\tc.type = n.type\n'+
 							'\tif(n.store) c.store = n.store\n'+
@@ -330,7 +393,8 @@ ONE.ast_ = function(){
 							'\tc.start = n.start\n'+
 							'\tc.end = n.end\n'
 
-				var clone = '\tvar c = Object.create(this.AST)\n'+
+				var clone = '\tvar c = {}\n'+
+							'\tc._ast_ = 1\n'+
 							'\tc.type = n.type\n'+
 							'\tif(n.store) c.store = n.store\n'+
 							'\tif(n.parens) c.parens = n.parens\n'+
@@ -347,6 +411,9 @@ ONE.ast_ = function(){
 						clone += '\tvar _'+v+' = n.'+k+'\n\tif(_'+v+' !== undefined)c.'+k+'=_'+v+'\n'
 					} 
 					else if( t === 1){
+						clean += '\tvar _'+v+' = n.'+k+'\n'+
+							'\tif(_'+v+') this[_'+v+'.type](_'+v+')\n'
+
 						clone += '\tvar _'+v+' = n.'+k+'\n'+
 							'\tif(_'+v+') c.'+k+' = this[_'+v+'.type](_'+v+')\n'
 
@@ -355,6 +422,15 @@ ONE.ast_ = function(){
 
 					} 
 					else if(t === 2){
+						clean += '\tvar _'+v+' = n.'+k+'\n'+
+							'\tif(_'+v+'){\n'+
+								'\t\tvar x\n'+
+								'\t\tfor(var len = _'+v+'.length, i = 0; i < len; i++){\n'+
+									'\t\t\tx = _'+v+'[i]\n'+
+									'\t\t\tif(x) this[x.type](x)\n'+
+								'\t\t}\n'+
+							'\t}\n'
+
 						clone += '\tvar _'+v+' = n.'+k+'\n'+
 							'\tif(_'+v+'){\n'+
 								'\t\tvar x, y = []\n'+
@@ -376,6 +452,15 @@ ONE.ast_ = function(){
 
 					}
 					else if(t === 3){
+						clean += '\tvar _'+v+' = n.'+k+'\n'+
+								'\tif(_'+v+'){\n'+
+								'\t\tfor(var len = _'+v+'.length,i = 0; i < len; i++){\n'+
+									'\t\t\tvar x = _'+v+'[i]\n'+
+									'\t\t\tthis[x.key.type](x.key, n)\n'+
+									'\t\t\tif(x.value) this[x.value.type](x.value)\n'+
+								'\t\t}\n'+
+							'\t}\n'
+
 						clone += '\tvar _'+v+' = n.'+k+'\n'+
 								'\tif(_'+v+'){\n'+
 								'\t\tvar x, y = []\n'+
@@ -398,11 +483,12 @@ ONE.ast_ = function(){
 					}
 					v++
 				}
+				ret += '\n_clean.'+type+'=function(n){\n' + clean + '\n}\n' 
 				ret += '\n_walk.'+type+'=function(n, p){\n' + walk + '\n\tif(this.Post && this.Post(n))return 1\n}\n' 
 				ret += '\n_clone.'+type+'=function(n){\n' + clone + '\treturn c\n}\n' 
 				ret += '\n_copy.'+type+'=function(n, c){\n'+ copy +'\treturn\n}\n'
 			}
-			(new Function('_clone', '_copy', '_walk', ret))( this.Clone, this.Copy, this.Walk )
+			(new Function('_clone', '_copy', '_walk', '_clean', ret))( this.Clone, this.Copy, this.Walk, this.Clean )
 
 			this.Clone.AST = this
 			this.Clone.Unary = function( n ){
@@ -420,6 +506,11 @@ ONE.ast_ = function(){
 				}
 				c.arg = this[n.arg.type]( n.arg )
 				return c
+			}
+
+			this.Clean.run = function(n){
+				this[n.type](n)
+				return n
 			}
 		}
 		ToolGenerator.call(this)
@@ -454,9 +545,9 @@ ONE.ast_ = function(){
 			}
 		},"DepFinder")
 
-		this.clone = function(template){
+		this.clone = function(node, template){
 			this.Clone.template = template
-			var clone = this.Clone[ this.type ]( this )
+			var clone = this.Clone[ node.type ]( node )
 			this.Clone.template = undefined
 			return clone
 		}
@@ -492,12 +583,11 @@ ONE.ast_ = function(){
 			Path: 1
 		}
 
-		this.isExpr = function(){
-			return this.IsExpr[ this.type ]
+		this.isExpr = function(node){
+			return this.IsExpr[ node.type ]
 		}
 
-		this.isKeyChain = function(){
-			var node = this
+		this.isKeyChain = function(node){
 			while(node){
 				if(node.type == 'Id' || node.type == 'This') return node
 				if(node.type != 'Key' && node.type != 'Index') return
@@ -506,18 +596,18 @@ ONE.ast_ = function(){
 			return
 		}
 
-		this.toJS = function(comments){
+		this.toJS = function(node, comments){
 			var js = this.ToJS
 			js.line = 0
 			js.scope = {}
-			return js.expand( this )
+			return js.expand( node )
 		}
 
 		this.toString =
-		this.toCode = function(comments){
+		this.toCode = function(node, comments){
 			var code = this.ToCode
 			code.line = 0
-			return code.expand( this )
+			return code.expand( node )
 		}
 
 		// ToCode reserializes the AST to oneJS as is
@@ -1078,7 +1168,6 @@ ONE.ast_ = function(){
 				return left + ':=' + this.space + quote
 			}
 
-
 			this.AssignQuote = function( n ){
 				var left = this.expand(n.left, n)
 				var quote = this.expand(n.quote, n)
@@ -1197,7 +1286,7 @@ ONE.ast_ = function(){
 			}
 			return ret
 		}
-		ONE.genjs_.call(this, modules, parserCache)
+		ONE.genjs_.call(this)
 		ONE.genjs_compat_()
 	}, "AST")
 	

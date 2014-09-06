@@ -14,7 +14,8 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = false
+ONE.fake_worker = true
+ONE.ignore_cache = false
 
 ONE.worker_boot_ = function(host){
 
@@ -35,21 +36,38 @@ ONE.worker_boot_ = function(host){
 				else obj[msg.name].call(obj)
 			}
 			else if(msg._type == 'eval'){ // lets parse and eval a module
-				var ast = ONE.root.__modules__['_' + msg.module]
+				var module = ONE.__modules__[msg.module_name]
+				var ast = module.ast
 				var dt = Date.now()
 				if(!ast){
-					return console.log('Module ' + msg.module + ' not parsed')
+					return console.log('Module ' + msg.module_name + ' not parsed')
 				}
-				ONE.root.__modules__[msg.module] = ONE.root.eval(ast, msg.module)
-				//console.log('eval '+msg.module+' '+(Date.now()-dt)+'ms')
+				module.compiled_function = ONE.root.eval(ast, msg.module_name)
+				// lets push this on our cache queue
+				ONE.compile_cache_queue.push(module)
+				var ms = Date.now()-dt
+				ONE.total_eval += ms
 			}
 			else if(msg._type == 'parse'){
 				var dt = Date.now()
-				ONE.root.__modules__['_' + msg.module] = ONE.root.parse('->{' + msg.value + '\n}', msg.module)
-				//console.log('parse '+msg.module+' '+(Date.now()-dt)+'ms')
+				var module = ONE.__modules__[msg.module_name] = Object.create(null)
+				module.name = msg.module_name
+				module.source_code = msg.value
+				module.ast = ONE.root.parse('->{' + msg.value + '\n}', msg.module_name)
+				var ms = Date.now()-dt
+				ONE.total_parse += ms
 			}
 			else if(msg._type == 'run'){
-				ONE.root.__modules__[msg.module].call(ONE.root)
+				var dt = Date.now()
+				if(typeof msg.proxify_cache == 'object') ONE.proxify_cache = msg.proxify_cache
+				ONE.__modules__[msg.module_name].compiled_function.call(ONE.root)
+				ONE.total_run = Date.now() -dt
+
+				// flush our cache queue
+				setTimeout(host.writeModuleCache, 10)
+			}
+			else if(msg._type == 'eval_cached'){
+				var module = ONE.root.deserializeModule(msg.module_name, msg.value)
 			}
 		}
 		if(host.msg_queue.length) host.msgFlush()
@@ -59,37 +77,42 @@ ONE.worker_boot_ = function(host){
 	host.msg_start = 0
 	host.msg_queue = []
 	host.msgFlush = function(){
-		try{
+		//try{
 		this.postMessage(this.msg_queue)
-		}
-		catch(e){
-			var q = this.msg_queue
-			for(var i = 0;i<q.length;i++){
-				var keys = Object.keys(q[i])
-				for(var j = 0;j<keys.length;j++){
-					var x = q[i][keys[j]]
-					if(typeof x == 'object'){
-						console.log(keys[j] +' '+ Object.keys(x).join(','))
-					}
-				}
-			}
-		}
+		//}
+		//catch(e){
+		//	var q = this.msg_queue
+		//	for(var i = 0;i<q.length;i++){
+		//		var keys = Object.keys(q[i])
+		//		for(var j = 0;j<keys.length;j++){
+		//			var x = q[i][keys[j]]
+		//			if(typeof x == 'object'){
+		//				console.log(keys[j] +' '+ Object.keys(x).join(','))
+		//			}
+		//		}
+		//	}
+		//}
 		this.msg_start = Date.now()
 		this.msg_queue = []
 	}.bind(host)
 
+	host.writeModuleCache = function(){
+		console.log('load time ' + (ONE.total_eval + ONE.total_parse + ONE.total_run + ONE.total_proxify+ ONE.total_deserialize + ONE.total_compile) + ' ' +
+				'eval: ' + ONE.total_eval + ' parse:'+ONE.total_parse + ' run:'+ONE.total_run + ' proxify:'+ONE.total_proxify + ' total_deserialize:'+ONE.total_deserialize+ ' total_compile:'+ONE.total_compile)
+		var queue = ONE.compile_cache_queue
+		// lets encode all our modules and send them over to the main thread for caching.
+		for(var i = 0;i<queue.length;i++){
+			var module = queue[i]
+			var blob = ONE.Base.AST.serializeModule(module)
+			host.sendToHost({_type:'module_cache', key:module.source_code, value:blob})
+		}
+	}.bind(host)
+
 	host.sendToHost = function(msg){
-		var now = Date.now()
-		//if(this.msg_queue.length && now - this.msg_start > 10){ // make sure we chunk every 20ms for parallelisation
-		//	this.msg_queue.push(msg)
-		//	this.msgFlush()
-		//}
-		//else{
-			if(this.msg_queue.push(msg) == 1){
-				this.msg_start = now
-				setTimeout(this.msgFlush, 0)
-			}
-		//}
+		if(this.msg_queue.push(msg) == 1){
+			this.msg_start = Date.now()
+			setTimeout(this.msgFlush, 0)
+		}
 	}
 
 	host.proxy_obj = {}
@@ -97,14 +120,22 @@ ONE.worker_boot_ = function(host){
 	ONE.proxify = function(){
 		var list = ONE.proxify_list
 		ONE.proxify_list = []
+		var dt = Date.now()
 		for(var i = 0, l = list.length; i<l; i++){
 			list[i]._proxify()
 		}
+		ONE.total_proxify += Date.now() - dt
 	}
-
+	ONE.compile_cache_queue = []
 	ONE.proxify_list = []
+	ONE.proxify_cache = {}
 	ONE.proxy_uid = 1
 	ONE.proxy_free = []
+	ONE.total_eval = 0
+	ONE.total_proxify = 0
+	ONE.total_parse = 0
+	ONE.total_deserialize = 0
+	ONE.total_compile = 0 
 
 	ONE.host = host
 
@@ -120,9 +151,6 @@ ONE.proxy_ = function(){
 	this.Base.WorkerProxy = this.Base.extend(function(){
 		this.__proxy__ = 0
 		this.__class__ = 'WorkerProxy'
-
-		// used to minimize compilation
-		this.__proxy_cache__ = {}
 
 		// called when someone makes an instance
 		this._constructor = function(){
@@ -252,7 +280,7 @@ ONE.proxy_ = function(){
 						if(!comp){
 							comp = this.__compiles__ = Object.create(this.__compiles__ || null)	
 						}
-						hash += base + '={compile}\n'
+						hash += base + '='+prop.toString()+'\n'
 						comp[base] = prop // store it
 					}
 					else if(prop._ast_){ // its a remote method
@@ -329,17 +357,17 @@ ONE.proxy_ = function(){
 
 					this.proxy_refs = Object.create(null)
 					// WARNING. we might need more strict rules on compiler cache, but lets try it
-					var code = this.__proxy_cache__[hash] || ''
-
-					if(!code){
-						var dt = Date.now()
+					var code = ONE.proxify_cache[hash]
+					if(code === undefined){
+						code = ''
 						var comp = this.__compiles__
 						for(var name in comp){
 							var prop = comp[name]
 							code += prop.call(this) + '\n'
 						}
 						code += this._compilePropBinds()
-						this.__proxy_cache__[hash] = code
+						ONE.proxify_cache[hash] = code
+						ONE.host.sendToHost({_type:'proxify_cache', key:hash, value:code})
 					}
 					//else console.log('code cache hit!')
 
@@ -383,11 +411,10 @@ ONE.proxy_ = function(){
 		this.hideProperties(Object.keys(this))
 	})
 
-
 	// the baseclass for the host objects
 	this.Base.HostProxy = this.Base.extend(function(){
 		
-		this.__proxy_module__ = {}
+		this.__proxy_module__ = {local_types:{}}
 		this.__proxy_cache__ = {}
 		this.__class__ = 'HostProxy'
 		this._getsetSig = function(name, worker){
@@ -512,7 +539,7 @@ ONE.proxy_ = function(){
 			if(msg._code){
 				// do some caching
 				var fn = this.__proxy_cache__[msg._code] || 
-						(this.__proxy_cache__[msg._code] = Function('module', msg._code))
+						(this.__proxy_cache__[msg._code] = Function('__module__', msg._code))
 				// execute on self to populate class
 				fn.call(this, this.__proxy_module__)
 			}
@@ -608,6 +635,114 @@ ONE.browser_boot_ = function(){
 		worker:worker
 	}
 
+	window.onkeypress = function(event){
+		if(event.altKey && event.ctrlKey && event.keyCode == 18){
+			indexedDB.deleteDatabase('onejs_cache_v1')
+			location.reload()
+		}
+	}
+
+	// lamo hash. why doesnt js have a really good one built in hmm?
+	function string_hash(str){
+		var hash = 5381,
+		i = str.length
+		while(i) hash = (hash * 33) ^ str.charCodeAt(--i)
+		return hash >>> 0
+	}
+
+	// our module cache database object
+	var cache_db = {
+
+		db:undefined,
+		modules:{},
+		source:{},
+		hashes:{},
+		proxify_hash:'',
+		init:function(callback){
+			var req = window.indexedDB.open("onejs_cache_v1", 1);
+
+			req.onupgradeneeded = function(event){
+				console.log("UPGRADE")
+				this.db = event.target.result
+				this.db.createObjectStore('modules',{keyPath:'key'})
+				this.db.createObjectStore('proxify',{keyPath:'id', autoIncrement:true}).createIndex("hash", "hash", { unique: false });
+			}.bind(this)
+
+			req.onsuccess = function(event){
+				this.db = event.target.result
+				callback()
+			}.bind(this)
+
+			req.onerror = function(){
+				console.log('cache_db_error')
+				callback()
+			}.bind(this)
+		},
+
+		write_module:function(key, value){
+			var store = this.db.transaction("modules", "readwrite").objectStore("modules")
+			store.put({'key':key,'value':value})
+		},
+
+		check_module:function(module_name, source_code, callback){
+			this.source[module_name] = source_code
+			this.hashes[module_name] = string_hash(source_code) 
+			// create a unique id for this module so we can use it to uniquely identify it
+			// unique ids should depend on its dependencies otherwise shit goes fucked.
+			
+
+			if(ONE.ignore_cache){
+				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+				return callback()	
+			}
+			try{
+				var req = this.db.transaction('modules').objectStore('modules').get(source_code)
+			}
+			catch(e){
+				console.log("Error loading cachedb")
+				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+				return callback()
+			}
+			req.onerror = function(event){
+				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+				callback()
+			}.bind(this)
+
+			req.onsuccess = function(event){
+				if(!event.target.result){
+					worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+					return callback()
+				}
+				this.modules[module_name] = event.target.result.value
+
+				callback()
+			}.bind(this)
+		},
+
+		get_proxify:function(callback){
+			var cache = {}
+			var req = this.db.transaction("proxify").objectStore("proxify").index("hash").openCursor( IDBKeyRange.only(this.proxify_hash), "next")
+			req.onsuccess = function(event){
+				var cursor = event.target.result
+				if(!cursor){
+					callback(cache)
+				}
+				else{
+					cache[cursor.value.key] = cursor.value.value
+					cursor.continue()
+				}
+			}
+			req.onerror = function(event){
+				callback({})
+			}
+		},
+
+		write_proxify:function(key, value){
+			var store = this.db.transaction("proxify", "readwrite").objectStore("proxify")
+			store.add({'hash':this.proxify_hash, 'key':key, 'value':value})
+		}
+	}
+
 	worker.onmessage = function(event){
 		var data = event.data
 		// we have to create an object
@@ -643,7 +778,7 @@ ONE.browser_boot_ = function(){
 					if(!obj) throw new Error('Call on nonexistant object ' + msg._uid)
 					obj[msg.name].call(obj, msg.args)
 				}
-				if(msg._type == 'proxify'){
+				else if(msg._type == 'proxify'){
 					// lets check our 
 					var old_obj = this.proxy_obj[msg._uid]
 					var obj
@@ -671,14 +806,22 @@ ONE.browser_boot_ = function(){
 									name = old_obj[j+2]
 									tgt_obj._bindProp(obj, name)
 									j += 3
+									if(!tgt_obj.hasOwnProperty('__class__') && tgt_obj.flagDirty) tgt_obj.flagDirty()
 								}
 								else{ // its a late reference resolve
 									tgt_obj[name] = obj
 									j += 2
+									if(!tgt_obj.hasOwnProperty('__class__') && tgt_obj.flagDirty) tgt_obj.flagDirty()
 								}
 							}
 						}
 					}
+				}
+				else if(msg._type == 'module_cache'){
+					cache_db.write_module(msg.key, msg.value)
+				}
+				else if(msg._type == 'proxify_cache'){ // we have to add stuff to our proxify cache
+					cache_db.write_proxify(msg.key, msg.value)
 				}
 			}
 		}
@@ -686,13 +829,14 @@ ONE.browser_boot_ = function(){
 
 	if(!ONE.fake_worker) ONE.init()
 
-	function module_get( url, module ){
+	function module_get( url, module_name ){
 		return ONE.Base.wrapSignal(function(sig){
-			var elem = document.getElementById(module)
+			var elem = document.getElementById(module_name)
 			if(elem){
 				var value = elem.innerHTML
-				worker.sendToWorker({_type:'parse', module:module, value:value})
-				return sig.end(value)
+				cache_db.check_module(module_name, value, function(){
+					sig.end(value)
+				})
 			}
 			// do some XMLHTTP
 			var pthis = this
@@ -702,8 +846,9 @@ ONE.browser_boot_ = function(){
 				if(req.readyState == 4){
 					if(req.status != 200) return sig.throw(req.status)
 					var value = req.responseText
-					worker.sendToWorker({_type:'parse', module:module, value:value})
-					return sig.end(value)
+					cache_db.check_module(module_name, value, function(){
+						sig.end(value)
+					})
 				}
 			}
 			req.send()
@@ -724,15 +869,15 @@ ONE.browser_boot_ = function(){
 
 		var loader = {}
 		// when do we resolve a module? when all its deps have been loaded.
-		function load_dep( module ){
+		function load_dep( module_name ){
 			// lets load a module
 			return ONE.Base.wrapSignal(function(sig){
-				var url = module + '.n'
-				var data_sig = loader[module]
+				var url = module_name + '.n'
+				var data_sig = loader[module_name]
 				var first = false
 				if(!data_sig){
 					first = true
-					data_sig = loader[module] = module_get(url, module)
+					data_sig = loader[module_name] = module_get(url, module_name)
 				}
 				// otherwise we only resolve sig
 				data_sig.then(function(value){
@@ -742,7 +887,13 @@ ONE.browser_boot_ = function(){
 						all.push(load_dep(mod))
 					})
 					ONE.Base.allSignals(all).then(function(){
-						if(first) worker.sendToWorker({_type:'eval', module:module})
+						if(first){
+							var cached_module = cache_db.modules[module_name]
+							if(cached_module)
+								worker.sendToWorker({_type:'eval_cached', module_name:module_name, value:cached_module })
+							else
+								worker.sendToWorker({_type:'eval', module_name:module_name})
+						}
 						else first = false
 						sig.end()
 					}, 
@@ -755,18 +906,32 @@ ONE.browser_boot_ = function(){
 				})
 			})
 		}
-		
 		load_dep(root).then(function(){
-			worker.sendToWorker({_type:'run', module:root})	
+			// lets make the proxy_cache key 
+			var nodes = Object.keys(cache_db.source).sort()
+			// build a very crappy cache key. in the future we use module names
+			var hash = ''
+			for(var i = 0;i<nodes.length;i++){
+				var key = nodes[i]
+				//if(key !== 'root') // ignore the root in the proxy cache.. shoudlnt do this really
+				hash += key + '=' + cache_db.hashes[key]
+			}
+			cache_db.proxify_hash = hash
+			cache_db.get_proxify(function(data){
+				worker.sendToWorker({_type:'run', module_name:root, proxify_cache:data})	
+			})				
 		})
 	}
-	if(location.hostname.match(/(.*?)\.onejs\.io/)){
-		// we are packed, wait 
-		window.addEventListener("load", init)
-	}
-	else {
-		init()
-	}
+
+	cache_db.init(function(){
+		if(location.hostname.match(/(.*?)\.onejs\.io/)){
+			// we are packed, wait 
+			window.addEventListener("load", init)
+		}
+		else {
+			init()
+		}		
+	})
 
 	// initialize ONEJS also on the main thread	
 	if(!ONE.fake_worker) ONE.init_ast()

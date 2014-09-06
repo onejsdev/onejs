@@ -21,24 +21,24 @@ import math
 import gl
 import network
 
-class GlyphyAtlas extends Image{
-	lookup:(int offset, ivec2 _atlas_pos){
-		//ivec4 atlas = u_atlas_info
-		//ivec2 item_geom = atlas.zw
-		vec2 pos =(vec2(_atlas_pos.xy * u_item_geom +
-			ivec2(mod(float(offset), u_item_geom_x), offset / u_item_geom.x)) +
-			vec2(.5, .5)) / u_atlas_size
-
-		return texture2D(this, pos, {
-			MIN_FILTER:NEAREST
-			MAG_FILTER:NEAREST
-			WRAP_S:CLAMP_TO_EDGE
-			WRAP_T:CLAMP_TO_EDGE
-		})
-	}
-}
-
 class Glyphy{
+
+	class Atlas extends Texture{
+		lookup:(int offset, ivec2 _atlas_pos){
+			//ivec4 atlas = u_atlas_info
+			//ivec2 item_geom = atlas.zw
+			vec2 pos =(vec2(_atlas_pos.xy * u_item_geom +
+				ivec2(mod(float(offset), u_item_geom_x), offset / u_item_geom.x)) +
+				vec2(.5, .5)) / u_atlas_size
+
+			return texture2D(this, pos, {
+				MIN_FILTER:NEAREST
+				MAG_FILTER:NEAREST
+				WRAP_S:CLAMP_TO_EDGE
+				WRAP_T:CLAMP_TO_EDGE
+			})
+		}
+	}
 
 	// give it some default info for the compiler
 	u_item_geom_x = 0.
@@ -68,12 +68,12 @@ class Glyphy{
 	pixel: glyphy_color
 
 	// just for the compiler
-	glyphy_atlas = GlyphyAtlas
+	glyphy_atlas = Atlas
 
 	// global font cache
 	glyphy_font_cache = {}
 
-	font = 'fonts/code_font2_ascii.glf'
+	font = 'fonts/code_font1_ascii.glf'
 	font_size = 1
 	value = ''
 
@@ -127,8 +127,7 @@ class Glyphy{
 					u_item_geom = ivec2(info.item_w, info.item_h)
 					u_atlas_size = vec2(info.tex_w, info.tex_h)
 
-					info.atlas = 
-					glyphy_atlas = Image.array(value.slice(off * 4), info.tex_w, info.tex_h)
+					info.atlas = Atlas.array(value.slice(off * 4), info.tex_w, info.tex_h)
 					// lets go and generate some glyphs!
 					signal.end(info)
 					updateGeometry(info)

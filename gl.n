@@ -9,7 +9,6 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-
 import math
 import track
 import glenums
@@ -123,7 +122,7 @@ class Draw extends WorkerProxy{
 				n.infer = prop._t_ || float
 				return 'this.' + name
 			}
-		}
+		} 
 
 		// resolve a potential proxy_ref
 		Key( n ){
@@ -471,6 +470,7 @@ class Draw extends WorkerProxy{
 			// the shader compiler code body
 			ret += `
 				var gl = this.gl
+				var skip = false
 				var shader = this.${uid}_shader
 				if(!shader){
 					var pix_source = "${pix_shader}"
@@ -691,8 +691,11 @@ class Draw extends WorkerProxy{
 					gl.uniform1i(shader.ul_${sam_name}, ${tex_id})
 				} 
 				else{
+					gl.activeTexture(${glc.TEXTURE0 + tex_id})
+					gl.bindTexture(${glc.TEXTURE_2D}, null)
 					var notify = this.${sam.source}._notify || (this.${sam.source}._notify = {})
 					notify[this.__proxy__] = this
+					skip = true
 				}
 				`
 				tex_id ++ 
@@ -748,7 +751,7 @@ class Draw extends WorkerProxy{
 			// drawing function
 			ret += `
 				${uniform_parts.setters}
-				gl.drawArrays(${glc.TRIANGLES}, 0, item_count)
+				if(!skip)gl.drawArrays(${glc.TRIANGLES}, 0, item_count)
 			`
 			// correctly indent the code
 			ret = ret.replace(/\n\t\t\t\t/g, '\n' + this.indent)
@@ -774,9 +777,7 @@ class Draw extends WorkerProxy{
 
 	$redraw:(){
 		// only allow redraw flagging to happen 
-		if(device.anim_req == 0){
-
-		}
+		if(!device) return
 		var p = this
 		while(p && !p._dirty){
 			p._dirty = true
@@ -856,22 +857,21 @@ class Draw extends WorkerProxy{
 
 		if(flags.indexOf('js') != -1) out(code)
 		
-		if(dump){
+		if(dump){ 
 			// lets fancy up the shader code with linenumbers
 			console.log(code)
-		}
+		} 
 
 		return code
-	}
+	} 
 
-}
+} 
 
 // lets first load up the image somehow
-class Image extends WorkerProxy{
-	
+class Texture extends WorkerProxy{
+	  
 	_sampler2D_ =  1
-	_image_ = 1
-
+    
 	buf = 0
 
 	constructor(type, w, h){
@@ -928,7 +928,7 @@ class Image extends WorkerProxy{
 
 	function gen_call(name){
 		return function(w, h){
-			return new(name, w, h)
+			return Texture.new(name, w, h)
 		}
 	}
 
@@ -1165,7 +1165,8 @@ class Device extends Draw{
 
 	fill = #black
 
-	frame = Image.rgba_depth_stencil()
+	frame = Texture.rgba_depth_stencil()
+
 
 	// placeholder framebuffer
 	

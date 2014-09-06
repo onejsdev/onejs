@@ -4,22 +4,27 @@ import glscene
 
 // my first scenegraph!
 define circle(col, vec2 p, float pw){
-	return mix(vec4(#black,0), vec4(col,1), clamp(1.-length(p) ** pw, 0., 1.))
+	return mix(vec4(#blue,1), vec4(col,1), clamp(1.-length(p) ** pw, 0., 1.))
 }
 
 Scene{
 	debug_rate = true
 	antialias = true
 	fill: vec3(midi.cc4, midi.cc5, midi.cc6)
-	var t = Layer{
+	Layer{
+		w:device.w
+		h:device.h
+		pixel:mix(#blue,#purple,.5+.5sin(p.y*2.+time.sec))
+	}
+	Layer{
 		Text{
-			value = 'HELLO\nWORLD'
+			value = 'UPDATING'
 		}
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w
 			y: mouse.y - .5 * h
 			oldpx = pixel
-			pixel:mix(#blue, #red, p.y)
+			pixel:mix(#blue, #green, p.y)
 		}
 		mouse.leftup()=>{
 			x = mouse.x - .5 * w 
@@ -28,7 +33,7 @@ Scene{
 		}
 		w = 400, h = 400
 		rz: midi.c11*10
-		tex = Image.url('test_texture.jpg')
+		tex = Texture.url('test_texture.jpg')
 		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - midi.cc2*20.)
 		Layer{
 			rz: mouse.x * deg

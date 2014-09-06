@@ -31,7 +31,6 @@ ONE.init = function(){
 
 	// make ONE the new root scope
 	this.__Base__.__modules__ = this.__modules__ = Object.create(null)
-	this.__Base__.__module_instances__ = this.__modules_instances__ = Object.create(null)
 }
 
 ONE.base_ = function(){
@@ -135,11 +134,13 @@ ONE.base_ = function(){
 
 		if(!module) throw new Error("Cannot find module "+name)
 
-		var instance = this.__module_instances__[name]
+		var instance = module.instance
 
 		if(!instance){
-			this.__module_instances__[name] = instance = this.__Base__.new(this)
-			module.call(instance)
+			module.instance = instance = this.__Base__.new(this)
+			if(!module.compiled_function)
+				throw new Error("Module "+name+" has no compiled function")
+			module.compiled_function.call(instance)
 		}
 		return instance
 	}

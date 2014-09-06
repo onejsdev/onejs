@@ -1300,10 +1300,12 @@ ONE.parser_strict_ = function(){
 
 	this.startNode = function() {
 
-		var node = Object.create(this.Node)
-		node.type = null
-		node.start = this.tokStart
-		node.end = node.start
+		var node = {
+			_ast_:1,
+			type:null,
+			start: this.tokStart,
+			end: this.tokStart
+		}
 
 		// lets process lastNodes against lastComments
 		if(this.storeComments && this.lastComments.length){
@@ -1320,10 +1322,12 @@ ONE.parser_strict_ = function(){
 
 	this.startNodeFrom = function(other) {
 
-		var node = Object.create(this.Node)
-		node.type = null
-		node.end = null
-		node.start = other.start
+		var node = {
+			_ast_:1,
+			type:null,
+			end:null,
+			start:other.start
+		}
 
 		return node
 	}

@@ -11,21 +11,21 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 
-ONE.genjs_ = function(modules, parserCache){
+ONE.genjs_ = function(){
 
 	this.typeMap = Object.create(null)
-	this.typeMap.bool    = { size:1, slots:1, view:'Int32', name:'bool', prim:1 }
-	this.typeMap.int8    = { size:1, slots:1, view:'Int8', name:'int8', prim:1 }
-	this.typeMap.uint8   = { size:2, slots:1, view:'Uint8', name:'uint8', prim:1 }
-	this.typeMap.int16   = { size:2, slots:1, view:'Int16', name:'int16', prim:1 }
-	this.typeMap.uint16  = { size:2, slots:1, view:'Uint16', name:'uint16', prim:1 }
-	this.typeMap.int     = { size:4, slots:1, view:'Int32', name:'int', prim:1 }
-	this.typeMap.int32   = { size:4, slots:1, view:'Int32', name:'int32', prim:1 }
-	this.typeMap.uint32  = { size:4, slots:1, view:'Uint32', name:'uint32', prim:1 }
-	this.typeMap.float   = { size:4, slots:1, view:'Float32', name:'float', prim:1 }
-	this.typeMap.float32 = { size:4, slots:1, view:'Float32', name:'float32', prim:1 }
-	this.typeMap.double  = { size:8, slots:1, view:'Float64', name:'double', prim:1 }
-	this.typeMap.float64 = { size:8, slots:1, view:'Float64', name:'float64', prim:1 }
+	this.typeMap.bool    = { size:1, slots:1, view:'Int32', name:'bool', prim:1, _type_:1 }
+	this.typeMap.int8    = { size:1, slots:1, view:'Int8', name:'int8', prim:1, _type_:1 }
+	this.typeMap.uint8   = { size:2, slots:1, view:'Uint8', name:'uint8', prim:1, _type_:1 }
+	this.typeMap.int16   = { size:2, slots:1, view:'Int16', name:'int16', prim:1, _type_:1 }
+	this.typeMap.uint16  = { size:2, slots:1, view:'Uint16', name:'uint16', prim:1, _type_:1 }
+	this.typeMap.int     = { size:4, slots:1, view:'Int32', name:'int', prim:1, _type_:1 }
+	this.typeMap.int32   = { size:4, slots:1, view:'Int32', name:'int32', prim:1, _type_:1 }
+	this.typeMap.uint32  = { size:4, slots:1, view:'Uint32', name:'uint32', prim:1, _type_:1 }
+	this.typeMap.float   = { size:4, slots:1, view:'Float32', name:'float', prim:1, _type_:1 }
+	this.typeMap.float32 = { size:4, slots:1, view:'Float32', name:'float32', prim:1, _type_:1 }
+	this.typeMap.double  = { size:8, slots:1, view:'Float64', name:'double', prim:1, _type_:1 }
+	this.typeMap.float64 = { size:8, slots:1, view:'Float64', name:'float64', prim:1, _type_:1 }
 	this.viewSize = {
 		Int8:1,
 		Uint8:1,
@@ -40,6 +40,35 @@ ONE.genjs_ = function(modules, parserCache){
 	this.fieldAliases = {
 		'r':'x','g':'y','b':'z','a':'w',
 		's':'x','t':'y','p':'z','q':'w',
+	}
+
+	// copies a type structure to prepare it for caching
+	this.typeCopy = function(input, nomethods){
+		var output = {}
+		output._type_ = 1
+		if(input.base) output.base = this.typeCopy(input.base)
+		output.construct = input.construct
+		for(var field_name in input.fields){
+			if(!output.fields) output.fields = {}
+			output.fields[field_name] =  this.typeCopy(input.fields[field_name], 1)
+		}
+		if(input.name !== undefined) output.name = input.name
+		if(input.prim !== undefined) output.prim = input.prim
+		if(input.size !== undefined) output.size = input.size
+		if(input.slots !== undefined) output.slots = input.slots
+		if(input.view !== undefined) output.view = input.view
+		if(input.off !== undefined) output.off = input.off
+
+		if(!nomethods){
+			for(var method_name in input.methods){
+				if(!output.methods) output.methods = {}
+
+				var method = input.methods[method_name]
+				this.Clean.run(method)
+				output.methods[method_name] = method
+			}
+		}
+		return output
 	}
 
 	this.ToJS = this.ToCode.extend(this, function(outer){
@@ -57,19 +86,20 @@ ONE.genjs_ = function(modules, parserCache){
 		this.template_marker = '\_\u0445_'
 		this.template_regex = /\_\u0445\_/g
 
-		this.new_state = function(){
+		this.new_state = function(module){
 			this.signals = []
 			this.line = 0
 			this.scope = Object.create(null)
 			this.type_methods = Object.create(null)
 			this.macro_args = Object.create(null)
-			this.module = {
-				imports: [],
-				types: Object.create(outer.typeMap),
-				defines: Object.create(null),
-				macros: Object.create(null),
-				exports: Object.create(null)
-			}
+			this.module = module || Object.create(null)
+			this.module.imports = []
+			this.module.types = Object.create(outer.typeMap)
+			this.module.defines = Object.create(null)
+			this.module.macros = Object.create(null)
+			this.module.exports = Object.create(null)
+			this.module.parser_cache = Object.create(null)
+			this.module.local_types = Object.create(null)
 		}
 		
 		this.pull_flags = function(n){
@@ -210,7 +240,7 @@ ONE.genjs_ = function(modules, parserCache){
 		globals.setTimeout = 1
 		globals.clearTimeout = 1
 		globals.console = 1
-		globals.module = 1
+		globals.__module__ = 1
 		globals.window = 1
 		globals.document = 1
 		globals.navigator = 1
@@ -228,6 +258,7 @@ ONE.genjs_ = function(modules, parserCache){
 			}
 			type = this.module.types[name]
 			if(type) return type
+
 			var im = this.module.imports
 			for(var i = 0, l = im.length; i < l;i++){
 				var types = im[i].types
@@ -412,9 +443,10 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			var type = this.find_type(name)
 			if(type){
+
 				// lets make this type av on module
-				this.module[type.name] = type
-				return 'module.'+type.name
+				this.module.local_types[type.name] = type
+				return '__module__.local_types.'+type.name
 			}
 
 			var def = this.find_define(name)
@@ -484,8 +516,8 @@ ONE.genjs_ = function(modules, parserCache){
 						this.template_marked = true
 						return this.template_marker
 					}
-					n.infer =this.module.vec3 = this.find_type('vec3')
-					return 'ONE.color("'+n.name+'", module.vec3)'
+					n.infer =this.module.local_types.vec3 = this.find_type('vec3')
+					return 'ONE.color("'+n.name+'", __module__.local_types.vec3)'
 				}
 			}
 			if(n.typing && n.typing.type == 'Id'){
@@ -542,7 +574,9 @@ ONE.genjs_ = function(modules, parserCache){
 						if(ctx._t_) type = ctx._t_
 					}
 					var isthis
-					if(typeof type == 'object' && !type.__class__ || (isthis = type = this.type_method)){
+
+					//!TODO why was this again ->
+					if(typeof type == 'object' && type._type_ || (isthis = type = this.type_method)){
 						// alright so now we need to walk back down
 						// the parent chain and decode our offset
 						if(!isthis) node = node.parent
@@ -560,7 +594,7 @@ ONE.genjs_ = function(modules, parserCache){
 								// we can only support indexes on fields with primitive
 								// subtypes or on fields with dimensions.
 								if(!field.dim && field.prim) throw new Error('cannot index primitive field')
-								if(!field.size) throw new Error('cannot index 0 size field')
+								if(!field.size) throw new Error('cannot index 0 size field'+outer.AST.toString(n))
 								
 								// so if we have dim, we want index calcs.
 								if(idx!=='') idx += '+'
@@ -606,9 +640,9 @@ ONE.genjs_ = function(modules, parserCache){
 							this.find_function(n).call_var = 1
 							var output = this.call_tmpvar
 							
-							this.module[ret_type.name] = ret_type
+							this.module.local_types[ret_type.name] = ret_type
 							var ret = '('+output+'= new '+ret_type.view+'Array(' + swiz.length + '),' + 
-										output + '._t_=module.' + ret_type.name
+										output + '._t_=__module__.local_types.' + ret_type.name
 
 							for(var i = 0;i<swiz.length;i++){
 								ret += ','+output+'['+i+'] = ' + base + '[' + voff + '+' + swiz[i] + ']'
@@ -634,8 +668,9 @@ ONE.genjs_ = function(modules, parserCache){
 							// translate this to a new Array
 							this.find_function(n).call_var = 1
 							if(voff == '0') return base
+							this.module.local_types[type.name] = type
 							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + '),'+
-								this.call_tmpvar+'._t_=module.'+type.name+','+this.call_tmpvar+')'
+								this.call_tmpvar+'._t_=__module__.local_types.'+type.name+','+this.call_tmpvar+')'
 						}
 						return base + '[' + voff+ ']'
 					}
@@ -1077,7 +1112,7 @@ ONE.genjs_ = function(modules, parserCache){
 					ret += ' = this.import("' + name + '")'
 					this.scope[name] = 1
 					// now lets iterate all the vars
-					var module = modules[name]
+					var module = ONE.__modules__[name]
 					if(!module) throw new Error("Module " + name + " not found")
 					this.module.imports.push(module)
 					var exports = module.exports
@@ -1128,7 +1163,10 @@ ONE.genjs_ = function(modules, parserCache){
 				else{
 					name = typing.name
 					type = this.find_type(name)
-					if(!type) throw new Error('Cannot find type ' + name)
+					if(!type){
+						console.log(this.module)
+						throw new Error('Cannot find type ' + name)
+					}
 				}
 			}
 			else if(n.id.typing ){
@@ -1157,7 +1195,7 @@ ONE.genjs_ = function(modules, parserCache){
 				macros[name] = n
 			}
 			// its a macro expression
-			if(n.id.type == 'Call'){
+			else if(n.id.type == 'Call'){
 				var name = n.id.fn.name
 				var macros = this.module.macros
 				while(name in macros){
@@ -1181,7 +1219,7 @@ ONE.genjs_ = function(modules, parserCache){
 			
 			// in a baseclass we copy the fields and methods
 			var type = this.module.types[name] = {}
-			
+			type._type_ = 1
 			type.name = name
 			if(n.base){
 				var base = type.base = this.find_type(n.base.name)
@@ -1280,7 +1318,7 @@ ONE.genjs_ = function(modules, parserCache){
 			this.scope[name] = 2
 			var ret = 'var ' + name + ' = this.' + name +
 					' = ' + base + '.extend(this,'+
-					this.Function( n, null, ['outer'] ) +
+					this.Function( n, null, ['__outer__'] ) +
 					', "' + name + '")'
 			return ret
 		}
@@ -1440,7 +1478,7 @@ ONE.genjs_ = function(modules, parserCache){
 						var fn = this.find_function(n.parent)
 						if(fn && fn.root){
 							// export the method
-							this.module.exports[n.name] = n
+							this.module.exports[n.name.name] = n
 						}
 						ret += this.expand(n.name, n) + this.space + '=' + this.space
 						//console.log(ret)
@@ -1593,7 +1631,8 @@ ONE.genjs_ = function(modules, parserCache){
 			var body = esc.expand(n.right, n)
 			
 			// cache the AST for parse()
-			parserCache[body] = n.right
+			if(this.module && this.module.parser_cache)
+				this.module.parser_cache[body] = n.right
 			
 			var obj = ''
 			for( var name in tpl ){
@@ -1606,7 +1645,7 @@ ONE.genjs_ = function(modules, parserCache){
 				localstr += name+':'+name
 			}
 			
-			ret +=  'this._parse("' + body + '",module'
+			ret +=  'this._parse("' + body + '",__module__'
 			if( localstr ) ret += ',{' + localstr + '}'
 			if( obj ){
 				if(!localstr) ret += ',null'
@@ -1860,10 +1899,10 @@ ONE.genjs_ = function(modules, parserCache){
 			if(!sthis){
 				// lets allocate a tempvar
 				this.find_function(n).call_var = 1
-				this.module[type.name] = type
+				this.module.local_types[type.name] = type
 
 				var alloc = '(' + this.call_tmpvar+'= '+'new ' + type.view + 'Array(' + type.slots + ')'+',' +
-					this.call_tmpvar + '._t_=module.' + type.name + ',' + this.call_tmpvar + ')'
+					this.call_tmpvar + '._t_=__module__.local_types.' + type.name + ',' + this.call_tmpvar + ')'
 
 				if(this.store_tempid){
 
@@ -1915,7 +1954,7 @@ ONE.genjs_ = function(modules, parserCache){
 			}
 			else{
 				// store the type on our module for quick reference
-				this.module[type.name] = type
+				this.module.local_types[type.name] = type
 				ret = '('+output+'= new '+type.view+'Array('
 				
 				//ret = '('+output+'= {o:0,t:module.'+type.name+','+type.arr+':new '+type.view+'Array('
@@ -1925,12 +1964,12 @@ ONE.genjs_ = function(modules, parserCache){
 				if(dims){
 					var dim_code = this.expand(dims, n) 
 					ret += '(' + dim_code + ')*' + nslots + ')' +
-						',' + output + '._t_ = Object.create(module.' + type.name + ' || null), ' +
+						',' + output + '._t_ = Object.create(__module__.local_types.' + type.name + ' || null), ' +
 						output + '._t_.dim = ' + dim_code 
 				}
 				else{
 					ret += nslots + ')' +
-						',' + output + '._t_ = module.' + type.name
+						',' + output + '._t_ = __module__.local_types.' + type.name
 				}
 
 				if(this.store_tempid){
@@ -1987,7 +2026,7 @@ ONE.genjs_ = function(modules, parserCache){
 			for(var i = 0,l = args.length; i < l; i++ ){
 				walker.call(this, args[i], n, l == 1, type)
 			}
-			if(slot%nslots) throw new Error('Incorrect number of fields used in '+name+'() constructor, got '+slot+' expected (multiple of) '+nslots + ' ' +n.toString() )
+			if(slot%nslots) throw new Error('Incorrect number of fields used in '+name+'() constructor, got '+slot+' expected (multiple of) '+nslots + ' ' +outer.AST.toString(n) )
 			func.type_nesting--
 			
 			ret += ','+output+')'
@@ -2243,7 +2282,7 @@ ONE.genjs_ = function(modules, parserCache){
 			if(fn.type == 'Key'){
 				// check if we are a property access on a
 				// what we need to trace is the root object
-				var sthis = fn.isKeyChain()
+				var sthis = outer.AST.isKeyChain(fn)
 				if(sthis && sthis.name){
 					var isstatic
 					var type = this.scope[sthis.name] || (isstatic = this.find_type(sthis.name))
@@ -2350,7 +2389,7 @@ ONE.genjs_ = function(modules, parserCache){
 				// check if we are a property chain
 				if(fn.type == 'Key' || fn.type == 'Index'){
 					fastpath = 1
-					if(fn.isKeyChain()){
+					if(outer.AST.isKeyChain(fn)){
 						// check if we are doing some native access
 						// no tempvar
 						cthis = this.expand(fn.object, fn)
@@ -2435,8 +2474,10 @@ ONE.genjs_ = function(modules, parserCache){
 			esc.depth = this.depth
 			var body = esc.expand(from || n.quote, n)
 			// cache the AST for parse()
-			parserCache[body] = from || n.quote
 			
+			if(this.module && this.module.parser_cache)
+				this.module.parser_cache[body.replace(/\\n\\/g,'')] = from || n.quote
+
 			var obj = ''
 			for(var name in tpl){
 				if(obj) obj += ','
@@ -2448,7 +2489,7 @@ ONE.genjs_ = function(modules, parserCache){
 				sobj += name+':'+name
 			}
 
-			return 'this._parse("' + body + '",module,'+(sobj?'{'+sobj+'}':'null')+(obj?',{' + obj + '})':')')
+			return 'this._parse("' + body + '",__module__,'+(sobj?'{'+sobj+'}':'null')+(obj?',{' + obj + '})':')')
 		}
 		
 		this.Rest = function( n ){
