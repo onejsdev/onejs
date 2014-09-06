@@ -35,7 +35,7 @@ class Rect extends Draw{
 }
 
 class Blur extends Draw{
-	buf = Image.rgba_depth_flipped(.5,.5)
+	buf = Texture.rgba_depth_flipped(.5,.5)
 	mesh = vec2Rect(-1, -1, 2, 2)
 	vertex: mesh[]
 	pixel:	buf.sample(pixel mesh[]*.5+.5)
