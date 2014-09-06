@@ -660,8 +660,9 @@ ONE.browser_boot_ = function(){
 		hashes:{},
 		proxify_hash:'',
 		init:function(callback){
-			var req = window.indexedDB.open("onejs_cache_v1", 1);
+			if(!window.indexedDB) return callback()
 
+			var req = window.indexedDB.open("onejs_cache_v1", 1);
 			req.onupgradeneeded = function(event){
 				console.log("UPGRADE")
 				this.db = event.target.result
@@ -692,7 +693,7 @@ ONE.browser_boot_ = function(){
 			// unique ids should depend on its dependencies otherwise shit goes fucked.
 			
 
-			if(ONE.ignore_cache){
+			if(!this.db || ONE.ignore_cache){
 				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
 				return callback()	
 			}
@@ -721,7 +722,7 @@ ONE.browser_boot_ = function(){
 		},
 
 		get_proxify:function(callback){
-			if(ONE.ignore_cache){
+			if(!this.db || ONE.ignore_cache){
 				return callback({})
 			}
 			var cache = {}
@@ -742,6 +743,7 @@ ONE.browser_boot_ = function(){
 		},
 
 		write_proxify:function(key, value){
+			if(!this.db) return
 			var store = this.db.transaction("proxify", "readwrite").objectStore("proxify")
 			store.add({'hash':this.proxify_hash, 'key':key, 'value':value})
 		}
