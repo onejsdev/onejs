@@ -927,17 +927,15 @@ ONE.browser_boot_ = function(){
 		})
 	}
 
-	cache_db.init(function(){
-		//if(location.hostname.match(/(.*?)\.onejs\.io/)){
-			// we are packed, wait 
-		//console.log('here!')
-		//window.addEventListener("load", init)
-		//}
-		//else {
-		init()
-		//}		
-	})
-
+	if(location.hostname.match(/(.*?)\.onejs\.io/)){
+		window.addEventListener("load", function(){
+			cache_db.init(init)
+		})
+	}
+	else{
+		cache_db.init(init)
+	}
+	
 	// initialize ONEJS also on the main thread	
 	if(!ONE.fake_worker) ONE.init_ast()
 	if(location.hash) ONE.reloader()
