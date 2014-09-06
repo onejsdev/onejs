@@ -16,7 +16,7 @@ import nodejs
 import htmlscraper
 import math
 
-var live = 0
+var live = 1
 if(live == 2){
 	var addr = "0.0.0.0"
 	var port = 2000
@@ -58,7 +58,7 @@ class StaticServer extends HttpServer{
 			var code = await fs.readFile(file + '.n')
 			onejs[file] = code.toString()
 			var ast = parse('->{' + code + '\n}')
-			for(var dep from ast.getDependencies()){
+			for(var dep from AST.getDependencies(ast)){
 				await fetch(dep)
 			}
 		}
@@ -97,14 +97,22 @@ class StaticServer extends HttpServer{
 
 		if(typeof host !== 'string' || host.indexOf('localhost') == 0) root = 'index'
 		else root = host.slice(0, host.indexOf('.'))
-		if(live == 2) root = 'gltest'
+		if(live == 2) root = 'test_scene'
 		var cache_file = 'cache/cache_'+root
 		var exist = await fs.exists(cache_file)
 		var header = {
+			"Cache-control":"max-age=0"
 			"Content-Type": "text/html"
 			"Content-encoding":"deflate"
 		}
 		if(exist){
+			var stat = await fs.stat(cache_file)
+			header.ETag = stat.mtime.getTime()+'_'+stat.ctime.getTime()+'_'+stat.size
+			if( req.headers['if-none-match'] == header.ETag){
+				res.writeHead(304,header)
+				res.end()
+				return 
+			}
 			out('Loading cached ' + cache_file)
 			var stream = fs.createReadStream(cache_file)
 			res.writeHead(200, header)
@@ -113,8 +121,8 @@ class StaticServer extends HttpServer{
 		}
 
 		// lets fetch the root
-		var pkg = await package('index.html', root).catch do(){
-			out("Exception!")
+		var pkg = await package('index.html', root).catch do(e){
+			out("Exception!",e)
 			res.writeHead(501)
 			res.end()
 		}
@@ -133,7 +141,11 @@ class StaticServer extends HttpServer{
 		var fullpath = Path.join(fs_root, path)
 
 		out(`Reading ${path}`)
-		var header =  {"Content-Type": mime.fromFilename(fullpath), "Content-encoding":"deflate"}
+		var header =  {
+			"Cache-control":"max-age=0"
+			"Content-Type": mime.fromFilename(fullpath),
+			"Content-encoding":"deflate"
+		}
 
 		// read and return the file
 		var exist = await fs.exists(fullpath)
@@ -145,7 +157,14 @@ class StaticServer extends HttpServer{
 		// lets read the stat
 		var stat = await fs.stat(fullpath)
 
-		var cache_file = Path.join(fs_root, 'cache/cache_'+path.replace(/[\.\\\/]/g,'_')+'_'+stat.mtime.getTime()+stat.ctime.getTime())
+		var cache_file = Path.join(fs_root, 'cache/cache_'+path.replace(/[\.\\\/]/g,'_')+'_'+stat.mtime.getTime()+'_'+stat.ctime.getTime())
+
+		header.ETag = stat.mtime.getTime()+'_'+stat.ctime.getTime()+'_'+stat.size
+		if( req.headers['if-none-match'] == header.ETag){
+			res.writeHead(304,header)
+			res.end()
+			return 
+		}
 
 		var cache_exist = await fs.exists(cache_file)
 		if(cache_exist){

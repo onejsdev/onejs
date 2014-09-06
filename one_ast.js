@@ -515,8 +515,8 @@ ONE.ast_ = function(){
 		}
 		ToolGenerator.call(this)
 
-		this.getDependencies = function(){
-			return this.DepFinder.start( this )
+		this.getDependencies = function(node){
+			return this.DepFinder.start( node )
 		}
 
 		this.DepFinder = this.Walk.extend(this, function(outer){

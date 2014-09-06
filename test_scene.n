@@ -18,7 +18,7 @@ Scene{
 	}
 	Layer{
 		Text{
-			value = 'UPDATING'
+			value = 'now\nwith\nfile\ncaching!'
 		}
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w

@@ -14,9 +14,9 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = true
+ONE.fake_worker = false
 ONE.ignore_cache = false
-
+ONE.prototype_mode = true
 ONE.worker_boot_ = function(host){
 
 	host.onmessage = function(event){
@@ -578,6 +578,7 @@ ONE._createWorker = function(){
 	var blob = new Blob([source], { type: "text/javascript" })
 	this._worker_url = URL.createObjectURL(blob)
 	var worker = new Worker(this._worker_url)
+	worker.source = source
 	return worker
 }
 ONE.origin = window.location.origin
@@ -720,6 +721,9 @@ ONE.browser_boot_ = function(){
 		},
 
 		get_proxify:function(callback){
+			if(ONE.ignore_cache){
+				return callback({})
+			}
 			var cache = {}
 			var req = this.db.transaction("proxify").objectStore("proxify").index("hash").openCursor( IDBKeyRange.only(this.proxify_hash), "next")
 			req.onsuccess = function(event){
@@ -837,6 +841,7 @@ ONE.browser_boot_ = function(){
 				cache_db.check_module(module_name, value, function(){
 					sig.end(value)
 				})
+				return
 			}
 			// do some XMLHTTP
 			var pthis = this
@@ -866,7 +871,6 @@ ONE.browser_boot_ = function(){
 	else root = type
 	
 	function init(){
-
 		var loader = {}
 		// when do we resolve a module? when all its deps have been loaded.
 		function load_dep( module_name ){
@@ -910,11 +914,11 @@ ONE.browser_boot_ = function(){
 			// lets make the proxy_cache key 
 			var nodes = Object.keys(cache_db.source).sort()
 			// build a very crappy cache key. in the future we use module names
-			var hash = ''
+			var hash = string_hash(worker.source)
 			for(var i = 0;i<nodes.length;i++){
 				var key = nodes[i]
-				//if(key !== 'root') // ignore the root in the proxy cache.. shoudlnt do this really
-				hash += key + '=' + cache_db.hashes[key]
+				if(!ONE.prototype_mode || key !== root) // ignore the root in the proxy cache.. shoudlnt do this really
+				    hash += key + '=' + cache_db.hashes[key]
 			}
 			cache_db.proxify_hash = hash
 			cache_db.get_proxify(function(data){
@@ -924,13 +928,14 @@ ONE.browser_boot_ = function(){
 	}
 
 	cache_db.init(function(){
-		if(location.hostname.match(/(.*?)\.onejs\.io/)){
+		//if(location.hostname.match(/(.*?)\.onejs\.io/)){
 			// we are packed, wait 
-			window.addEventListener("load", init)
-		}
-		else {
-			init()
-		}		
+		//console.log('here!')
+		//window.addEventListener("load", init)
+		//}
+		//else {
+		init()
+		//}		
 	})
 
 	// initialize ONEJS also on the main thread	

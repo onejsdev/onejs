@@ -1554,7 +1554,7 @@ ONE.genjs_ = function(){
 			if(isvarbind){
 				ret += ').call(this'
 				for(var i = 0; i < plen;i ++){
-					ret += ',' + this.resolve( params[i].id )
+					ret += ',' + this.resolve( params[i].id.name )
 				}
 				ret += ')'
 			}

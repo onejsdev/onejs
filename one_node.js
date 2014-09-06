@@ -58,8 +58,8 @@ ONE.nodejs_boot_ = function(){
 		},50)
 	}
 
-	function loadFile( obj, module ){
-		var file = module +'.n'
+	function loadFile( obj, module_name ){
+		var file = module_name +'.n'
 		try{
 			var code = fs.readFileSync(file).toString()
 			if(watcher) watchFile( file )
@@ -77,12 +77,14 @@ ONE.nodejs_boot_ = function(){
 		}
 
 		var ast = obj.parse('->{'+code+'\n}', file)
-		ast.getDependencies().forEach(function(file){
+		obj.AST.getDependencies(ast).forEach(function(file){
 			loadFile( obj, file )
 		})
 	//try{
-		obj.__modules__[module] = obj.eval(ast, module)
-
+		ONE.__modules__[module_name] = {}
+		var fn = obj.eval(ast, module_name)
+		ONE.__modules__[module_name].compiled_function = fn
+		//obj.__modules__[module] = 
 		//}catch(e){
 			//console.log(e)
 		//}
@@ -90,8 +92,8 @@ ONE.nodejs_boot_ = function(){
 	function reload(){
 		var obj = ONE.Base.new()
 		loadFile( obj, root )
-		var call = obj.__modules__[root]
-		if(call)call.call(obj)
+		var module = obj.__modules__[root]
+		if(module)module.compiled_function.call(obj)
 	}
 
 	reload()
