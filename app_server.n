@@ -16,7 +16,7 @@ import nodejs
 import htmlscraper
 import math
 
-var live = 1
+var live = 0
 if(live == 2){
 	var addr = "0.0.0.0"
 	var port = 2000
@@ -160,6 +160,7 @@ class StaticServer extends HttpServer{
 		var cache_file = Path.join(fs_root, 'cache/cache_'+path.replace(/[\.\\\/]/g,'_')+'_'+stat.mtime.getTime()+'_'+stat.ctime.getTime())
 
 		header.ETag = stat.mtime.getTime()+'_'+stat.ctime.getTime()+'_'+stat.size
+
 		if( req.headers['if-none-match'] == header.ETag){
 			res.writeHead(304,header)
 			res.end()

@@ -4,16 +4,6 @@ import input
 
 var midi = Midi.new()
 
-define myColor(vec2 p, float anim){
-	return (
-	(mix(#orange, #black) do 
-		abs(sin(param1 * 1. * atan(p.x, p.y))))
-	+
-	mix(#green, #purple) do
-		sin(sin(param1 + anim) * param1 * p.x * p.y)
-	)
-}
-
 define spiral(vec2 p, float r, float t){
 	float len = length(p) * r
 	float cl = cos(len+t)
@@ -62,6 +52,16 @@ class Test extends Draw{
 	mesh = vec2Rect(-2, -2, 4, 4)
 	vertex: mesh[] * (objmtx * viewmtx)
 	p:pixel mesh[]
+	
+	myColor:(vec2 p, float anim){
+		return (
+		(mix(#orange, #black) do 
+			abs(sin(param1 * 1. * atan(p.x, p.y))))
+		+
+		mix(#white, #green) do
+			sin(sin(param1 + anim) * param1 * p.x * p.y)
+		)
+	}
 
 	param1 = 1
 	bg = Texture.url('test_texture.jpg')

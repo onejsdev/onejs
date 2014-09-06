@@ -17,6 +17,7 @@
 ONE.fake_worker = false
 ONE.ignore_cache = false
 ONE.prototype_mode = true
+
 ONE.worker_boot_ = function(host){
 
 	host.onmessage = function(event){
@@ -645,6 +646,7 @@ ONE.browser_boot_ = function(){
 
 	// lamo hash. why doesnt js have a really good one built in hmm?
 	function string_hash(str){
+		if(typeof str !== 'string') return 0
 		var hash = 5381,
 		i = str.length
 		while(i) hash = (hash * 33) ^ str.charCodeAt(--i)
@@ -660,11 +662,10 @@ ONE.browser_boot_ = function(){
 		hashes:{},
 		proxify_hash:'',
 		init:function(callback){
-			if(!window.indexedDB) return callback()
+			if(!window.indexedDB) return callback() // boo no caching
 
 			var req = window.indexedDB.open("onejs_cache_v1", 1);
 			req.onupgradeneeded = function(event){
-				console.log("UPGRADE")
 				this.db = event.target.result
 				this.db.createObjectStore('modules',{keyPath:'key'})
 				this.db.createObjectStore('proxify',{keyPath:'id', autoIncrement:true}).createIndex("hash", "hash", { unique: false });
@@ -682,6 +683,15 @@ ONE.browser_boot_ = function(){
 		},
 
 		write_module:function(key, value){
+			if(!this.db){
+				try{
+					localStorage.setItem(key, value)
+				}
+				catch(e){
+					localStorage.clear()
+				}
+				return
+			}
 			var store = this.db.transaction("modules", "readwrite").objectStore("modules")
 			store.put({'key':key,'value':value})
 		},
@@ -693,11 +703,20 @@ ONE.browser_boot_ = function(){
 			// unique ids should depend on its dependencies otherwise shit goes fucked.
 			
 
-			if(!this.db || ONE.ignore_cache){
+			if(ONE.ignore_cache){
 				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
 				return callback()	
 			}
 			try{
+				if(!this.db){ // fall back to localStorage
+					var data = localStorage.getItem(source_code)
+					if(!data){
+						worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+						return callback()	
+					}
+					this.modules[module_name] = data
+					return callback()
+				}
 				var req = this.db.transaction('modules').objectStore('modules').get(source_code)
 			}
 			catch(e){
@@ -722,8 +741,21 @@ ONE.browser_boot_ = function(){
 		},
 
 		get_proxify:function(callback){
-			if(!this.db || ONE.ignore_cache){
+			if(ONE.ignore_cache){
 				return callback({})
+			}
+			if(!this.db){
+				var num = 0
+				var key
+				var cache = {}
+				while(key = localStorage.getItem(this.proxify_hash+'K'+num)){
+					var value = localStorage.getItem(this.proxify_hash+'V'+num)
+					if(value !== undefined){
+						cache[key] = value
+					}
+					num++
+				}
+				return callback(cache)
 			}
 			var cache = {}
 			var req = this.db.transaction("proxify").objectStore("proxify").index("hash").openCursor( IDBKeyRange.only(this.proxify_hash), "next")
@@ -741,9 +773,23 @@ ONE.browser_boot_ = function(){
 				callback({})
 			}
 		},
-
+		proxify_local_storage:0,
 		write_proxify:function(key, value){
-			if(!this.db) return
+			if(!this.db){
+				// lets get the right number
+				while(localStorage.getItem(this.proxify_hash+'K'+this.proxify_local_storage)){
+					this.proxify_local_storage++
+				}
+				try{
+					localStorage.setItem(this.proxify_hash+'K'+this.proxify_local_storage, key)
+					localStorage.setItem(this.proxify_hash+'V'+this.proxify_local_storage, value)
+				}
+				catch(e){
+					localStorage.clear()
+				}
+				this.proxify_local_storage++
+				return
+			}
 			var store = this.db.transaction("proxify", "readwrite").objectStore("proxify")
 			store.add({'hash':this.proxify_hash, 'key':key, 'value':value})
 		}

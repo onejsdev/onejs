@@ -88,8 +88,8 @@ ONE.ast_ = function(){
 		return node
 	}
 
-	this.eval = function( ast, filename ){
-		if(!ast) throw new Error('no ast', filename)
+	this.eval = function( ast, module_name ){
+		if(!ast) throw new Error('no ast', module_name)
 		if( typeof ast == 'string' ){ 
 			// lets first do a local storage scan.
 			
@@ -97,13 +97,13 @@ ONE.ast_ = function(){
 				var fn = Function.call(null, code)()
 				return fn
 			}
-			ast = this.parse(ast, filename)// undefined, undefined, undefined, filename, true )
+			ast = this.parse(ast, module_name)// undefined, undefined, undefined, module_name, true )
 		}
 		// alright we have to compile us some code!
 		var js = this.AST.ToJS
         
 		// set up new compile state
-		js.new_state(ONE.__modules__[filename])
+		js.new_state(ONE.__modules__[module_name])
         
 		// if passing a function we return that
 		if(ast.type == 'Function'){
@@ -117,9 +117,9 @@ ONE.ast_ = function(){
 					ONE.log( code.Function(ast) )
 				}
 			}
-			// name anonmous function with a filename if possible
+			// name anonmous function with a module_name if possible
 			var nametag
-			if(filename) nametag = 'file__'+filename.replace(/[\.\/]/g,'_')
+			if(module_name) nametag = 'module__'+module_name.replace(/[\.\/]/g,'_')
 			var code = 'return ' + js.Function( ast, nametag )
             
 			// prepend type methods
@@ -137,7 +137,7 @@ ONE.ast_ = function(){
                     
                     var fn = Function.call(null, '__module__', code)(js.module)
                     
-					if(prof) console.log('Profile ' +filename + ' '+ (Date.now()-prof)+'ms')
+					if(prof) console.log('Profile ' +module_name + ' '+ (Date.now()-prof)+'ms')
 				}
             
 			} 

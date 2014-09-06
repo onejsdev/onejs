@@ -14,11 +14,11 @@ Scene{
 	Layer{
 		w:device.w
 		h:device.h
-		pixel:mix(#blue,#purple,.5+.5sin(p.y*2.+time.sec))
+		pixel:mix(#blue,#black,.5+.5sin(p.y*2.+time.sec))
 	}
 	Layer{
 		Text{
-			value = 'now\nwith\nfile\ncaching!'
+			value = 'FONT'
 		}
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w
