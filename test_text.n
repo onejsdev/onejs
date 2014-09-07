@@ -18,8 +18,8 @@ Scene{
 		y:10
 		ax:0
 		ay:0
-		sx:5
-		sy:5
+		sx:35
+		sy:35
 		//pixel: glyphy_pixel
 		sdf_cache = true
 		value = "Fonts in SDF\n"
@@ -29,11 +29,11 @@ Scene{
 	}
 	Text{
 		x:10
-		y:150
+		y:350
 		ax:0
 		ay:0
-		sx:5
-		sy:5
+		sx:35
+		sy:35
 		//pixel: glyphy_pixel
 		sdf_cache = false
 		value = "Fonts in Glyphy\n"
