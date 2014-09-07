@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = false
+ONE.fake_worker = true
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 
@@ -59,13 +59,12 @@ ONE.worker_boot_ = function(host){
 				ONE.total_parse += ms
 			}
 			else if(msg._type == 'run'){
-				var dt = Date.now()
-				if(typeof msg.proxify_cache == 'object') ONE.proxify_cache = msg.proxify_cache
-				ONE.__modules__[msg.module_name].compiled_function.call(ONE.root)
-				ONE.total_run = Date.now() -dt
 
-				// flush our cache queue
-				setTimeout(host.writeModuleCache, 10)
+				if(ONE.import_queue) ONE.import_complete = ONE.run_message(msg)
+				else ONE.run_message(msg)()
+			}
+			else if(msg._type == 'import'){
+				ONE.import_fetch(msg.url, msg.responseType)
 			}
 			else if(msg._type == 'eval_cached'){
 				var module = ONE.root.deserializeModule(msg.module_name, msg.value)
@@ -127,6 +126,42 @@ ONE.worker_boot_ = function(host){
 		}
 		ONE.total_proxify += Date.now() - dt
 	}
+
+	ONE.run_message = function(msg){
+		return function(){
+			var dt = Date.now()
+			if(typeof msg.proxify_cache == 'object') ONE.proxify_cache = msg.proxify_cache
+			ONE.__modules__[msg.module_name].compiled_function.call(ONE.root)
+			ONE.total_run = Date.now() -dt
+			setTimeout(host.writeModuleCache, 10)
+		}
+	}
+	ONE.import_queue = 0
+	ONE.import_complete
+
+	ONE.import_fetch = function(url, responseType){
+		ONE.import_queue++
+		var req = new XMLHttpRequest()
+		var full_url = ONE.origin + '/' + url
+		req.open("GET", full_url, true)
+		req.responseType = responseType 
+		req.onreadystatechange = function(){
+			if(req.readyState == 4){
+				if(req.status != 200){
+				}
+				else{
+					var mod = ONE.__modules__[url] = {
+						name:url,
+						instance:req.response || req.responseText
+					}
+					mod.instance.name = url
+				}
+				if(!--ONE.import_queue && ONE.import_complete) ONE.import_complete()
+			}
+		}
+		req.send()
+	}
+
 	ONE.compile_cache_queue = []
 	ONE.proxify_list = []
 	ONE.proxify_cache = {}
@@ -639,7 +674,7 @@ ONE.browser_boot_ = function(){
 
 	window.onkeypress = function(event){
 		if(event.altKey && event.ctrlKey && event.keyCode == 18){
-			indexedDB.deleteDatabase('onejs_cache_v1')
+			cache_db.reset()
 			location.reload()
 		}
 	}
@@ -655,18 +690,118 @@ ONE.browser_boot_ = function(){
 
 	// our module cache database object
 	var cache_db = {
+		storage: localStorage,
+		total_storage: 0,
+		modules:{},
+		source:{},
+		hashes:{},
+		proxify_hash:'',
+		reset:function(){
+			this.storage.clear()
+		},
+		init:function(callback){
+			callback()
+		},
+
+		write_module:function(key, value){
+			try{
+				this.storage.setItem(key, value)
+				this.total_storage += key.length + value.length
+			}
+			catch(e){
+				this.storage.clear()
+			}
+		},
+
+		check_module:function(module_name, source_code, callback){
+			this.source[module_name] = source_code
+			this.hashes[module_name] = string_hash(source_code) 
+			if(ONE.ignore_cache){
+				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+				return callback()	
+			}
+			try{
+				var data = this.storage.getItem(source_code)
+			}
+			catch(e){}
+			if(!data){
+				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+				return callback()	
+			}
+			this.modules[module_name] = data
+			return callback()
+		},
+
+		get_proxify:function(callback){
+			if(ONE.ignore_cache){
+				return callback({})
+			}
+			if(!this.db){
+				var num = 0
+				var key
+				var cache = {}
+				while(key = this.storage.getItem(this.proxify_hash + 'K' + num)){
+					var value = this.storage.getItem(this.proxify_hash + 'V' + num)
+					if(value !== undefined){
+						cache[key] = value
+					}
+					num++
+				}
+				return callback(cache)
+			}
+		},
+		proxify_local_storage:0,
+		write_proxify:function(key, value){
+			// lets get the right number
+			while(this.storage.getItem(this.proxify_hash+'K'+this.proxify_local_storage)){
+				this.proxify_local_storage++
+			}
+			try{
+				var key1 = this.proxify_hash+'K'+this.proxify_local_storage
+				this.storage.setItem(key1, key)
+				var value1 = this.proxify_hash+'V'+this.proxify_local_storage
+				this.storage.setItem(value1, value)
+				this.total_storage += key1.length + key.length + value1.length + value.length
+				this.proxify_local_storage++
+			}
+			catch(e){
+				this.storage.clear()
+			}
+			return
+		}
+	}
+	
+	/*
+	IndexedDB is nearly useless. THE WEB IS A PLATFORM. riiiiight. ffs. goddamn incompetent idiots.
+	var cache_db = {
 
 		db:undefined,
 		modules:{},
 		source:{},
 		hashes:{},
 		proxify_hash:'',
+		reset:function(){
+			try{
+				window.indexedDB.deleteDatabase('onejs_cache_v1', 1)
+			}
+			catch(e){}
+			try{
+				localStorage.clear()
+			}
+			catch(e){}
+		},
 		init:function(callback){
 			if(!window.indexedDB) return callback() // boo no caching
 
 			var req = window.indexedDB.open("onejs_cache_v1", 1);
 			req.onupgradeneeded = function(event){
+				console.log('UPGRADING')
 				this.db = event.target.result
+				try{
+					this.db.deleteObjectStore('modules')
+					this.db.deleteObjectStore('proxify')
+				}
+				catch(e){}
 				this.db.createObjectStore('modules',{keyPath:'key'})
 				this.db.createObjectStore('proxify',{keyPath:'id', autoIncrement:true}).createIndex("hash", "hash", { unique: false });
 			}.bind(this)
@@ -676,8 +811,8 @@ ONE.browser_boot_ = function(){
 				callback()
 			}.bind(this)
 
-			req.onerror = function(){
-				console.log('cache_db_error')
+			req.onerror = function(e){
+				this.reset()
 				callback()
 			}.bind(this)
 		},
@@ -692,8 +827,14 @@ ONE.browser_boot_ = function(){
 				}
 				return
 			}
-			var store = this.db.transaction("modules", "readwrite").objectStore("modules")
-			store.put({'key':key,'value':value})
+			try{
+				var store = this.db.transaction("modules", "readwrite").objectStore("modules")
+				store.put({'key':key,'value':value})
+			}
+			catch(e){
+				cache_db.reset()
+				console.log(e)
+			}
 		},
 
 		check_module:function(module_name, source_code, callback){
@@ -717,10 +858,12 @@ ONE.browser_boot_ = function(){
 					this.modules[module_name] = data
 					return callback()
 				}
+				console.log(module_name, string_hash(source_code))
 				var req = this.db.transaction('modules').objectStore('modules').get(source_code)
 			}
 			catch(e){
-				console.log("Error loading cachedb")
+				cache_db.reset()
+				console.log("Error loading cachedb", e)
 				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
 				return callback()
 			}
@@ -758,18 +901,25 @@ ONE.browser_boot_ = function(){
 				return callback(cache)
 			}
 			var cache = {}
-			var req = this.db.transaction("proxify").objectStore("proxify").index("hash").openCursor( IDBKeyRange.only(this.proxify_hash), "next")
-			req.onsuccess = function(event){
-				var cursor = event.target.result
-				if(!cursor){
-					callback(cache)
+			try{
+				var req = this.db.transaction("proxify").objectStore("proxify").index("hash").openCursor( IDBKeyRange.only(this.proxify_hash), "next")
+				req.onsuccess = function(event){
+					var cursor = event.target.result
+					if(!cursor){
+						callback(cache)
+					}
+					else{
+						cache[cursor.value.key] = cursor.value.value
+						cursor.continue()
+					}
 				}
-				else{
-					cache[cursor.value.key] = cursor.value.value
-					cursor.continue()
+				req.onerror = function(event){
+					callback({})
 				}
 			}
-			req.onerror = function(event){
+			catch(e){
+				cache_db.reset()
+				console.log(e)
 				callback({})
 			}
 		},
@@ -790,10 +940,16 @@ ONE.browser_boot_ = function(){
 				this.proxify_local_storage++
 				return
 			}
-			var store = this.db.transaction("proxify", "readwrite").objectStore("proxify")
-			store.add({'hash':this.proxify_hash, 'key':key, 'value':value})
+			try{
+				var store = this.db.transaction("proxify", "readwrite").objectStore("proxify")
+				store.add({'hash':this.proxify_hash, 'key':key, 'value':value})
+			}
+			catch(e){
+				console.log(e)
+			}
 		}
 	}
+	*/
 
 	worker.onmessage = function(event){
 		var data = event.data
@@ -935,9 +1091,15 @@ ONE.browser_boot_ = function(){
 				data_sig.then(function(value){
 					// okay lets scan for our dependencies
 					var all = []
+					value = value.replace(/import\s*\(\s*[\'\"]([^\'\"]*?)[\'\"](?:\s*,\s*[\'\"]([^\'\"]*?)[\'\"])?\s*\)/g, function(m, url, responseType){
+						worker.sendToWorker({_type:'import', url:url, responseType:responseType})
+						return ''
+					})
 					value.replace(/import\s+(\w+)/g, function(m, mod){
 						all.push(load_dep(mod))
 					})
+
+
 					ONE.Base.allSignals(all).then(function(){
 						if(first){
 							var cached_module = cache_db.modules[module_name]

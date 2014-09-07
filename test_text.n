@@ -1,0 +1,42 @@
+import math
+import gl
+import glscene
+
+Scene{
+	debug_rate = true
+	antialias = false
+	Layer{
+		w: device.w
+		h: device.h
+		var  i = 1.
+		pixel: mix(#orange, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
+		//pixel:#444
+	}
+	Text{
+		ax:0
+		ay:0
+		sy:3
+		sx:3
+		x:10
+		y:10
+		font_size = 0.1
+
+		sdf_dump = true
+		//pixel: glyphy_pixel
+		sdf_cache = true
+		value = "FUCKYEAHFASTFONTS"
+		font_size = .2
+	//	u_outline = true
+	//	u_outline_thickness = 10
+		u_outline = false
+	//	u_debug = false
+		u_outline_thickness = 1
+	//	u_gamma_adjust = 1.
+	//	u_boldness = -1.2
+	}
+}
+
+a = .75-value*.25
+
+a-.75 = -value*.25
+(a-.74)*-4.

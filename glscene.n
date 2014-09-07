@@ -129,6 +129,5 @@ class Layer extends Draw{
 class Text extends Layer{
 	load(Glyphy)
 	color: #white
-	vertex: glyphy_pos * (m_mesh * m_world * device.m_camera)
-	pixel: glyphy_color
+	vertex: mesh[].xy * (m_mesh * m_world * device.m_camera)
 }

@@ -769,6 +769,7 @@ class Draw extends WorkerProxy{
 		gl = parent.gl
 		device = parent.device
 		if(pass) device.passes.push(this)
+		if(once) device.once_list.push(this)
 	}
 
 	$flagDirty:(){
@@ -809,6 +810,8 @@ class Draw extends WorkerProxy{
 		js.store_pretemp = 'this._store1._'
 		code += 'this._store1 = {}, this._store2 = {}\n'
 		
+		if(debug_draw) debug_draw(js)
+
 		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store;this._dirty = false;'
 		if(draw){
 			var flags = js.pull_flags(draw)
@@ -821,10 +824,18 @@ class Draw extends WorkerProxy{
 		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store'
 		if(pass){
 			var flags = js.pull_flags(pass)
-			if(pass.type != 'Function') throw new Error('GL Draw not a function')
+			if(pass.type != 'Function') throw new Error('GL Pass not a function')
 			js.module = pass.module
 			js.locals = pass.locals
 			code += 'this.pass = ' + js.Function(pass, undefined, [], undefined, [], swap) + '\n'
+		}
+
+		if(once){
+			var flags = js.pull_flags(once)
+			if(once.type != 'Function') throw new Error('GL Once not a function')
+			js.module = once.module
+			js.locals = once.locals
+			code += 'this.once = ' + js.Function(once, undefined, [], undefined, [], '') + '\n'
 		}
 
 		var rem = 'this._cleanup = function(){\n'
@@ -834,6 +845,8 @@ class Draw extends WorkerProxy{
 		rem += '}\n'
 
 		code += rem
+
+
 
 		/*
 		// we have to generate redraw binding code for proxy_bind
@@ -1126,9 +1139,11 @@ class Texture extends WorkerProxy{
 		}
 
 		gl._curFrame = old_frame
-		gl.viewport(0, 0, old_frame.w, old_frame.h)//img.w / gl.ratio, img.h / gl.ratio)
+		console.log(old_frame.w, old_frame.h)
 		if(!old_frame.buf) gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 		else gl.bindFramebuffer(gl.FRAMEBUFFER, old_frame.buf)
+		gl.viewport(0, 0, old_frame.w, old_frame.h)//img.w / gl.ratio, img.h / gl.ratio)
+		device.w = old_frame.w, device.h = old_frame.h
 	}
 
 	// remote initializer
@@ -1213,6 +1228,14 @@ class Device extends Draw{
 
 		time.sec = sec
 
+		if(once_list.length){
+			var once = once_list
+			once_list = []
+			for(var o from once){
+				o.once(sec)
+			}
+		}
+
 		for(var p from passes){
 			p.pass(sec)
 		}
@@ -1290,6 +1313,7 @@ class Device extends Draw{
 		gl._shadercache = {}
 
 		passes = []
+		once_list = []
 		
 		//canvas.webkitRequestFullscreen()
 		window.onresize = =>{

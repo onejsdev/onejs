@@ -605,6 +605,7 @@ class DepTraceGLSL extends AST.Walk{
 				this[arg.type](arg, n)
 				if(arg.mark > new_highmark) new_highmark = arg.mark
 			}
+			if(n.mark > new_highmark) new_highmark = n.mark
 
 			// lets check if we are calling a macro
 			// calls on other objects provide a new context
@@ -1076,6 +1077,10 @@ class GenGLSL extends AST.ToCode{
 
 	Def( n ){
 		var name = n.id.name
+		if(!scope) {
+			console.log(n)
+			debugger
+		}
 		scope[name] = n.infer
 
 		var dim = ''

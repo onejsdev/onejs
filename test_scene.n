@@ -9,16 +9,21 @@ define circle(col, vec2 p, float pw){
 
 Scene{
 	debug_rate = true
-	antialias = true
+	antialias = false
 	fill: vec3(midi.cc4, midi.cc5, midi.cc6)
 	Layer{
-		w:device.w
-		h:device.h
-		pixel:mix(#blue,#black,.5+.5sin(p.y*2.+time.sec))
-	}
-	Layer{
 		Text{
-			value = 'FONT'
+			sy:.1+1.abs on pow(sin(0.5*time.sec),8.)
+			sx:.1+1.abs on pow(sin(0.5*time.sec),8.)
+			sx:2.
+			sy:2.
+			value = "BIG"
+			font_size = 1.
+			u_outline = false
+			u_boldness:0.05
+			displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
+			//u_outline_thickness: 2.+2.*(sin(4time.sec+sin(8.mesh[].x)+sin(4.mesh[].y)))
+			//u_outline_thickness:1.5
 		}
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w
