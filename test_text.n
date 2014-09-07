@@ -18,11 +18,11 @@ Scene{
 		y:10
 		ax:0
 		ay:0
-		sx:10
-		sy:10
+		sx:5
+		sy:5
 		//pixel: glyphy_pixel
 		sdf_cache = true
-		value = "Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"
+		value = "Fonts in SDF\n"
 		font_size = 0.12
 		u_outline = false
 		u_boldness = boldness
@@ -32,11 +32,11 @@ Scene{
 		y:150
 		ax:0
 		ay:0
-		sx:10
-		sy:10
+		sx:5
+		sy:5
 		//pixel: glyphy_pixel
 		sdf_cache = false
-		value = "Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"
+		value = "Fonts in Glyphy\n"
 		font_size = 0.12
 		u_outline = false
 		u_boldness = boldness

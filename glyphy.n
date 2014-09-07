@@ -165,7 +165,7 @@ class Glyphy{
 				}
 				var glyph = glyphy_info.glyphs[unicode]
 				if(!glyph){
-					px += glyphy_info.glyphs[34].max_x
+					px += glyphy_info.glyphs[39].width * font_size
 					continue
 				}
 
@@ -220,7 +220,7 @@ class Glyphy{
 				}
 				var glyph = glyphy_info.glyphs[unicode]
 				if(!glyph){
-					px += glyphy_info.glyphs[34].max_x
+					px += glyphy_info.glyphs[39].width * font_size
 					continue
 				}
 
