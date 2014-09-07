@@ -50,7 +50,7 @@ class Glyphy{
 
 	sdf_cache = true
 
-	font = import('fonts/code_font2_ascii.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
 	font_size = 1
 
 	value = ''
@@ -263,8 +263,8 @@ class Glyphy{
 		vec4[] buf = vec4[info.count * 6]()
 
 		// we have to allocate actual texture positions
-		var width = 2048
-		var height = 2048
+		var width = 512
+		var height = 512
 		var font_size = .2
 		// if we render to a font we go -1,-1 bottom left to 1,1 top right
 		// 
@@ -623,7 +623,7 @@ class Glyphy{
 	}
 
 	glyphy_sdf_decode:(vec4 value){
-		return (.75-value.r)*4.
+		return ((.75-value.r)*4.) 
 	}
 
 	glyphy_sdf_cache:(vec4 force){
@@ -638,21 +638,22 @@ class Glyphy{
 	glyphy_sdf_draw:(vec4 pos){
 		vec4 dist_sample = sdf_texture.sample(pos.zw)
 		float gsdist = glyphy_sdf_decode(dist_sample)
-		
+
 		vec2 p = pos.xy
 		/* isotropic antialiasing */
 		vec2 dpdx = dFdx(p) // this should mark it pixel and redo the function with a new highmark
 		vec2 dpdy = dFdy(p)
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+		// screenspace length
+
+		gsdist = gsdist * 0.005
+		gsdist -= u_boldness / 400.
 
 		float sdist = gsdist / m * u_contrast
-
 		vec4 out_color = vec4(color,1)
-
-		sdist -= u_boldness * 10.
 		
 		if(u_outline)
-			sdist = abs(sdist) - u_outline_thickness * .5
+			sdist = abs(sdist) - u_outline_thickness
 
 		if(sdist > 1.)
 			discard
@@ -680,14 +681,17 @@ class Glyphy{
 
 		vec4 out_color = vec4(color,1)//vec4(1,1,1,1)
 
-		float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) + displace
+		float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) + .5
+
+		gsdist -= u_boldness / 1.
+
 		float sdist = gsdist / m * u_contrast
 
 		if(!u_debug) {
-			sdist -= u_boldness * 10.
+			//sdist -= u_boldness * 10.
 			
 			if(u_outline)
-				sdist = abs(sdist) - u_outline_thickness * .5
+				sdist = abs(sdist) - (u_outline_thickness )
 
 			if(sdist > 1.)
 				discard

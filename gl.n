@@ -1144,6 +1144,7 @@ class Texture extends WorkerProxy{
 		else gl.bindFramebuffer(gl.FRAMEBUFFER, old_frame.buf)
 		gl.viewport(0, 0, old_frame.w, old_frame.h)//img.w / gl.ratio, img.h / gl.ratio)
 		device.w = old_frame.w, device.h = old_frame.h
+		device.ratio = old_frame.ratio
 	}
 
 	// remote initializer
@@ -1332,6 +1333,7 @@ class Device extends Draw{
 			frame.ratio = pixelRatio
 			this.w = frame.w = sw
 			this.h = frame.h = sh
+			this.ratio = frame.ratio
 			redraw()
 			// todo, fire event?
 		}
