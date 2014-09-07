@@ -46,7 +46,7 @@ class Glyphy{
 	u_outline = false
 	u_debug = false
 	u_contrast = 1.
-	u_outline_thickness = 2
+	u_outline_thickness:device.ratio
 
 	sdf_cache = true
 
@@ -58,7 +58,7 @@ class Glyphy{
 	// type mark it
 	mesh = vec4[]()
 
-	fgcolor: #white//img.sample(mod(pixel mesh[].xy,vec2(1.,1.))).rgb
+	color: #white//img.sample(mod(pixel mesh[].xy,vec2(1.,1.))).rgb
 
 	displace: 0.
 
@@ -72,7 +72,10 @@ class Glyphy{
 	constructor(){
 		var info = glyphy_font_cache[font && font.name] || parseBlob(font, font.name)
 
-		if(sdf_cache) createSDFCache(info)
+		if(sdf_cache){
+			if(!info.sdf_texture) createSDFCache(info)
+			else sdf_texture = info.sdf_texture
+		}
 
 		updateGeometry(info)
 	}
@@ -322,7 +325,9 @@ class Glyphy{
 		// lets do a font scaling, and then just stack em horizontally
 		sdf_texture = Texture.rgba(width, height)
 		sdf_mesh = buf
-
+		
+		info.sdf_texture = sdf_texture
+		
 		if(sdf_dump){
 			mymesh = vec2Rect(0,0,1,1)
 			vertex: mymesh[]*vec2(2.,2.) * (m_mesh * m_world * device.m_camera)
@@ -338,7 +343,6 @@ class Glyphy{
 				this{
 					vertex:sdf_mesh[].xy
 					pixel: glyphy_sdf_cache(pixel sdf_mesh[])
-					//pixel:#red
 				}
 			}
 		}
@@ -639,15 +643,15 @@ class Glyphy{
 		vec4 dist_sample = sdf_texture.sample(pos.zw)
 		float gsdist = glyphy_sdf_decode(dist_sample)
 
-		vec2 p = pos.xy
+		vec2 p = pos.zw
 		/* isotropic antialiasing */
 		vec2 dpdx = dFdx(p) // this should mark it pixel and redo the function with a new highmark
 		vec2 dpdy = dFdy(p)
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 		// screenspace length
 
-		gsdist = gsdist * 0.005
-		gsdist -= u_boldness / 400.
+		gsdist = gsdist * 0.003
+		gsdist -= u_boldness / 300.
 
 		float sdist = gsdist / m * u_contrast
 		vec4 out_color = vec4(color,1)
@@ -681,9 +685,9 @@ class Glyphy{
 
 		vec4 out_color = vec4(color,1)//vec4(1,1,1,1)
 
-		float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) + .5
+		float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) 
 
-		gsdist -= u_boldness / 1.
+		gsdist -= u_boldness 
 
 		float sdist = gsdist / m * u_contrast
 

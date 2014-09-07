@@ -9,45 +9,36 @@ Scene{
 		w: device.w
 		h: device.h
 		var  i = 1.
-		pixel: mix(#orange, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
+		pixel: mix(#yellow, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
 		//pixel:#444
 	}
+	var boldness = 0.1
 	Text{
-		ax:0
-		ay:0
-		sy:10
-		sx:10
 		x:10
 		y:10
-		sdf_dump = false
+		ax:0
+		ay:0
+		sx:10
+		sy:10
 		//pixel: glyphy_pixel
 		sdf_cache = true
-		value = 
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"+
-		"Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"
-
+		value = "Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"
 		font_size = 0.12
 		u_outline = false
-	//	u_debug = false
-		u_outline_thickness:device.ratio
-	//	u_gamma_adjust = 1.
-		u_boldness = 1.5
+		u_boldness = boldness
+	}
+	Text{
+		x:10
+		y:150
+		ax:0
+		ay:0
+		sx:10
+		sy:10
+		//pixel: glyphy_pixel
+		sdf_cache = false
+		value = "Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!Codeviewer!\n"
+		font_size = 0.12
+		u_outline = false
+		u_boldness = boldness
 	}
 }
