@@ -9,34 +9,24 @@ Scene{
 		w: device.w
 		h: device.h
 		var  i = 1.
-		pixel: mix(#yellow, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
+		pixel: mix(#orange, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
 		//pixel:#444
 	}
-	var boldness = 0.1
+	var boldness = 1.0
 	Text{
 		x:10
 		y:10
 		ax:0
 		ay:0
-		sx:35
-		sy:35
+		sx:1+pow(sin(time.sec),2)*58
+		sy:1+pow(sin(time.sec),2)*58
 		//pixel: glyphy_pixel
 		sdf_cache = true
-		value = "Fonts in SDF\n"
-		font_size = 0.12
-		u_outline = false
-		u_boldness = boldness
-	}
-	Text{
-		x:10
-		y:350
-		ax:0
-		ay:0
-		sx:35
-		sy:35
-		//pixel: glyphy_pixel
-		sdf_cache = false
-		value = "Fonts in Glyphy\n"
+		var txt = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*\n'
+		var o = ''
+		for(var i = 0;i<200;i++)
+			o += txt
+		value = o
 		font_size = 0.12
 		u_outline = false
 		u_boldness = boldness

@@ -74,7 +74,10 @@ class Glyphy{
 
 		if(sdf_cache){
 			if(!info.sdf_texture) createSDFCache(info)
-			else sdf_texture = info.sdf_texture
+			else{
+				sdf_texture_hi = info.sdf_texture_hi
+				sdf_texture_lo = info.sdf_texture_lo
+			}
 		}
 
 		updateGeometry(info)
@@ -266,8 +269,6 @@ class Glyphy{
 		vec4[] buf = vec4[info.count * 6]()
 
 		// we have to allocate actual texture positions
-		var width = 512
-		var height = 512
 		var font_size = .2
 		// if we render to a font we go -1,-1 bottom left to 1,1 top right
 		// 
@@ -323,10 +324,13 @@ class Glyphy{
 			if(px + font_size > 1) px = left, py -= maxh, maxh = 0
 		}
 		// lets do a font scaling, and then just stack em horizontally
-		sdf_texture = Texture.rgba(width, height)
+		sdf_texture_hi = Texture.rgba(2048, 2048)
+		sdf_texture_lo = Texture.rgba(512, 512)
+
 		sdf_mesh = buf
 		
-		info.sdf_texture = sdf_texture
+		info.sdf_texture_hi = sdf_texture_hi
+		info.sdf_texture_lo = sdf_texture_lo
 		
 		if(sdf_dump){
 			mymesh = vec2Rect(0,0,1,1)
@@ -338,13 +342,21 @@ class Glyphy{
 
 		once:(){
 			// in this once, we generate our font texture.
-			sdf_texture{
+			sdf_texture_hi{
 				clearAll(#black)
 				this{
 					vertex:sdf_mesh[].xy
 					pixel: glyphy_sdf_cache(pixel sdf_mesh[])
 				}
 			}
+			sdf_texture_lo{
+				clearAll(#black)
+				this{
+					vertex:sdf_mesh[].xy
+					pixel: glyphy_sdf_cache(pixel sdf_mesh[])
+				}
+			}
+
 		}
 	}
 	
@@ -640,8 +652,6 @@ class Glyphy{
 	}
 
 	glyphy_sdf_draw:(vec4 pos){
-		vec4 dist_sample = sdf_texture.sample(pos.zw)
-		float gsdist = glyphy_sdf_decode(dist_sample)
 
 		vec2 p = pos.zw
 		/* isotropic antialiasing */
@@ -649,6 +659,12 @@ class Glyphy{
 		vec2 dpdy = dFdy(p)
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 		// screenspace length
+		//return vec4(m>0.001?1.:0.,0,0,1.)
+		vec4 dist_sample
+		if(m<0.001) dist_sample = sdf_texture_lo.sample(pos.zw)
+		else dist_sample = sdf_texture_hi.sample(pos.zw)
+
+		float gsdist = glyphy_sdf_decode(dist_sample)
 
 		gsdist = gsdist * 0.003
 		gsdist -= u_boldness / 300.
