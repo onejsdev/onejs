@@ -1467,9 +1467,9 @@ ONE.genjs_ = function(){
 					isvarbind = true
 				}
 				else {
-					var kind = n.name.kind
-					if(kind && (kind.name == 'get' || kind.name == 'set')){
-						if(kind.name == 'get') ret += 'this.__defineGetter__("'
+					var typing = n.name.typing
+					if(typing && (typing.name == 'get' || typing.name == 'set')){
+						if(typing.name == 'get') ret += 'this.__defineGetter__("'
 						else ret += 'this.__defineSetter__("'
 						ret += n.name.name + '",'
 						isgetset = true
