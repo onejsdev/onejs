@@ -31,6 +31,8 @@ ONE.init = function(){
 
 	// make ONE the new root scope
 	this.__Base__.__modules__ = this.__modules__ = Object.create(null)
+
+	if(this.zlib_) this.zlib_()
 }
 
 ONE.base_ = function(){
@@ -121,8 +123,15 @@ ONE.base_ = function(){
 
 		if(typeof role == 'object'){
 			for(var key in role){
-				// we might have to copy things
-				this[key] = role[key]
+				if(role.__lookupSetter__(key)){
+					// copy getter and setter
+					var desc = Object.getOwnPropertyDescriptor(role, key)
+					Object.defineProperty(this, key, desc)
+				}
+				else{
+					// we might have to copy things
+					this[key] = role[key]
+				}
 			}
 		}
 	}
@@ -133,7 +142,6 @@ ONE.base_ = function(){
 		var module = this.__modules__[name]
 
 		if(!module) throw new Error("Cannot find module "+name)
-
 		var instance = module.instance
 
 		if(!instance){

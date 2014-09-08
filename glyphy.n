@@ -69,6 +69,18 @@ class Glyphy{
 
 	glyphy_coords: mesh[].zw
 
+	__text = ''
+
+	// define a getter and setter
+	get text(v){
+		return __text
+	}
+
+	set text(v){
+		__text = v
+		if(is_initialized) updateGeometry()
+	}
+
 	constructor(){
 		var info = glyphy_font_cache[font && font.name] || parseBlob(font, font.name)
 
@@ -78,6 +90,7 @@ class Glyphy{
 		}
 
 		updateGeometry(info)
+		is_initialized = true
 	}
 
 	// just for the compiler
@@ -146,7 +159,7 @@ class Glyphy{
 		}
 		if(!glyphy_info) return
 
-		var length = value.length
+		var length = __text.length
 
 		if(sdf_cache){
 			glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
@@ -157,7 +170,7 @@ class Glyphy{
 			var py = font_size
 			// alright lets convert some text babeh!
 			for(var i = 0; i < length; i++){
-				var unicode = value.charCodeAt(i)
+				var unicode = __text.charCodeAt(i)
 				if(unicode == 10){
 					px = 0
 					py += font_size
@@ -321,7 +334,7 @@ class Glyphy{
 			if(px + font_size > 1) px = left, py -= maxh, maxh = 0
 		}
 		// lets do a font scaling, and then just stack em horizontally
-		sdf_texture = Texture.rgba(512, 512)
+		sdf_texture = Texture.rgba(1024, 1024)
 
 		sdf_mesh = buf
 

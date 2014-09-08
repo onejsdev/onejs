@@ -17,6 +17,7 @@
 ONE.fake_worker = true
 ONE.ignore_cache = false
 ONE.prototype_mode = true
+ONE.compress_cache = false
 
 ONE.worker_boot_ = function(host){
 
@@ -59,7 +60,6 @@ ONE.worker_boot_ = function(host){
 				ONE.total_parse += ms
 			}
 			else if(msg._type == 'run'){
-
 				if(ONE.import_queue) ONE.import_complete = ONE.run_message(msg)
 				else ONE.run_message(msg)()
 			}
@@ -104,6 +104,8 @@ ONE.worker_boot_ = function(host){
 		for(var i = 0;i<queue.length;i++){
 			var module = queue[i]
 			var blob = ONE.Base.AST.serializeModule(module)
+			if(ONE.compress_cache)
+				blob = ONE.deflate(blob, {level:6, to:'string'})
 			host.sendToHost({_type:'module_cache', key:module.source_code, value:blob})
 		}
 	}.bind(host)
@@ -603,12 +605,14 @@ ONE._createWorker = function(){
 		'\nONE.base_ = ' + ONE.base_.toString() +
 		'\nONE.proxy_ = ' + ONE.proxy_.toString() +
 		'\nONE.ast_ = ' + ONE.ast_.toString() +
+		'\nONE.zlib_ = ' + ONE.zlib_.toString() +
 		'\nONE.genjs_ = ' + ONE.genjs_.toString() +
 		'\nONE.genjs_compat_ = ' + ONE.genjs_compat_.toString() +
 		'\nONE.color_ = ' + ONE.color_.toString() +
 		'\nONE.parser_strict_ = ' + ONE.parser_strict_.toString() +
 		'\nONE.worker_boot_ = ' + ONE.worker_boot_.toString() +
 		'\nONE.origin = "'+window.location.origin+'"'+
+		'\nONE.compress_cache = ' +ONE.compress_cache+
 		'\nONE.worker_boot_(self)'
 
 	var blob = new Blob([source], { type: "text/javascript" })
@@ -728,7 +732,15 @@ ONE.browser_boot_ = function(){
 				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
 				return callback()	
 			}
-			this.modules[module_name] = data
+			try{
+				if(ONE.compress_cache) data = ONE.inflate(data, {to:'string'})
+				else if(data.charCodeAt(0) == 120 && data.charCodeAt(1) == 156) throw 1
+				this.modules[module_name] = data
+			}
+			catch(e){
+				worker.sendToWorker({_type:'parse', module_name:module_name, value:source_code})
+				return callback()	
+			}
 			return callback()
 		},
 
@@ -736,18 +748,26 @@ ONE.browser_boot_ = function(){
 			if(ONE.ignore_cache){
 				return callback({})
 			}
-			if(!this.db){
+			try{
 				var num = 0
 				var key
 				var cache = {}
 				while(key = this.storage.getItem(this.proxify_hash + 'K' + num)){
+					if(ONE.compress_cache) key = ONE.inflate(key, {to:'string'})
+					else if(key.charCodeAt(0) == 120 && key.charCodeAt(1) == 156) throw 1
 					var value = this.storage.getItem(this.proxify_hash + 'V' + num)
 					if(value !== undefined){
+						if(ONE.compress_cache) value = ONE.inflate(value, {to:'string'})
+						else if(value.charCodeAt(0) == 120 && value.charCodeAt(1) == 156) throw 1
+
 						cache[key] = value
 					}
 					num++
 				}
 				return callback(cache)
+			}
+			catch(e){
+				callback({})
 			}
 		},
 		proxify_local_storage:0,
@@ -758,8 +778,10 @@ ONE.browser_boot_ = function(){
 			}
 			try{
 				var key1 = this.proxify_hash+'K'+this.proxify_local_storage
+				if(ONE.compress_cache) key = ONE.deflate(key, {to:'string'})
 				this.storage.setItem(key1, key)
 				var value1 = this.proxify_hash+'V'+this.proxify_local_storage
+				if(ONE.compress_cache) value = ONE.deflate(value, {to:'string'})
 				this.storage.setItem(value1, value)
 				this.total_storage += key1.length + key.length + value1.length + value.length
 				this.proxify_local_storage++

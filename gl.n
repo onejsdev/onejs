@@ -1139,7 +1139,6 @@ class Texture extends WorkerProxy{
 		}
 
 		gl._curFrame = old_frame
-		console.log(old_frame.w, old_frame.h)
 		if(!old_frame.buf) gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 		else gl.bindFramebuffer(gl.FRAMEBUFFER, old_frame.buf)
 		gl.viewport(0, 0, old_frame.w, old_frame.h)//img.w / gl.ratio, img.h / gl.ratio)
