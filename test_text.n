@@ -23,7 +23,7 @@ Scene{
 		var o = ''
 		for(var i = 0;i<200;i++)
 			o += txt
-		value = o
+		text = o
 		font_size = 0.12
 		u_outline = false
 		u_boldness = boldness
