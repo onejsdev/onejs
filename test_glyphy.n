@@ -13,24 +13,26 @@ Scene{
 		pixel:mix(#111,#555,hp.y)
 	}
 	Text{
-		sy:.1+6.abs on pow(sin(0.5*time.sec),8.)
-		sx:.1+6.abs on pow(sin(0.5*time.sec),8.)
+		sy: 6.1-6.abs on pow(sin(0.5*time.sec),2.)
+		sx: 6.1-6.abs on pow(sin(0.5*time.sec),2.)
 		var data = "abcdefghijklmnopqrstuvwxyz01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ!@$%^&*()"
+		
 		setInterval(=>{
 			var t = 'Welcome to fonts evaluated on the GPU thanks to glyphy! Right now this is likely to bottleneck your gpu memory bandwidth, small font caching coming'
 			for(var j = 0;j<100;j++){
-				for(var k = 0;k<3;k++)
+				for(var k = 0;k<3;k++){
 					for(var i = 0;i<data.length;i++){
 						t += data[parseInt(Math.random()*data.length)]
 					}
 				t += '\n'
+				}
 			}
-			value = t
-			updateGeometry()
+			text = t
 		}, 1000)
 		font_size = 1.
+		sdf_cache = false
 		u_outline = false
-		u_boldness:0.05
+		u_boldness:0.5
 		displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
 		//u_outline_thickness: 2.+2.*(sin(4time.sec+sin(8.mesh[].x)+sin(4.mesh[].y)))
 		//u_outline_thickness:1.5

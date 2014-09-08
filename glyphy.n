@@ -16,7 +16,6 @@
  *
  * Google Author(s): Behdad Esfahbod, Maysum Panju
  */
-
 import math
 import gl
 import network
@@ -225,7 +224,8 @@ class Glyphy{
 			var py = font_size
 			// alright lets convert some text babeh!
 			for(var i = 0; i < length; i++){
-				var unicode = value.charCodeAt(i)
+				var unicode = __text.charCodeAt(i)
+
 				if(unicode == 10){
 					px = 0
 					py += font_size
@@ -270,6 +270,7 @@ class Glyphy{
 				//console.log(o)
 			}
 			mesh = buf
+
 		}
 	}	
 

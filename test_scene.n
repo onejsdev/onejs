@@ -12,12 +12,12 @@ Scene{
 	antialias = false
 	fill: vec3(midi.cc4, midi.cc5, midi.cc6)
 	Layer{
-		Text{
+		var myt = Text{
 			sy:.1+1.abs on pow(sin(0.5*time.sec),8.)
 			sx:.1+1.abs on pow(sin(0.5*time.sec),8.)
 			sx:1.
 			sy:1.
-			value = "BIG"
+			text = "Clickme"
 			sdf_cache = true
 			font_size = 1.
 			u_outline = false
@@ -30,6 +30,10 @@ Scene{
 			x: mouse.x - .5 * w
 			y: mouse.y - .5 * h
 			oldpx = pixel
+			if(myt.text.charAt(0) == 'I')
+				myt.text = "But its\nonclick\nshader\nchanges!"
+			else myt.text = "I know\nits ugly"
+
 			pixel:mix(#blue, #green, p.y)
 		}
 		mouse.leftup()=>{
