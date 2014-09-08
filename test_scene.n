@@ -23,12 +23,12 @@ Scene{
 			u_outline = false
 			u_boldness:0.05
 			displace: (sin(time.sec*4. + 18.*up.x)+ sin(time.sec*4. + 18.*up.y))*0.2
-			//u_outline_thickness: 2.+2.*(sin(4time.sec+sin(8.mesh[].x)+sin(4.mesh[].y)))
-			//u_outline_thickness:1.5
 		}
 		mouse.leftdown()=>{
 			x: mouse.x - .5 * w
 			y: mouse.y - .5 * h
+			myt.u_outline = true
+			myt.u_outline_thickness=: 2.+2.*(sin(4time.sec+sin(8.mesh[].x)+sin(4.mesh[].y)))
 			oldpx = pixel
 			if(myt.text.charAt(0) == 'I')
 				myt.text = "But its\nonclick\nshader\nchanges!"
@@ -37,6 +37,7 @@ Scene{
 			pixel:mix(#blue, #green, p.y)
 		}
 		mouse.leftup()=>{
+			myt.u_outline_thickness = :1.5
 			x = mouse.x - .5 * w 
 			y = mouse.y - .5 * h
 			pixel = oldpx
