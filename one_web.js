@@ -767,6 +767,7 @@ ONE.browser_boot_ = function(){
 				return callback(cache)
 			}
 			catch(e){
+				localStorage.clear()
 				callback({})
 			}
 		},
@@ -787,7 +788,7 @@ ONE.browser_boot_ = function(){
 				this.proxify_local_storage++
 			}
 			catch(e){
-				this.storage.clear()
+				localStorage.clear()
 			}
 			return
 		}

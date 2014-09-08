@@ -15,9 +15,10 @@ Scene{
 		Text{
 			sy:.1+1.abs on pow(sin(0.5*time.sec),8.)
 			sx:.1+1.abs on pow(sin(0.5*time.sec),8.)
-			sx:2.
-			sy:2.
+			sx:1.
+			sy:1.
 			value = "BIG"
+			sdf_cache = true
 			font_size = 1.
 			u_outline = false
 			u_boldness:0.05

@@ -18,8 +18,6 @@ Scene{
 		y:10
 		ax:0
 		ay:0
-		sx:1+pow(sin(time.sec),2)*58
-		sy:1+pow(sin(time.sec),2)*58
 		//pixel: glyphy_pixel
 		var txt = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*\n'
 		var o = ''

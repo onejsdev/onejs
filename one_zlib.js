@@ -6546,7 +6546,4 @@ ONE.zlib_ = function(){
 
 	this.inflate = mod_inflate.inflate
 	this.deflate = mod_deflate.deflate
-	this.buf2string = module_strings().buf2string
-	this.string2buf = module_strings().string2buf
-
 }
