@@ -118,7 +118,7 @@ class Codeview extends Text{
 	_AssignQuote:50.
 	_Rest:51.
 	_Then:52.
-		
+	_Comment:53.
 
 	// Helper functions
 
@@ -274,7 +274,21 @@ class Codeview extends Text{
 		expand(n.key)
 	}
 
+	Comment(text){
+		pack_mark(' // '+text, group++, _Comment)
+	}
+
+	class CollectComments extends AST.Walk{
+		Pre(n){
+			if(n.comments) output.push.apply(output, n.comments)
+		}
+		Block(n){
+			// dont go into a block
+		}
+	}
+
 	Block(n){//:{ steps:2 },
+
 		var mygroup = group++
 		BraceL(_Block, mygroup)
 		var old_indent = indent
@@ -283,6 +297,20 @@ class Codeview extends Text{
 		tab(indent)
 		for(var len, i, step from n.steps){
 			expand(step)
+			var last = undefined
+			// we need to collect the comments
+			var comments = CollectComments.output = []
+			CollectComments.run(step)
+			var skipped = false
+			for(var comment from comments){
+				if(comment == -1 && last == -1 && !skipped){
+					newline()
+					tab(indent)
+					skipped = true // dont skip more than one line
+				}
+				if(comment !== -1) Comment(comment)
+				last = comment
+			}
 			newline()
 			if(i == len - 1) tab(old_indent)
 			else tab(indent)
@@ -665,9 +693,10 @@ class Codeview extends Text{
 
 	// needlessly animating default style
 	style:(){
-		vec4 m = marks[]
-		vec2 pos = m.xy
+		vec4 m = marks[] // magical comments!
+		vec2 pos = m.xy 
 		vec2 center = pos - .5
+
 		var group = m.z
 		var type = floor(m.w / 65536.)
 		var sub = mod(floor(m.w/256.), 256.)
@@ -701,7 +730,10 @@ class Codeview extends Text{
 		else if(type == _TypeVar){
 			u_color = #00ff00
 		}
-		else{
+		else if(type == _Comment){
+			u_color = mix(#777,#999,pow(sin(pos.x+pos.y-0.5time.sec),80.))
+		}
+		else {
 			u_color = #orange
 		}
 	}

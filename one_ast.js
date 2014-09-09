@@ -379,7 +379,7 @@ ONE.ast_ = function(){
 				var walk = '\tn.parent = p\nif(this.Pre)this.Pre(n)\n'
 				var clean = '\tdelete n.parent\n'+
 							'\tdelete n.infer\n'+
-							'\tdelete n.comments\n'+
+							//'\tdelete n.comments\n'+
 							'\tdelete n.genstart\n'+
 							'\tdelete n.genend\n'+
 							'\tdelete n.start\n'+
@@ -506,7 +506,7 @@ ONE.ast_ = function(){
 				c.arg = this[n.arg.type]( n.arg )
 				return c
 			}
-
+			this.Walk.run = 
 			this.Clean.run = function(n){
 				this[n.type](n)
 				return n
