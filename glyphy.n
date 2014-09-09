@@ -69,7 +69,8 @@ class Glyphy{
 	vertex: mesh[].xy
 	pixel: glyphy_pixel//glyphy_draw(pixel mesh[])
 
-	glyphy_pixel: glyphy_draw(pixel mesh[])
+	
+
 	glyphy_coords: mesh[].zw
 
 	__text = ''
@@ -100,6 +101,10 @@ class Glyphy{
 		if(sdf_cache){
 			if(!info.sdf_texture) createSDFCache(info)
 			else sdf_texture = info.sdf_texture
+			glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
+		}
+		else{
+			glyphy_pixel: glyphy_draw(pixel mesh[])
 		}
 		
 		u_item_geom_x = info.item_w
@@ -271,9 +276,8 @@ class Glyphy{
 	add(text, x, y){
 		if(x === undefined) x = add_px
 		if(y === undefined) y = add_py
-		var length = __text.length
+		var length = text.length
 		if(sdf_cache){
-			glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
 			// alloc a buffer
 			//vec4[] buf = vec4[length * 6]()
 			vec4[] buf = alloc_mesh
@@ -392,11 +396,12 @@ class Glyphy{
 			add_py = py	- font_size
 			if(py > text_h) text_h = py	
 		}
+
 	}
 
 	update(){
 		mesh = alloc_mesh
-		if(alloc_marks) marks = alloc_marks
+		marks = alloc_marks
 	}
 
 	// we build up an sdf texture that we draw to in once:(){}
