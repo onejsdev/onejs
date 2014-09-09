@@ -731,7 +731,7 @@ class Codeview extends Text{
 			u_color = #00ff00
 		}
 		else if(type == _Comment){
-			u_color = mix(#777,#999,pow(sin(pos.x+pos.y-0.5time.sec),80.))
+			u_color = mix(#777,#ccc,.5+.5*sin(pos.x+pos.y-0.5time.sec))
 		}
 		else {
 			u_color = #orange
