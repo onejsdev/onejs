@@ -259,9 +259,10 @@ class Codeview extends Text{
 	}
 	Index(n){//: { object:1, index:1 },
 		expand(n.object)
-		BraceL(_Index)
+		var mygroup = group++
+		BracketL(_Index, mygroup)
 		expand(n.index)
-		BraceR(_Index)
+		BracketR(_Index, mygroup)
 	}
 	Key(n){//: { object:1, key:1, exist:0 },
 		expand(n.object)
@@ -703,10 +704,14 @@ class Codeview extends Text{
 		var sub = mod(floor(m.w/256.), 256.)
 		var part  = mod(m.w, 256.)
 		
-		if(sub == _Paren || sub == _Brace){
+		if(sub == _Paren || sub == _Brace || sub == _Bracket){
 			if(sub == _Paren){
 				u_color = mix(#aero, #magenta, abs on sin on group)
 				u_boldness = 0.4 + 0.3*sin on group
+			}
+			else if(sub == _Bracket){
+				u_color = #ccc//mix(#red, #yellow, abs on sin on group)
+				u_boldness =  .3*sin on group
 			}
 			else{
 				u_color = #yellow//mix(#red, #yellow, abs on sin on group)
