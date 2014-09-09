@@ -198,12 +198,7 @@ class Glyphy{
 		}
 	}
 
-	mark(text, l1, l2, l3, l4){
-		if(l1 && l1._ast_) l1 = l1.value
-		if(l2 && l2._ast_) l2 = l2.value
-		if(l3 && l3._ast_) l3 = l3.value
-		if(l4 && l4._ast_) l4 = l4.value
-
+	mark(text, z, w){
 		var o = alloc_off
 		var length = text.length
 		// resize text mesh buffer
@@ -212,13 +207,36 @@ class Glyphy{
 		}
 		vec4[] buf = alloc_marks
 		for(var i = 0; i < length; i++){
-			for(var j = 0; j < 6; j++){
-				buf[o].x = l1 || 0
-				buf[o].y = l2 || 0
-				buf[o].z = l3 || 0
-				buf[o].w = l4 || 0
-				o++
-			}
+			buf[o].x = 0
+			buf[o].y = 0
+			buf[o].z = z
+			buf[o].w = w
+			o++
+			buf[o].x = 1
+			buf[o].y = 0
+			buf[o].z = z
+			buf[o].w = w
+			o++
+			buf[o].x = 0
+			buf[o].y = 1
+			buf[o].z = z
+			buf[o].w = w
+			o++
+			buf[o].x = 0
+			buf[o].y = 1
+			buf[o].z = z
+			buf[o].w = w
+			o++
+			buf[o].x = 1
+			buf[o].y = 0
+			buf[o].z = z
+			buf[o].w = w
+			o++
+			buf[o].x = 1
+			buf[o].y = 1
+			buf[o].z = z
+			buf[o].w = w
+			o++
 		}
 		add(text)
 	}

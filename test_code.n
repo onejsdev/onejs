@@ -24,32 +24,37 @@ Scene{
 		ay:0
 
 		u_boldness = 1.0
+		u_outline = false
 		font_size = 0.20
 		style:(){
 			vec4 m = marks[]
-			var type = m.x
-			var group = m.y
-			var sub  = m.z
-			var part = m.w			
-			if(group == _Delim){
-				if(sub == _Paren || sub == _Brace){
-					if(sub == _Paren)
-						u_color = #magenta
-					else
-						u_color = #yellow
-					u_outline = true
-					u_boldness = 0.
-					//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
-					u_outline_thickness = (1.+.9*sin(16.*p.y+p.x*8. + 4.*time.sec)) / u_scaling
+			vec2 pos = m.xy
+			vec2 center = pos - .5
+			var group = m.z
+			var type = floor(m.w / 65536.)
+			var sub = mod(floor(m.w/256.), 256.)
+			var part  = mod(m.w, 256.)
+			
+			if(sub == _Paren || sub == _Brace){
+				if(sub == _Paren){
+					u_color = mix(#blue, #magenta, abs on sin on group)
+					u_boldness = .5 + sin on group
 				}
-				if(sub == _Operator){
-					u_color = mix(#red, #yellow, abs on sin(length(p)+time.sec))
-					u_boldness = .5+.5sin(8.p.x+64.*p.y+8.*time.sec)
+				else{
+					u_color = mix(#yellow, #sun, abs on sin on group)
+					u_boldness =  .5*sin on group
 				}
+				u_outline = true
+				//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
+				u_outline_thickness = (1.+.9*sin(group + 16.*p.y + 4.*time.sec)) / u_scaling
+			}
+			else if(sub == _Operator){
+				u_color = mix(#red, #yellow, abs on sin(length(center)+time.sec))
+				u_boldness = .5+0.7sin(8.*length(center)-4*time.sec+group)
 			}
 			else if(type == _Id){
 				u_color = #white
-				if(group == _Color){
+				if(sub == _Color){
 					u_color = #pink
 				}
 			}
@@ -74,13 +79,16 @@ Scene{
 				ay:0
 
 				u_boldness = 1.0
+				u_outline = true
 				font_size = 0.20
 				style:(){
 					vec4 m = marks[]
-					var type = m.x
-					var group = m.y
-					var sub  = m.z
-					var part = m.w			
+					vec2 pos = m.xy
+					vec2 center = pos - .5
+					var type = floor(m.z / 256.)
+					var group = mod(m.z, 256.)
+					var sub  = floor(m.w / 256.)
+					var part = mod(m.w, 256.)
 					if(group == _Delim){
 						if(sub == _Paren || sub == _Brace){
 							if(sub == _Paren)
@@ -93,7 +101,7 @@ Scene{
 							u_outline_thickness = (1.+.9*sin(16.*p.y+p.x*8. + 4.*time.sec)) / u_scaling
 						}
 						if(sub == _Operator){
-							u_color = mix(#red, #yellow, abs on sin(length(p)+time.sec))
+							u_color = mix(#red, #yellow, abs on sin(length(center)+time.sec))
 							u_boldness = .5+.5sin(8.p.x+64.*p.y+8.*time.sec)
 						}
 					}
