@@ -75,6 +75,10 @@ class DepTraceGLSL extends AST.Walk{
 	Value( n, parent ){
 		n.parent = parent
 		Pre(n)
+		if(n.raw === 'true' || n.raw === 'false'){
+			n.infer = bool
+			return Post(n)
+		}
 		if(n.kind != 'num') throw new Error('Only numeric values supported in shaders')
 		if(n.raw.indexOf('.') != -1 || n.raw.indexOf('e') != -1) n.infer = float
 		else n.infer = int
@@ -205,6 +209,9 @@ class DepTraceGLSL extends AST.Walk{
 			return Post(n)
 		}
 		if(prop._ast_){ // expression
+			if(renamed_uniforms[name]){
+				throw new Error('Assigning to ast value wont do what you expect '+name)
+			}
 			if(prop.type != 'Value'){
 				//TODO this thing dont work anymore with re-passing
 				if(this.refcount[name]) this.refcount[name]++
@@ -245,6 +252,10 @@ class DepTraceGLSL extends AST.Walk{
 				n.infer = bool
 			}
 			else throw new Error('Add other property types ' + name)
+
+			if(renamed_uniforms[name]){
+				n.mark = renamed_uniforms[name]
+			}
 		}
 		if(n.typing){
 			// lets set our 'infer' to this type
@@ -626,6 +637,7 @@ class DepTraceGLSL extends AST.Walk{
 					var old_generics = generics
 					var old_highmark = highmark
 					var old_redo_function_mark = redo_function_mark
+					var old_renamed_uniforms = renamed_uniforms
 					highmark = new_highmark
 					generics = macro_generics
 					return_type = undefined
@@ -633,6 +645,7 @@ class DepTraceGLSL extends AST.Walk{
 					var mparams = macro.params
 					scope = Object.create(null)
 					marks = Object.create(null)
+					renamed_uniforms = Object.create(old_renamed_uniforms)
 					if(macro.module) this.module = macro.module
 					for(var i, arg from n.args){
 						if(!arg.infer) throw new Error('Cannot infer arg in macro '+name)
@@ -647,6 +660,7 @@ class DepTraceGLSL extends AST.Walk{
 					if(redo_function_mark){ // we have to do it again
 						scope = Object.create(null)
 						marks = Object.create(null)
+						renamed_uniforms = Object.create(old_renamed_uniforms)
 						for(var i, arg from n.args){
 							var name = mparams[i].id.name
 							scope[name] = arg.infer
@@ -725,6 +739,25 @@ class DepTraceGLSL extends AST.Walk{
 		Post(n)
 	}
 
+	Assign( n, parent ){
+		n.parent = parent
+		Pre(n)
+		this[n.left.type](n.left, n)
+		this[n.right.type](n.right, n)
+		if(n.left.mark == 1 ){ // make a renamed uniform
+			if(n.left.type != 'Id') throw new Error('Only support Id renamed uniforms')
+			//var mark = n.right.mark
+			//if(highmark > (mark || 0)) mark = 3
+			if(renamed_uniforms[n.left.name]){ // dont re-do assignment
+				n.left.mark = highmark
+			}			
+			else{
+				renamed_uniforms[n.left.name] = highmark
+			}
+		}
+		Post(n)
+	}
+
 	If(n, parent){
 		AST.Walk::If(n, parent)
 		if(highmark > (n.mark||0)) n.mark = highmark
@@ -773,6 +806,10 @@ class GenGLSL extends AST.ToCode{
 				n.mark = 1
 		}
 		if(n.mark == 1 && n.infer){ // we are a uniform dependent expression
+			if(n.type == 'Block' || n.type == 'Var' || n.type == 'TypeVar' || n.type == 'Assign'){
+				console.log("Splitting at the wrong boundary", n)
+				return AST.ToCode::expand(n, parent)
+			}
 			if(context.dump>1)console.log('To Uniform: '+n.toString())
 			// okay
 			//if(!n.infer) throw new Error('Failed to infer type '+n.toDump())
@@ -786,8 +823,9 @@ class GenGLSL extends AST.ToCode{
 				name: (pixel?'pix_':'vtx_') + type_name + '_' + (uniform_id++)
 				node: n
 			}
+
 			if(!(type_name in glsl_types)) this.types[type_name] = n.infer
-			uniforms.push(uni)
+			n.uniform = uniforms.push(uni) - 1
 			return uni.name
 		}
 		// output vertex varying
@@ -889,6 +927,9 @@ class GenGLSL extends AST.ToCode{
 			this.module = old_module
 			this.locals = old_locals
 			return '(' + ret + ')'
+		}
+		if(renamed_uniforms[name]){
+			return renamed_uniforms[name].name
 		}
 		
 		throw new Error('Dont know what to do with '+name)
@@ -1010,19 +1051,33 @@ class GenGLSL extends AST.ToCode{
 		}
 
 		// paren detect
-		if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' || 
-			(left_t == 'Binary' || left_t == 'Logic') && n.left.prio <= n.prio) 
-			left = '(' + left + ')'
+		if(AST.needsParens(n, n.left)) left = '(' + left + ')'
+		if(AST.needsParens(n, n.right)) right = '(' + right + ')'
 
-		if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' || 
-			(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio <= n.prio) 
-			right = '(' + right + ')'
-		
 		if(n.op == '**'){
 			return 'pow(' + left + ',' + right + ')'
 		}
 
 		return left + space + n.op + space + right
+	}
+
+	Assign( n ){
+		var left, right
+		if(n.left.type == 'Id' && renamed_uniforms[n.left.name]){
+			// do not rename the uniform more than once
+			left = renamed_uniforms[n.left.name].name
+			right = this.expand(n.right, n)
+		}
+		else{
+			left = this.expand(n.left, n)
+			right = this.expand(n.right, n)
+			if(n.left.uniform !== undefined){
+				var uni = uniforms[n.left.uniform]
+				uni.rename = 'ren_' + uni.name
+				renamed_uniforms[n.left.name] = uni
+			}
+		}
+		return left + this.space + n.op + this.space + right
 	}
 
 	Var( n ){
@@ -1113,7 +1168,10 @@ class GenGLSL extends AST.ToCode{
 	this.Function( n, name, argdef, ret_type ){
 		n.var_alloc_id = 0
 		// allright lets generate a function!
-		var ret = ret_type.name + ' ' + name + '(' + argdef + ')'
+		var ret 
+		if(!ret_type) ret = 'void'
+		else ret = ret_type.name
+		ret += ' ' + name + '(' + argdef + ')'
 
 		var old_depth = depth
 		depth += indent
@@ -1586,4 +1644,5 @@ DecodeBlendEquation( eq ){
 	else throw new Error('Blend equation invalid (main type) ' + eq.type + ' ' + eq.op)
 	return out
 }
+
 

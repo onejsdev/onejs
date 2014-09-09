@@ -1022,7 +1022,10 @@ ONE.genjs_ = function(){
 				if(len > 1) iter = this.resolve(items[p++].name)
 				if(len > 0) value = this.resolve(items[p++].name)
 			}
-			if(!value) throw new Error('No iterator found in for from')
+			if(!value){
+				console.log(n)
+				throw new Error('No iterator found in for from')
+			}
 			if(!iter) iter = this.alloc_tmpvar(n)
 			if(!alen) alen = this.alloc_tmpvar(n)
 			
@@ -1480,7 +1483,11 @@ ONE.genjs_ = function(){
 							// export the method
 							this.module.exports[n.name.name] = n
 						}
-						ret += this.expand(n.name, n) + this.space + '=' + this.space
+						// support global method names
+						if(n.name.type == 'Id' && this.globals[n.name.id])
+							ret += 'this.' + n.name.name + this.space + '=' + this.space
+						else
+							ret += this.expand(n.name, n) + this.space + '=' + this.space
 						//console.log(ret)
 					}
 				}

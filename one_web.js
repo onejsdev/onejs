@@ -15,7 +15,7 @@
 
 // toggle fake worker on or off
 ONE.fake_worker = true
-ONE.ignore_cache = false
+ONE.ignore_cache = true
 ONE.prototype_mode = true
 ONE.compress_cache = false
 
@@ -576,10 +576,16 @@ ONE.proxy_ = function(){
 
 			if(msg._code){
 				// do some caching
+				try{
 				var fn = this.__proxy_cache__[msg._code] || 
 						(this.__proxy_cache__[msg._code] = Function('__module__', msg._code))
 				// execute on self to populate class
+
 				fn.call(this, this.__proxy_module__)
+				}
+				catch(e){
+					console.log(msg._code)
+				}
 			}
 
 			// call init

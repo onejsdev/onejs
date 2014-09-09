@@ -111,7 +111,7 @@ ONE.ast_ = function(){
 			var flags = js.pull_flags(ast)
             
 			if(flags){
-				if(flags.indexOf('ast')!= -1) console.log( ast.toDump() )
+				if(flags.indexOf('ast')!= -1) console.log( this.AST.toDump(ast) )
 				if(flags.indexOf('code')!=-1){
 					var code = this.AST.ToCode
 					ONE.log( code.Function(ast) )
@@ -330,9 +330,8 @@ ONE.ast_ = function(){
 			ForTo: { left:1, right:1, loop:1, in:1, compr:0 },
 
 			Var: { defs:2, const:0 },
-			Const: { defs:2 },
 			TypeVar: { typing:1, defs:2, dim:1 },
-			Struct: { id:1, struct:1, base:1, defs:2, dim:1 },
+			Struct: { id:1, struct:1, base:1},//, defs:2, dim:1 },
 			Define: { id:1, value:1 },
 			Enum: { id:1, enums:2 },
 
@@ -354,7 +353,7 @@ ONE.ast_ = function(){
 			Call: { fn:1, args:2 },
 			Nest: { fn:1, body:1, arrow:0 },
 
-			Class: { id:1, base:1, body:1, extarg:0, catch:1, then:1 },
+			Class: { id:1, base:1, body:1 },
 
 			Signal: { left:1, right:1 },
 			Quote: { quote:1 },
@@ -545,6 +544,14 @@ ONE.ast_ = function(){
 			}
 		},"DepFinder")
 
+		this.needsParens = function(n, other){
+			var other_t = other.type
+
+			if(other_t == 'Assign' || other_t == 'List' || other_t == 'Condition' || 
+				(other_t == 'Binary' || other_t == 'Logic') && other.prio <= n.prio) 
+				return true
+		}
+
 		this.clone = function(node, template){
 			this.Clone.template = template
 			var clone = this.Clone[ node.type ]( node )
@@ -611,7 +618,7 @@ ONE.ast_ = function(){
 		}
 
 		// ToCode reserializes the AST to oneJS as is
-		this.ToCode = this.Base.extend(function(outer){
+		this.ToCode = this.Base.extend(this, function(outer){
 
 			this.space = ' '
 			this.newline = '\n'
@@ -967,11 +974,7 @@ ONE.ast_ = function(){
 			}
 
 			this.Var = function( n ){
-				return (n.const?'const ':'var ') + this.flat(n.defs, n)
-			}
-
-			this.Const = function( n ){
-				return 'const ' + this.flat(n.defs, n)
+				return 'var ' + this.flat(n.defs, n)
 			}
 
 			this.TypeVar = function( n ){
@@ -1063,13 +1066,8 @@ ONE.ast_ = function(){
 				var left_t = n.left.type
 				var right_t = n.right.type
 
-				if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' || 
-					(left_t == 'Binary' || left_t == 'Logic') && n.left.prio <= n.prio) 
-					left = '(' + left + ')'
-
-				if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' || 
-					(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio <= n.prio) 
-					right = '(' + right + ')'
+				if(outer.needsParens(n, n.left)) left = '(' + left + ')'
+				if(outer.needsParens(n, n.right)) right = '(' + right + ')' 
 
 				return left + this.space + n.op + this.space + right
 			}
@@ -1080,13 +1078,8 @@ ONE.ast_ = function(){
 				var left_t = n.left.type
 				var right_t = n.right.type
 
-				if(left_t == 'Assign' || left_t == 'List' || left_t == 'Condition' || 
-					(left_t == 'Binary' || left_t == 'Logic') && n.left.prio < n.prio) 
-					left = '(' + left + ')'
-
-				if(right_t == 'Assign' || right_t == 'List' || right_t == 'Condition' || 
-					(right_t == 'Binary' || right_t == 'Logic') &&  n.right.prio < n.prio)
-					right = '(' + right + ')' 
+				if(outer.needsParens(n, n.left)) left = '(' + left + ')'
+				if(outer.needsParens(n, n.right)) right = '(' + right + ')' 
 
 				return left + this.space + n.op + this.space + right
 			}

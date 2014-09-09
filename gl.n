@@ -213,6 +213,7 @@ class Draw extends WorkerProxy{
 			DepTraceGLSL.module = pix.module
 			DepTraceGLSL.imm_locals = pix.imm_locals
 			DepTraceGLSL.locals = pix.locals
+			DepTraceGLSL.renamed_uniforms = Object.create(null)
 			DepTraceGLSL[pix.type](pix)
 
 			//log(pix.bind.toDump())
@@ -232,6 +233,7 @@ class Draw extends WorkerProxy{
 			GenGLSL.module = pix.module
 			GenGLSL.imm_locals = pix.imm_locals
 			GenGLSL.locals = pix.locals
+			GenGLSL.renamed_uniforms = Object.create(null)
 			var pix_expr = GenGLSL.expand(pix)
 
 			var alpha_expr
@@ -265,10 +267,12 @@ class Draw extends WorkerProxy{
 			GenGLSL.imm_locals = vtx.imm_locals
 			GenGLSL.locals = vtx.locals
 			GenGLSL.types = vtx_types
+			GenGLSL.renamed_uniforms = Object.create(null)
 
 			DepTraceGLSL.module = vtx.module
 			DepTraceGLSL.imm_locals = vtx.imm_locals
 			DepTraceGLSL.locals = vtx.locals
+			DepTraceGLSL.renamed_uniforms = Object.create(null)
 			DepTraceGLSL[vtx.type](vtx)
 
 			var vtx_type_methods = GenGLSL.type_methods = {}
@@ -292,6 +296,8 @@ class Draw extends WorkerProxy{
 			var attr_decl = ''
 			var pix_uni_decl = ''
 			var vtx_uni_decl = ''
+			var pix_uni_rename = ''
+			var vtx_uni_rename = ''
 			var ret = ''
 			
 			// merge identical varyings
@@ -324,9 +330,21 @@ class Draw extends WorkerProxy{
 				var type = uni.node.infer
 				var dim = ''
 				if(type.dim) dim = '[' + type.dim + ']'
-				pix_uni_decl += `
+				if(uni.rename){
+					pix_uni_decl += `
+				${type.name} ${uni.name}${dim};
+				uniform ${type.name} ${uni.rename}${dim};
+					`
+					pix_uni_rename +=`
+					${uni.name} = ${uni.rename};
+					`
+				} 
+				else{
+					pix_uni_decl += `
 				uniform ${type.name} ${uni.name}${dim};
-				`
+					`
+				}
+
 			}
 			
 			// generate vertex uniform
@@ -334,9 +352,20 @@ class Draw extends WorkerProxy{
 				var type = uni.node.infer
 				var dim = ''
 				if(type.dim) dim = '[' + type.dim + ']'
-				vtx_uni_decl += `
+				if(uni.rename){
+					vtx_uni_decl += `
+				${type.name} ${uni.name}${dim};
+				uniform ${type.name} ${uni.rename}${dim};
+					`
+					vtx_uni_rename +=`
+					${uni.name} = ${uni.rename};
+					`
+				} 
+				else{
+					vtx_uni_decl += `
 				uniform ${type.name} ${uni.name}${dim};
-				`
+					`
+				}
 			}
 			
 			// generate samplers
@@ -431,7 +460,7 @@ class Draw extends WorkerProxy{
 				precision highp int;${pix_type_decl}
 				${pix_uni_decl}${vary_decl}${vary_merged}${pix_method_decl}
 				void main(){
-					${pix_tmpcode}
+					${pix_uni_rename}${pix_tmpcode}
 					gl_FragColor = ${pix_expr};
 				}
 			`
@@ -442,7 +471,7 @@ class Draw extends WorkerProxy{
 				precision highp int;${vtx_type_decl}
 				${vtx_uni_decl}${attr_decl}${vary_decl}${vtx_method_decl}
 				void main(){
-					${vtx_tmpcode}
+					${vtx_uni_rename}${vtx_tmpcode}
 					gl_Position = ${vtx_expr};
 					${vary_assign}
 				}
@@ -451,6 +480,7 @@ class Draw extends WorkerProxy{
 			vtx_shader = vtx_shader.replace(/\n\t/g,'\\n\\\n\t\t\t')
 			if(context.dump){
 				console.log(pix_shader.replace(/\\n\\\n\t\t\t\t\t\t/g,'\n'))
+				console.log(vtx_shader.replace(/\\n\\\n\t\t\t\t\t\t/g,'\n'))
 
 				var split1 = pix_shader.split(/\n/)
 				pix_shader = ''
@@ -554,7 +584,7 @@ class Draw extends WorkerProxy{
 					${as_str}
 					var v = ${js}\n`
 
-				UniformTypeExpander(uni.node.infer, uniform_parts, uni.name, uni.name, 0)
+				UniformTypeExpander(uni.node.infer, uniform_parts, uni.rename || uni.name, uni.rename || uni.name, 0)
 
 				uniform_parts.setters += `
 				}`
@@ -1211,7 +1241,7 @@ class Device extends Draw{
 	frame_id = 0
 
 	$drawloop:(now){
-		if(max_frames && frame_id > max_frames) return
+		if(frame_limit && frame_id > frame_limit) return
 
 		if(frame_rate){
 			document.title = parseInt(1000/(now - last))
