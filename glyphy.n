@@ -40,7 +40,7 @@ class Glyphy{
 	}
 
 	//u_boldness: 0.25*(sin(4time.sec+mesh[].x+mesh[].y))
-	u_boldness = 0.1
+	u_boldness = 0
 	u_scaling = 0
 	u_distance = 0
 	u_gamma_adjust = 1
@@ -50,10 +50,14 @@ class Glyphy{
 	u_outline_thickness = 1//:device.ratio
 	u_color = #white
 
+	// the text extents
+	text_w = 0
+	text_h = 0
+
 	sdf_cache = true
 
 	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
-	font_size = 1
+	font_size = 10
 	line_height = 1.2
 	value = ''
 
@@ -69,12 +73,18 @@ class Glyphy{
 
 	__text = ''
 
+	style:(){
+
+	}
+
 	// define a getter and setter
 	get text(v){
 		return __text
 	}
 
 	set text(v){
+		if(v && v._ast_) v = v.value
+		if(typeof v !== 'string') v = '<invalid type>'
 		__text = v
 		if(is_initialized){
 			alloc(__text.length)
@@ -159,6 +169,8 @@ class Glyphy{
 
 	alloc(length, marked){
 		add_px = 0
+		text_w = 0
+		text_h = 0
 		add_py = 0
 		alloc_off = 0
 		alloc_length = length * 6
@@ -311,11 +323,13 @@ class Glyphy{
 				buf[o].w = glyph.tmax_y
 				o++
 				px += glyph.advance * font_size
+				if(px > text_w)text_w = px
 				//console.log(o)
 			}
 			alloc_off = o
 			add_px = px
 			add_py = py - font_size
+			if(py > text_h) text_h = py	
 		}
 		else{
 			glyphy_pixel: glyphy_draw(pixel mesh[])
@@ -369,11 +383,13 @@ class Glyphy{
 				buf[o].w = gy | 1
 				o++
 				px += glyph.advance * font_size
+				if(px > text_w)text_w = px
 				//console.log(o)
 			}
 			alloc_off = o
 			add_px = px
 			add_py = py	- font_size
+			if(py > text_h) text_h = py	
 		}
 
 	}
@@ -775,7 +791,7 @@ class Glyphy{
 
 		u_distance = gsdist * 0.003
 
-		style()
+		style() // force this call in the pixelshader
 
 		u_distance -= u_boldness / 300.
 		u_distance = u_distance / m * u_contrast

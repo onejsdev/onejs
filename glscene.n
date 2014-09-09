@@ -128,6 +128,8 @@ class Layer extends Draw{
 
 class Text extends Layer{
 	load(Glyphy)
+	font_size = 20
+	u_boldness= 0.8
 	color: #white
-	vertex: mesh[].xy * (m_mesh * m_world * device.m_camera)
+	vertex: mesh[].xy * (m_world * device.m_camera)
 }

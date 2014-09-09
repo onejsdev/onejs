@@ -1,0 +1,32 @@
+import math
+import gl
+import glscene
+
+define text_hcenter parent.w*.5 - text_w*.5
+define text_vcenter parent.h*.5 - text.h*.5
+
+class Deck extends Scene{
+	class Slide extends Layer{
+		w:device.w
+		h:device.h
+
+		pixel:#111
+
+		class Title extends Text{
+			font_size = 80
+			constructor(){
+				Text::constructor()
+				y: 20
+				x: text_hcenter
+			}
+		}
+
+		class Body extends Layer{
+			pixel: #222
+			y: 140
+			x: 20
+			w: parent.w - 2*x
+			h: parent.h - y - 20
+		}
+	}
+}

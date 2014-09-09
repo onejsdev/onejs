@@ -1,0 +1,28 @@
+import math
+import slides
+import codeview
+
+Deck{
+	antialias = true
+	Slide{
+		Title{ text = 'Hello OneJS' }
+		Body{
+			Codeview{
+				x = 10
+				y = 20
+				var code = :(){
+					Device{
+						Draw{
+							mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
+							vertex: mesh[]
+							pixel: mix(#orange,#blue,mesh[].y)
+						}
+					}
+				}
+				// pull out the right node and eval it
+				ast = code.body.steps[0]
+				eval(ast.body.steps[0], code)
+			}
+		}
+	}
+}

@@ -252,7 +252,6 @@ class DepTraceGLSL extends AST.Walk{
 				n.infer = bool
 			}
 			else throw new Error('Add other property types ' + name)
-
 			if(renamed_uniforms[name]){
 				n.mark = renamed_uniforms[name]
 			}
@@ -618,6 +617,9 @@ class DepTraceGLSL extends AST.Walk{
 			}
 			if(n.mark > new_highmark) new_highmark = n.mark
 
+			//If we have a no assignment function
+			if(n.parent && n.parent.mark > new_highmark) new_highmark = n.parent.mark
+
 			// lets check if we are calling a macro
 			// calls on other objects provide a new context
 			// i know. i need to refactor this to be nicer. or learn to program
@@ -806,8 +808,9 @@ class GenGLSL extends AST.ToCode{
 				n.mark = 1
 		}
 		if(n.mark == 1 && n.infer){ // we are a uniform dependent expression
+			// ignore these marks, should be fixed in inferencer really
 			if(n.type == 'Block' || n.type == 'Var' || n.type == 'TypeVar' || n.type == 'Assign'){
-				console.log("Splitting at the wrong boundary", n)
+				//console.log("Splitting at the wrong boundary", n)
 				return AST.ToCode::expand(n, parent)
 			}
 			if(context.dump>1)console.log('To Uniform: '+n.toString())
@@ -830,6 +833,12 @@ class GenGLSL extends AST.ToCode{
 		}
 		// output vertex varying
 		if(pixel && n.mark == 2 && n.infer){
+			// these things cant be split up
+			if(n.type == 'Block' || n.type == 'Var' || n.type == 'TypeVar' || n.type == 'Assign'){
+				//console.log("Splitting at the wrong boundary", n)
+				return AST.ToCode::expand(n, parent)
+			}
+
 			if(context.dump>1)console.log('To Vertexshader: '+n.toString())
 
 			// alright we need to output a vertex varying
@@ -931,7 +940,7 @@ class GenGLSL extends AST.ToCode{
 		if(renamed_uniforms[name]){
 			return renamed_uniforms[name].name
 		}
-		
+		console.log(n, renamed_uniforms)
 		throw new Error('Dont know what to do with '+name)
 		
 		return ''

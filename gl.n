@@ -50,7 +50,7 @@ class Draw extends WorkerProxy{
 
 		if(obj._constructor) obj._constructor()
 		
-		if(nest) nest.call(obj)
+		if(nest) nest.call(obj, parent)
 
 		if(obj.constructor) obj.constructor()
 
@@ -195,8 +195,10 @@ class Draw extends WorkerProxy{
 			var pix = sub_context.pixel
 			// handle case where pixel is a plain value
 			if(pix !== undefined && !pix._ast_) pix = {type:'Id', name:'pixel', module:fake_module}
-			if(!pix) throw new Error('Unexpected pixel type')
-			
+			if(!pix){
+				// dont do anything
+				return ''
+			}
 			// deptrace the pixelshader
 			GenGLSL.pixel = DepTraceGLSL.pixel = 1
 			DepTraceGLSL.proxy_refs = proxy_refs

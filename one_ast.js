@@ -104,7 +104,14 @@ ONE.ast_ = function(){
         
 		// set up new compile state
 		js.new_state(ONE.__modules__[module_name])
-        
+
+		if(ast.module){
+			js.module = ast.module
+		}
+		else if(module_name && module_name._ast_ && module_name.module){
+			js.module = module_name.module
+		}
+
 		// if passing a function we return that
 		if(ast.type == 'Function'){
 			ast.root = true
@@ -148,13 +155,13 @@ ONE.ast_ = function(){
 			return fn
 		}
         
-		var code = (ast.isExpr()?'return ':'') + js.expand( ast )
+		var code = (this.AST.isExpr(ast)?'return ':'') + js.expand( ast )
 		for(var k in js.type_methods){
 			code = js.type_methods[k] + code
 		}
         
-		var run = Function(code)
-		return run.call(this)
+		var run = Function('__module__', code)
+		return run.call(this, js.module)
 	}
 
 	this.serializeModule = function(module){

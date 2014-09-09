@@ -2460,11 +2460,11 @@ ONE.genjs_ = function(){
 			if(n.fn.type == 'Id' && n.fn.typing){
 				// just use the .call property
 				var exp = this.expand(n.fn.typing, n)
-				return 'this.'+n.fn.name + " = " + exp + '.call('+exp+', ' + this.Function( n ) + ', this, "' + n.fn.name + '")'
+				return 'this.'+n.fn.name + " = " + exp + '.call('+exp+', ' + this.Function( n, undefined, ['__outer__']) + ', this, "' + n.fn.name + '")'
 			}
 			// just use the .call property
 			var exp = this.expand(n.fn, n)
-			return exp + '.call('+exp+', ' + this.Function( n ) + ', this)'
+			return exp + '.call('+exp+', ' + this.Function( n, undefined, ['__outer__'] ) + ', this)'
 		}
 		
 		this.AssignQuote = function( n ){
