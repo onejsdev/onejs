@@ -15,7 +15,7 @@ Deck{
 						Draw{
 							mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
 							vertex: mesh[]
-							pixel: mix(#orange,#blue,mesh[].y)
+							pixel: mix(#orange,#blue,mesh[].y +.75)
 						}
 					}
 				}
