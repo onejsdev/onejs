@@ -4,16 +4,13 @@ import glscene
 import codeview
 
 Scene{
-	frame_rate = true
-	antialias = false
+	antialias = true
 	Layer{
 		w: device.w
 		h: device.h
 		var  i = 1.
 		blarp = 0.1
-		//pixel: mix(#orange, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
 		pixel: #222
-		//pixel:#444
 	}
 	Codeview{
 		x:10
@@ -22,53 +19,8 @@ Scene{
 		sy:1
 		ax:0
 		ay:0
-
-		u_boldness = 1.0
-		u_outline = false
 		font_size = 0.20
-		style:(){
-			vec4 m = marks[]
-			vec2 pos = m.xy
-			vec2 center = pos - .5
-			var group = m.z
-			var type = floor(m.w / 65536.)
-			var sub = mod(floor(m.w/256.), 256.)
-			var part  = mod(m.w, 256.)
-			
-			if(sub == _Paren || sub == _Brace){
-				if(sub == _Paren){
-					u_color = mix(#aero, #magenta, abs on sin on group)
-					u_boldness = .5 + sin on group
-				}
-				else{
-					u_color = #yellow//mix(#red, #yellow, abs on sin on group)
-					u_boldness =  .3*sin on group
-				}
-				u_outline = true
-				//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
-				u_outline_thickness = (1.+.9*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
-			}
-			else if(sub == _Operator){
-				u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
-				u_boldness = .5+0.7sin(8.*length(center)-4*time.sec+group)
-			}
-			else if(type == _Id){
-				u_color = #white
-				if(sub == _Color){
-					u_color = #pink
-				}
-			}
-			else if(type == _Value){
-				u_color = #aero
-			}
-			else if(type == _TypeVar){
-				u_color = #00ff00
-			}
-			else{
-				u_color = #orange
-			}
-		}
-
+		u_boldness = 0.7
 		ast:(){
 			Codeview{
 				x:10
@@ -98,7 +50,7 @@ Scene{
 							u_outline = true
 							u_boldness = 0.
 							//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
-							u_outline_thickness = (1.+.9*sin(16.*p.y+p.x*8. + 4.*time.sec)) / u_scaling
+							u_outline_thickness = (1.+.0*sin(16.*p.y+p.x*8. + 4.*time.sec)) / u_scaling
 						}
 						if(sub == _Operator){
 							u_color = mix(#red, #yellow, abs on sin(length(center)+time.sec))
@@ -124,7 +76,5 @@ Scene{
 			}
 		}
 		ast = ast.body.steps[0]
-		//pixel: glyphy_pixel
-		text = 'CODE'
 	}
 }
