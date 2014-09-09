@@ -197,7 +197,7 @@ class Codeview extends Text{
 	}
 
 	Keyword(value, type, group){
-		pack_mark(value, group, type, _Keyword)
+		pack_mark(value, group || 0, type, _Keyword)
 	}
 
 	// AST Expander
@@ -314,9 +314,10 @@ class Codeview extends Text{
 	}
 	If(n){//: { test:1, then:1, else:1, postfix:0, compr:0 },
 		Keyword('if', _If)
-		ParenL(_If)
+		var mygroup = group++
+		ParenL(_If, mygroup)
 		expand(n.test)
-		ParenR(_If)
+		ParenR(_If, mygroup)
 		expand(n.then)
 		if(n.else){
 			newline()
@@ -328,14 +329,15 @@ class Codeview extends Text{
 	}
 	Switch(n){//: { on:1, cases:2 },
 		Keyword('switch', _Switch)
-		ParenL(_Switch)
+		var mygroup = group++
+		ParenL(_Switch, mygroup)
 		expand(n.on)
-		ParenR(_Switch)
-		BraceL(_Switch)
+		ParenR(_Switch, mygroup)
+		BraceL(_Switch, mygroup)
 		for(var c from n.cases){
 			expand(c)
 		}
-		BraceR(_Switch)
+		BraceR(_Switch, mygroup)
 	}
 	Case(n){//: { test:1, then:2 },
 		Keyword('case', _Case)
@@ -351,9 +353,10 @@ class Codeview extends Text{
 		Keyword('try', _Try)
 		expand(n.try)
 		Keyword('catch', _Try)
-		ParenL(_Try)
+		var mygroup = group++
+		ParenL(_Try, mygroup)
 		expand(n.arg)
-		ParenR(_Try)
+		ParenR(_Try, mygroup)
 		expand(n.catch)
 		if(n.finally){
 			Keyword('finally', _Try)
@@ -362,18 +365,20 @@ class Codeview extends Text{
 	}
 	While(n){//: { test:1, loop:1 },
 		Keyword('while', _While)
-		ParenL(_While)
+		var mygroup = group++
+		ParenL(_While, mygroup)
 		expand(n.test)
-		ParenR(_While)
+		ParenR(_While, mygroup)
 		expand(n.loop)
 	}
 	DoWhile(n){//: { loop:1, test:1 },
 		Keyword('do', _Do)
 		expand(n.loop)
 		Keyword('while', _Do)
-		ParenL(_Do)
+		var mygroup = group++
+		ParenL(_Do, mygroup)
 		expand(n.test)
-		ParenR(_Do)
+		ParenR(_Do, mygroup)
 	}
 	For(n){//: { init:1, test:1, update:1, loop:1, compr:0 },
 		Keyword('for', _For)
@@ -388,46 +393,50 @@ class Codeview extends Text{
 	}
 	ForIn(n){//: { left:1, right:1, loop:1, compr:0 },
 		Keyword('for', _For)
-		ParenL(_For)
+		var mygroup = group++
+		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
 		Keyword('in', _For)
 		space()
 		expand(n.right)
-		ParenR(_For)
+		ParenR(_For, mygroup)
 		expand(n.loop)
 	}
 	ForOf(n){//: { left:1, right:1, loop:1, compr:0 },
 		Keyword('for', _For)
-		ParenL(_For)
+		var mygroup = group++
+		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
 		Keyword('of', _For)
 		space()
 		expand(n.right)
-		ParenR(_For)
+		ParenR(_For, mygroup)
 		expand(n.loop)
 	}
 	ForFrom(n){//: { right:1, left:1, loop:1, compr:0 }, // right comes first for type inference
 		Keyword('for', _For)
-		ParenL(_For)
+		var mygroup = group++
+		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
 		Keyword('from', _For)
 		space()
 		expand(n.right)
-		ParenR(_For)
+		ParenR(_For, mygroup)
 		expand(n.loop)
 	}
 	ForTo(n){//: { left:1, right:1, loop:1, in:1, compr:0 },
 		Keyword('for', _For)
-		ParenL(_For)
+		var mygroup = group++
+		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
 		Keyword('to', _For)
 		space()
 		expand(n.right)
-		ParenR(_For)
+		ParenR(_For, mygroup)
 		expand(n.loop)
 	}
 	Var(n){//: { defs:2, const:0 },

@@ -37,16 +37,16 @@ Scene{
 			
 			if(sub == _Paren || sub == _Brace){
 				if(sub == _Paren){
-					u_color = mix(#blue, #magenta, abs on sin on group)
+					u_color = mix(#aero, #magenta, abs on sin on group)
 					u_boldness = .5 + sin on group
 				}
 				else{
 					u_color = #yellow//mix(#red, #yellow, abs on sin on group)
-					u_boldness =  .5*sin on group
+					u_boldness =  .3*sin on group
 				}
 				u_outline = true
 				//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
-				u_outline_thickness = (1.+.9*sin(group + 16.*p.y + 4.*time.sec)) / u_scaling
+				u_outline_thickness = (1.+.9*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
 			}
 			else if(sub == _Operator){
 				u_color = mix(#red, #yellow, abs on sin(length(center)+time.sec))
