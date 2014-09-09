@@ -18,12 +18,13 @@ Scene{
 	Codeview{
 		x:10
 		y:10
-		sx:4
-		sy:4
+		sx:1
+		sy:1
 		ax:0
 		ay:0
-		u_boldness = 0.5
-		font_size = 0.12
+
+		u_boldness = 1.0
+		font_size = 0.20
 		style:(){
 			vec4 m = marks[]
 			var type = m.x
@@ -31,28 +32,90 @@ Scene{
 			var sub  = m.z
 			var part = m.w			
 			if(group == _Delim){
-				if(sub == _Paren){
-					u_color = #yellow
+				if(sub == _Paren || sub == _Brace){
+					if(sub == _Paren)
+						u_color = #magenta
+					else
+						u_color = #yellow
 					u_outline = true
 					u_boldness = 0.
-					u_outline_thickness = .5+.5sin(8.p.x+64.*p.y+8.*time.sec)
+					//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
+					u_outline_thickness = (1.+.9*sin(16.*p.y+p.x*8. + 4.*time.sec)) / u_scaling
 				}
 				if(sub == _Operator){
 					u_color = mix(#red, #yellow, abs on sin(length(p)+time.sec))
 					u_boldness = .5+.5sin(8.p.x+64.*p.y+8.*time.sec)
 				}
 			}
-			if(type == _Id){
+			else if(type == _Id){
 				u_color = #white
 				if(group == _Color){
 					u_color = #pink
 				}
 			}
-			u_outline_thickness = 1.+.9*sin(p.x*8. + 4.*time.sec)
+			else if(type == _Value){
+				u_color = #aero
+			}
+			else if(type == _TypeVar){
+				u_color = #00ff00
+			}
+			else{
+				u_color = #orange
+			}
 		}
 
-		ast:a+b+c+d+mix(#red, #yellow, abs on sin(length(p)+time.sec))
+		ast:(){
+			Codeview{
+				x:10
+				y:10
+				sx:1
+				sy:1
+				ax:0
+				ay:0
 
+				u_boldness = 1.0
+				font_size = 0.20
+				style:(){
+					vec4 m = marks[]
+					var type = m.x
+					var group = m.y
+					var sub  = m.z
+					var part = m.w			
+					if(group == _Delim){
+						if(sub == _Paren || sub == _Brace){
+							if(sub == _Paren)
+								u_color = #magenta
+							else
+								u_color = #yellow
+							u_outline = true
+							u_boldness = 0.
+							//u_outline_thickness = .1+.5sin(8.p.x+64.*p.y+8.*time.sec)
+							u_outline_thickness = (1.+.9*sin(16.*p.y+p.x*8. + 4.*time.sec)) / u_scaling
+						}
+						if(sub == _Operator){
+							u_color = mix(#red, #yellow, abs on sin(length(p)+time.sec))
+							u_boldness = .5+.5sin(8.p.x+64.*p.y+8.*time.sec)
+						}
+					}
+					else if(type == _Id){
+						u_color = #white
+						if(group == _Color){
+							u_color = #pink
+						}
+					}
+					else if(type == _Value){
+						u_color = #aero
+					}
+					else if(type == _TypeVar){
+						u_color = #00ff00
+					}
+					else{
+						u_color = #orange
+					}
+				}
+			}
+		}
+		ast = ast.body.steps[0]
 		//pixel: glyphy_pixel
 		text = 'CODE'
 	}

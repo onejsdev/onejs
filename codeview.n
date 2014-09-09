@@ -58,8 +58,8 @@ class Codeview extends Text{
 
 	// Base node markers
 	_Id:10.
-	_Value:11
-	_This:12
+	_Value:11.
+	_This:12.
 	_Array:13.
 	_Object:14.
 	_Index:15.
@@ -204,7 +204,7 @@ class Codeview extends Text{
 	// AST Expander
 
 	expand(n){
-		this[n.type](n)
+		if(n)this[n.type](n)
 	}
 
 	Program(n){}
@@ -225,7 +225,8 @@ class Codeview extends Text{
 			mark(n.raw, _Value, _Number)
 		else if(n.kind == 'string')
 			mark(n.raw, _Value, _String)
-		mark(n.raw, _Value)
+		else
+			mark(n.raw, _Value)
 	}
 	
 	This(n){//: { },
@@ -268,10 +269,17 @@ class Codeview extends Text{
 
 	Block(n){//:{ steps:2 },
 		BraceL(_Block)
-		for(var step from n.steps){
+		var old_indent = indent
+		indent++
+		newline()
+		tab(indent)
+		for(var len, i, step from n.steps){
 			expand(step)
 			newline()
+			if(i == len - 1) tab(old_indent)
+			else tab(indent)
 		}
+		indent = old_indent
 		BraceR(_Block)
 	}
 	List(n){//: { items:2 },
@@ -303,7 +311,10 @@ class Codeview extends Text{
 		ParenR(_If)
 		expand(n.then)
 		if(n.else){
+			newline()
+			tab(indent)
 			Keyword('else', _If)
+			space()
 			expand(n.else)
 		}
 	}
@@ -421,6 +432,7 @@ class Codeview extends Text{
 	}
 	TypeVar(n){//: { typing:1, defs:2, dim:1 },
 		Keyword(n.typing.name, _TypeVar)
+		space()
 		for(var i, def from n.defs){
 			if(i) Comma(_Var), space()
 			expand(def)
@@ -466,7 +478,7 @@ class Codeview extends Text{
 
 		}
 		if(n.name) expand(n.name)
-		else Keyword('function', _Function)
+		//else Keyword('function', _Function)
 		if(n.id) space(), expand(n.id)
 		ParenL(_Function)
 		for(var i, param from n.params){
@@ -618,6 +630,7 @@ class Codeview extends Text{
 		// ok lets turn this AST into an actual codeview.
 		if(is_initialized){
 			alloc(1000, true)
+			indent = 0
 			expand(v)
 			update()
 		}

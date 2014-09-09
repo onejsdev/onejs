@@ -41,6 +41,7 @@ class Glyphy{
 
 	//u_boldness: 0.25*(sin(4time.sec+mesh[].x+mesh[].y))
 	u_boldness = 0.1
+	u_scaling = 0
 	u_distance = 0
 	u_gamma_adjust = 1
 	u_outline = false
@@ -53,7 +54,7 @@ class Glyphy{
 
 	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
 	font_size = 1
-
+	line_height = 1.2
 	value = ''
 
 	// type mark it
@@ -155,26 +156,32 @@ class Glyphy{
 		return glyphy_font_cache[name] = info
 	}
 
-	alloc(length, marked){
-		alloc_length = length * 6
-		alloc_mesh = vec4[length * 6]()
-		alloc_off = 0
-		if(marked){
-			alloc_marks = vec4[length * 6]()
-		}
 
+	alloc(length, marked){
 		add_px = 0
 		add_py = 0
+		alloc_off = 0
+		alloc_length = length * 6
+		alloc_mesh = vec4[alloc_length]()
+		if(marked){
+			alloc_marks = vec4[alloc_length]()
+		}
 	}
 
 	realloc(extra){
 		vec4[] old_mesh = alloc_mesh
 		vec4[] old_marks = alloc_marks
 		var old_length = alloc_length
-		alloc((alloc_off /6 + extra) * 2, alloc_marks)
+		
+		alloc_length += extra * 6
+		alloc_mesh = vec4[alloc_length]()
+		if(alloc_marks){
+			alloc_marks = vec4[alloc_length]()
+		}
 		// lets copy it
 		vec4[] nmesh = alloc_mesh
 		vec4[] nmarks = alloc_marks
+
 		for(var i = 0;i<old_length;i++){
 			nmesh[i].x = old_mesh[i].x
 			nmesh[i].y = old_mesh[i].y
@@ -218,16 +225,16 @@ class Glyphy{
 	
 	space(t){
 		if(t===undefined) t = 1
-		add_px += glyphy_info.glyphs[39].width * font_size * t
+		add_px += glyphy_info.glyphs[36].width * font_size * t
 	}
 
 	newline(){
 		add_px = 0
-		add_py += font_size
+		add_py += font_size * line_height
 	}
 
-	tab(){
-		space(3)
+	tab(t){
+		space(3 * (t===undefined?1:t))
 	}
 
 	add(text, x, y){
@@ -247,7 +254,7 @@ class Glyphy{
 				var unicode = text.charCodeAt(i)
 				if(unicode == 10){
 					px = 0
-					py += font_size
+					py += font_size * line_height
 					continue
 				}
 				var glyph = glyphy_info.glyphs[unicode]
@@ -305,7 +312,7 @@ class Glyphy{
 
 				if(unicode == 10){
 					px = 0
-					py += font_size
+					py += font_size * line_height
 					continue
 				}
 				var glyph = glyphy_info.glyphs[unicode]
@@ -744,7 +751,7 @@ class Glyphy{
 		vec2 dpdy = dFdy(p)
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 		// screenspace length
-
+		u_scaling = 500.*m 
 		vec4 dist_sample = sdf_texture.sample(pos.zw)
 		float gsdist = glyphy_sdf_decode(dist_sample)
 
@@ -755,7 +762,7 @@ class Glyphy{
 		u_distance -= u_boldness / 300.
 		u_distance = u_distance / m * u_contrast
 
-		vec4 out_color = vec4(u_color,1)
+		vec3 out_color = u_color
 
 		if(u_outline)
 			u_distance = abs(u_distance) - u_outline_thickness
@@ -768,9 +775,7 @@ class Glyphy{
 		if(u_gamma_adjust != 1.)
 			alpha = pow(alpha, 1./u_gamma_adjust)
 	
-		out_color = vec4(out_color.rgb, out_color.a * alpha)
-
-		return out_color
+		return vec4(out_color.rgb, alpha)
 	}
 
 	glyphy_draw:(vec4 force){

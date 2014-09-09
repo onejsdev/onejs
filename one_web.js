@@ -15,7 +15,7 @@
 
 // toggle fake worker on or off
 ONE.fake_worker = true
-ONE.ignore_cache = true
+ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
 
