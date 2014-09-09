@@ -41,7 +41,7 @@ Scene{
 					u_boldness = .5 + sin on group
 				}
 				else{
-					u_color = mix(#yellow, #sun, abs on sin on group)
+					u_color = #yellow//mix(#red, #yellow, abs on sin on group)
 					u_boldness =  .5*sin on group
 				}
 				u_outline = true
