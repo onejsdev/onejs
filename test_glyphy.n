@@ -29,7 +29,7 @@ Scene{
 			}
 			text = t
 		}, 1000)
-		font_size = 1.
+		font_size = 20.
 		sdf_cache = false
 		u_outline = false
 		u_boldness:0.5

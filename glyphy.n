@@ -69,6 +69,7 @@ class Glyphy{
 	vertex: mesh[].xy
 	pixel: glyphy_pixel//glyphy_draw(pixel mesh[])
 
+	glyphy_pixel: glyphy_draw(pixel mesh[])
 	glyphy_coords: mesh[].zw
 
 	__text = ''
@@ -270,7 +271,7 @@ class Glyphy{
 	add(text, x, y){
 		if(x === undefined) x = add_px
 		if(y === undefined) y = add_py
-		var length = text.length
+		var length = __text.length
 		if(sdf_cache){
 			glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
 			// alloc a buffer
@@ -332,10 +333,10 @@ class Glyphy{
 			if(py > text_h) text_h = py	
 		}
 		else{
-			glyphy_pixel: glyphy_draw(pixel mesh[])
+			
 			// alloc a buffer
 			vec4[] buf = alloc_mesh
-			var o = 0
+			var o = alloc_off
 			var px = x
 			var py = y + font_size
 			// alright lets convert some text babeh!
@@ -391,12 +392,11 @@ class Glyphy{
 			add_py = py	- font_size
 			if(py > text_h) text_h = py	
 		}
-
 	}
 
 	update(){
 		mesh = alloc_mesh
-		marks = alloc_marks
+		if(alloc_marks) marks = alloc_marks
 	}
 
 	// we build up an sdf texture that we draw to in once:(){}
@@ -823,7 +823,7 @@ class Glyphy{
 		vec2 dpdy = dFdy(p)
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 
-		vec4 out_color = vec4(color,1)//vec4(1,1,1,1)
+		vec3 out_color = u_color
 
 		float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) 
 
@@ -847,10 +847,10 @@ class Glyphy{
 			
 			//ivec2 item_geom = u_atlas_info.xy
 			//color = vec4(float(item_geom.x) / 2048.,0.,0,1.)		
-			out_color = vec4(out_color.rgb, out_color.a * alpha)
+			return vec4(out_color.rgb, alpha)
 		} 
 		else {
-			out_color = vec4(0,0,0,0)
+			vec4 out_color = vec4(0,0,0,0)
 
 			// Color the inside of the glyph a light red
 			out_color += vec4(.5,0,0,.5) * smoothstep(1., -1., sdist)
@@ -870,8 +870,8 @@ class Glyphy{
 			glyphy_arc_list_t arc_list = glyphy_arc_list(p, nominal_size, atlas_pos)
 			// Color the number of endpoints per cell blue
 			out_color += vec4(0,0,1,.1) * float(arc_list.num_endpoints) * 32./255.
-		}
 
-		return out_color
+			return out_color
+		}
 	}
 }

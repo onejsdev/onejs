@@ -17,7 +17,7 @@ Scene{
 		y:10
 		sx:1
 		sy:1
-		font_size = 0.20
+		font_size = 20
 		u_boldness = 0.7
 		ast = style
 	}
