@@ -12,7 +12,7 @@ Scene{
 		var  i = 1.
 		blarp = 0.1
 		//pixel: mix(#orange, #black, .5 + .5 * sin(p.y * 2. + i*time.sec))
-		pixel: #333
+		pixel: #222
 		//pixel:#444
 	}
 	Codeview{
