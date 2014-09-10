@@ -593,7 +593,7 @@ class Draw extends WorkerProxy{
 				UniformTypeExpander(uni.node.infer, uniform_parts, uni.rename || uni.name, uni.rename || uni.name, 0)
 
 				uniform_parts.setters += `
-				}else if(${if_count} == 3){debugger}`
+				}`
 			}
 
 			ret += '\n'+uniform_parts.init

@@ -1232,7 +1232,6 @@ class GenGLSL extends AST.ToCode{
 
 		var source
 		var image
-
 		// fetch image object
 		if(args[0].type == 'This'){
 			source = context_name
@@ -1327,11 +1326,12 @@ class GenGLSL extends AST.ToCode{
 			if(macro.type == 'Function'){
 				// generate GLSL function
 				var params = macro.params
-				var gen = 'macro_' + name
+				var gen = 'macro_' + name 
 				var args = ''
 				var argdef = ''
 				var new_scope = Object.create(null)
 				if(new_context) context = old_context
+				if(new_context) gen += new_context.__proxy__
 
 				for(var i, arg from n.args){
 					if(i) args += ', ', argdef += ', '

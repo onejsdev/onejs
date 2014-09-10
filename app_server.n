@@ -16,7 +16,7 @@ import nodejs
 import htmlscraper
 import math
 
-var live = 1
+var live = 0
 if(live == 2){
 	var addr = "0.0.0.0"
 	var port = 2000
@@ -90,6 +90,20 @@ class StaticServer extends HttpServer{
 		res.writeHead(200)
 		res.end()
 	}
+
+	route("/bake") do( req, res ){
+		out('Received bake')
+		var file = fs.createWriteStream('bake.glf')
+		req.on('data') do(v){
+			file.write(v)
+		}
+		req.on('end') do(){
+			file.end()
+			res.writeHead(200)
+			res.end()
+		}
+	}
+
 
 	if(live) route("/") do( req, res ){
 		var host = req.headers.host

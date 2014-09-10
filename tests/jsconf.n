@@ -2,10 +2,16 @@ import math
 import slides
 import codeview
 import noise
+import warps
 
 Deck{
 	antialias = true
 	selected = 0
+	anim_len = .5
+	transition:(t){
+		return mix(buf_prev.sample(zoom(hp, 1.-t)), buf_next.sample(hp), t)
+	}
+
 	Slide{
 		//pixel:mix(#red,#yellow,abs on sin on time.sec)
 		Title{
