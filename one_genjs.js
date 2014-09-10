@@ -90,6 +90,7 @@ ONE.genjs_ = function(){
 			this.signals = []
 			this.line = 0
 			this.scope = Object.create(null)
+			this.locals = undefined
 			this.type_methods = Object.create(null)
 			this.macro_args = Object.create(null)
 			this.module = module || Object.create(null)
@@ -438,7 +439,11 @@ ONE.genjs_ = function(){
 				}
 				return name
 			}
-			
+
+			if(this.locals && name in this.locals){
+				return '__locals__.'+name
+			}
+
 			if(name in this.globals) return name
 			
 			var type = this.find_type(name)

@@ -1,4 +1,6 @@
 import math
+import gl
+import glscene
 import slides
 import codeview
 import noise
@@ -183,17 +185,21 @@ Deck{
 					}
 
 					class BaseClass{
-						method(){} 
+						method = (arg){
+							member = arg // this is automatic
+						}
 					}
 
 					class SubClass extends BaseClass{
-						method(){
-							MyClass::method() // super call
+						method(arg){
+							MyClass::method(arg) // super call
 						}						
 					}
 
 					var x = SubClass.new() // new method, not operator
-					x.method()
+					x.method() do(){
+						im_in_a_callback()  // callback outside ()
+					}
 
 				}
 			}
@@ -234,7 +240,7 @@ Deck{
 		}
 	}
 	Slide{
-		Title{ text = 'Hello world' }
+		Title{ text = 'The Triangle' }
 		Body{
 			Codeview{
 				x = 10
@@ -251,12 +257,12 @@ Deck{
 			Layer{
 				mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
 				pixel: mix(#orange, #blue, mesh[].y +.75)
-				x: parent.w*.5
-				y: parent.h - 250
+				x: parent.w - 400
+				y: 150
 				ax = 0
 				ay = 0
-				sx = 3
-				sy = -3
+				sx = 5
+				sy = -4
 			}
 		}
 	}
@@ -265,17 +271,60 @@ Deck{
 		Title{
 			text = 'Scenegraph'
 		}
+		Body{
+			var code = :Scene{
+				Layer{
+					w = 300
+					h = 300
+					background = Texture.url('tests/texture.jpg')
+					pixel:background.sample(pixel mesh[])
+					rz:sin(time.sec)*.1
+					Layer{
+						rz:time.sec
+						pixel:mix(#blue, #orange, mesh[].y)
+						Layer{
+							w = 10
+							h = 10
+							pixel:#white
+						}
+					}
+					Text{
+						x: 10
+						sx = sy = :1.+.3sin(time.sec)
+						y: parent.h - 60
+						font_size = 20
+						//u_outline = true
+						u_color = #orange
+						text="Ugliest example ever"
+					}
+				}
+			}
+
+			Codeview{
+				x = 10
+				y = 20
+				// pull out the right node and eval it
+				ast = code
+			}
+			Layer{
+				x:device.w -  400
+				y:50
+				eval(code.body, code)
+			}
+		}
 	}
 
 	Slide{
 		Title{
 			text = 'Interactivity'
 		}
+
+
 	}
 
 	Slide{
 		Title{
-			text = 'DSL creation'
+			text = 'Making slides: a DSL'
 		}
 	}
 

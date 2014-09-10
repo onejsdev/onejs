@@ -23,7 +23,6 @@ class Deck extends Scene{
 		buf_next = Texture.rgba_depth()
 
 		touch.swiperight=
-		mouse.left=
 		key.enter =
 		key.right(v)=>{
 			if(v && selected < children.length - 1){
@@ -32,7 +31,6 @@ class Deck extends Scene{
 		}
 
 		touch.swipeleft =
-		mouse.right = 
 		key.space=
 		key.escape = 
 		key.left(v)=>{
@@ -171,6 +169,7 @@ class Deck extends Scene{
 
 		class Title extends Text{
 			font_size = 80
+			u_outline = true
 			constructor(){
 				Text::constructor()
 				y: 20
@@ -185,6 +184,7 @@ class Deck extends Scene{
 			w: parent.w - 2*x
 			h: parent.h - y - 20
 
+			// lets center bullets
 			class Bullet extends Text{
 
 			}

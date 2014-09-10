@@ -377,6 +377,7 @@ class Codeview extends Text{
 	}
 	Throw(n){//: { arg:1 },
 		Keyword('throw', _Throw)
+		space()
 		expand(n.arg)
 	}
 	Try(n){//: { try:1, arg:1, catch:1, finally:1 },
@@ -629,11 +630,29 @@ class Codeview extends Text{
 		var mygroup = group++
 		expand(n.fn)
 		ParenL(_Call, mygroup)
-		for(var i, args from n.args){
-			if(i) Comma(_Call), space()
-			expand(args)
+		var hasout =0 
+		var post, type
+		for(var len, i, args from n.args){
+			if(n.extarg == 'do' && i == len - 1){
+				type = 'do'
+				post = args
+			}
+			else if(n.extarg == 'on' && i == 0){
+				type = 'on'
+				post = args
+			}
+			else{
+				if(hasout) Comma(_Call), space()
+				expand(args)
+				hasout = 1
+			}
 		}
 		ParenR(_Call, mygroup)
+		if(post){
+			space()
+			Keyword(type, _Call)
+			expand(post)
+		}
 	}
 
 	Nest(n){//: { fn:1, body:1, arrow:0 },
@@ -743,7 +762,10 @@ class Codeview extends Text{
 		else if(type == _Comment){
 			u_color = mix(#777,#ccc,.5+.5*sin(pos.x+pos.y-0.5time.sec))
 		}
-		else {
+		else if(type == _Class){
+			u_color = #sky
+		}
+		else{
 			u_color = #orange
 		}
 	}

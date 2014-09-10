@@ -107,9 +107,12 @@ ONE.ast_ = function(){
 
 		if(ast.module){
 			js.module = ast.module
+			js.locals = ast.locals
 		}
 		else if(module_name && module_name._ast_ && module_name.module){
 			js.module = module_name.module
+			js.debug_flag = 1
+			js.locals = module_name.locals
 		}
 
 		// if passing a function we return that
@@ -142,7 +145,7 @@ ONE.ast_ = function(){
 				else{
 					var prof = flags && flags.indexOf('profile') != -1 && Date.now()
                     
-                    var fn = Function.call(null, '__module__', code)(js.module)
+                    var fn = Function.call(null, '__module__', '__locals__', code)(js.module, js.locals)
                     
 					if(prof) console.log('Profile ' +module_name + ' '+ (Date.now()-prof)+'ms')
 				}
@@ -160,8 +163,8 @@ ONE.ast_ = function(){
 			code = js.type_methods[k] + code
 		}
         
-		var run = Function('__module__', code)
-		return run.call(this, js.module)
+		var run = Function('__module__','__locals__', code)
+		return run.call(this, js.module, js.locals)
 	}
 
 	this.serializeModule = function(module){
@@ -357,7 +360,7 @@ ONE.ast_ = function(){
 			Condition: { test:1, then:1, else:1 },
 
 			New: { fn:1, args:2 },
-			Call: { fn:1, args:2 },
+			Call: { fn:1, args:2, extarg:0 },
 			Nest: { fn:1, body:1, arrow:0 },
 
 			Class: { id:1, base:1, body:1 },
