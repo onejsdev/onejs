@@ -1,3 +1,9 @@
 define zoom(vec2 ip, float t){
 	return (ip - .5)*t + .5
 }
+
+define rotate(vec2 ip, float r){
+	float x = ip.x -.5
+	float y = ip.y -.5
+	return vec2( x*cos(r) - y * sin(r) + .5, x * sin(r) + y * cos(r) + .5)
+}

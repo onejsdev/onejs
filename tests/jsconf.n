@@ -8,7 +8,10 @@ Deck{
 	antialias = true
 	selected = 0
 	anim_len = .5
-	transition:(t){
+
+	transition:(t, to_page){
+		if(mod(to_page,2.) == 0.)
+			return mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
 		return mix(buf_prev.sample(zoom(hp, 1.-t)), buf_next.sample(hp), t)
 	}
 

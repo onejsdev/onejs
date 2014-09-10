@@ -39,7 +39,7 @@ class Deck extends Scene{
 	transition:(float t){
 		return mix(buf_prev.sample(zoom(hp, 1.-t)), buf_next.sample(hp), t)
 	}
-		
+
 	mesh = vec2Rect(-1,-1,2,2)
 	// overload drawChildren
 	drawChildren:(parent, sec){
@@ -76,10 +76,11 @@ class Deck extends Scene{
 				buf_next{
 					next.draw(this, sec)
 				}
+				var slideid = to_slide
 				this{
 					vertex: mesh[]
 					hp: ((pixel mesh[])+1.)/2.
-					pixel: transition(t)
+					pixel: transition(t, slideid)
 				}
 			}
 
