@@ -46,12 +46,14 @@ class Deck extends Scene{
 		}
 	}
 
+	// only render the previous slide to a texture
 	single_transition:(t, to_page){
 		if(mod(to_page,2.) == 0.)
 			return vec4(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)).rgb, 1.-t)
 		return vec4(buf_prev.sample(zoom(hp, 1.-t)).rgb, 1.-t)
 	}
 
+	// render both slides to texture for more advanced transitions
 	dual_transition:(t, to_page){
 		if(mod(to_page,2.) == 0.)
 			return mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
@@ -79,8 +81,10 @@ class Deck extends Scene{
 		}
 	}
 
+	// custom drawchildren to do slide transitions
 	drawChildren:(parent, sec){
 		if(from_slide === undefined) from_slide = selected
+
 		if(from_slide !== selected && !in_anim){
 			time_start = sec
 			to_slide = selected
@@ -89,6 +93,7 @@ class Deck extends Scene{
 			prev_pass = children[from_slide]
 			next_pass = children[to_slide]
 		}
+
 		if(in_anim){
 			var t = (sec - time_start) / anim_len
 			if(t > 1)in_anim = false,  t = 1
@@ -107,7 +112,7 @@ class Deck extends Scene{
 				prev_pass.draw(this, sec)
 				next_pass.draw(this, sec)
 			}
-			else if(transition_mode == 'shader'){
+			else if(transition_mode == 'dual'){
 				if(pass_drawn){
 					var slideid = to_slide
 					this{
@@ -155,6 +160,7 @@ class Deck extends Scene{
 		}
 	}
 	
+	// child classes
 	class Slide extends Layer{
 		x = 0
 		y = 0
@@ -178,6 +184,10 @@ class Deck extends Scene{
 			x: 20
 			w: parent.w - 2*x
 			h: parent.h - y - 20
+
+			class Bullet extends Text{
+
+			}
 		}
 	}
 }

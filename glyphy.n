@@ -55,10 +55,11 @@ class Glyphy{
 	text_h = 0
 
 	sdf_cache = true
+	font_marked = false
 
 	//font = im_port('fonts/code_font1_ascii.glf', 'arraybuffer')
 	//sdf_bake = true
-	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii_baked_low.glf', 'arraybuffer')
 
 	font_size = 10
 	line_height = 1.2
@@ -91,7 +92,7 @@ class Glyphy{
 		if(typeof v !== 'string') v = '<invalid type>'
 		__text = v
 		if(is_initialized){
-			alloc(__text.length)
+			alloc(__text.length, font_marked)
 			add(__text)
 			update()
 		}
@@ -247,13 +248,8 @@ class Glyphy{
 		}
 	}
 
-	mark(text, z, w){
-		var o = alloc_off
-		var length = text.length
-		// resize text mesh buffer
-		if(alloc_off + length *6 > alloc_length){
-			realloc(alloc_off / 6 + length)
-		}
+	mark_direct(off, length, z, w){
+		var o = off
 		vec4[] buf = alloc_marks
 		for(var i = 0; i < length; i++){
 			buf[o].x = 0
@@ -286,7 +282,17 @@ class Glyphy{
 			buf[o].z = z
 			buf[o].w = w
 			o++
+		}		
+	}
+
+	mark(text, z, w){
+		var length = text.length
+		// resize text mesh buffer
+		if(alloc_off + length *6 > alloc_length){
+			realloc(alloc_off / 6 + length)
 		}
+		mark_direct(alloc_off, text.length, z, w)
+
 		add(text)
 	}
 	
@@ -315,9 +321,25 @@ class Glyphy{
 			var o = alloc_off
 			var px = x
 			var py = y + font_size
+			var mark_z, mark_w
 			// alright lets convert some text babeh!
 			for(var i = 0; i < length; i++){
 				var unicode = text.charCodeAt(i)
+
+				if(font_marked && (unicode == 36||unicode==37)){
+					var t = i
+					var next
+					while((next = text.charCodeAt(t+1)) >= 48 && next <=57){
+						t++
+					}
+					if(i != t){
+						var out = parseInt(text.slice(i+1, i-t))
+						if(unicode == 36) mark_z = out
+						else mark_w = out
+						i = t
+						continue
+					}
+				}
 				if(unicode == 10){
 					px = 0
 					py += font_size * line_height
@@ -328,7 +350,7 @@ class Glyphy{
 					px += glyphy_info.glyphs[39].width * font_size
 					continue
 				}
-
+				if(mark_w !== undefined || mark_z !== undefined) mark_direct(o, 1, mark_z, mark_w)
 				// 0___14 
 				// |   /|
 				// |  / |

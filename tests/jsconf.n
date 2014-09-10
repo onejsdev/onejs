@@ -6,7 +6,7 @@ import warps
 
 Deck{
 	antialias = true
-	selected = 0
+	selected = 2
 	anim_len = .5
 
 	single_transition:(t, to_page){
@@ -15,27 +15,158 @@ Deck{
 		return vec4(buf_prev.sample(zoom(hp, 1.-t)).rgb, 1.-t)
 	}
 
-
 	Slide{
-		//pixel:mix(#red,#yellow,abs on sin on time.sec)
 		Title{
 			text = 'JSConf EU 2014!'
 		}
 		Body{
-			pixel:mix(#black,#aero,abs on snoise3(8.p.x,8.p.y,time.sec))
+			pixel:mix(#black,#aero,abs on snoise3(4.p.x,4.p.y,0.1*time.sec))
 		}
 	}
-
 
 	Slide{
 		Title{
 			text = 'Why'
+		}
+		Body{
+			pixel:
+				mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+
+			Bullet{
+				x = 20
+				y = 40
+				font_size = 60
+				font_marked = true
+				text = "$0The $1Creative $0Power\n    of the $2GPU"
+				style:(){
+					var pos = marks[].xy
+					var mark = marks[].z
+					if(mark == 0.){
+						u_color = #white
+					}
+					else if(mark == 1.){
+						u_color = mix(#white,#red,abs on sin on length(pos-.5)*8. - 3.time.sec)
+					}
+					else if(mark == 2.){
+						u_outline = true
+						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_color = mix(#orange,#aero,abs on sin(14.pos.x*sin(time.sec)) * sin(14.pos.y*sin(time.sec) + time.sec))
+					}
+
+				}
+			}
+			Bullet{
+				font_size = 60
+				x = 20
+				y = 200
+				text = "They are everywhere!"
+			}
+			Bullet{
+				font_size = 60
+				x = 20
+				y = 300
+				text = "GPUs are Hard"
+			}
+			Layer{
+				pixel:#111
+				alpha:0.8
+				x = 20
+				y = 400
+				w:device.w - 80
+				h:device.h - y - 140
+				Codeview{
+					font_size = 10
+					u_boldness = 1.2
+					ast = :(){
+						var fs = gl.createShader(gl.FRAGMENT_SHADER)
+						gl.shaderSource(fs, f)
+						gl.compileShader(fs)
+						if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs))
+
+						var vs = gl.createShader(gl.VERTEX_SHADER)
+						gl.shaderSource(vs, v)
+						gl.compileShader(vs)
+						if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs))
+
+						sp = gl.createProgram()
+						gl.attachShader(sp, vs)
+						gl.attachShader(sp, fs)
+						gl.linkProgram(sp)
+
+						gl.bindTexture(gl.TEXTURE_2D, t)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+						gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+						gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+						gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c)
+						gl.bindTexture(gl.TEXTURE_2D, null)
+						gl.bindBuffer(gl.ARRAY_BUFFER, b)
+						gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW)
+						gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
+
+						gl.useProgram(sp)
+						gl.uniform1i(gl.getUniformLocation(sp, '_0'), 0)
+						gl.activeTexture(gl.TEXTURE0)
+						gl.bindTexture(gl.TEXTURE_2D, t)
+						gl.enableVertexAttribArray(cl)
+					}
+				}
+			}
 		}
 	}
 
 	Slide{
 		Title{
 			text = 'GPU?'
+		}
+		Body{
+			Bullet{
+				font_size = 10
+				x = -200
+				y = 50
+				ax = 4
+				ay = 0
+				sx: 0.4 + 8.*pow(8.) on abs on sin(.2time.sec)
+				sy: 0.4 + 8.*pow(8.) on abs on sin(.2time.sec)
+				font_marked = true
+				style:(){
+					var pos = marks[].xy
+					var markxy = marks[].zw * vec2(1.,0.12) - vec2(8.,8.)
+
+					var mark = floor(mod(length(markxy)-time.sec,6.))
+					if(mark == 0.){
+						u_color = #white
+					}
+					else if(mark == 1.){
+						u_color = #orange
+					}
+					else if(mark == 2.){
+						u_outline = true
+						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_color = #aero
+					}
+					else if(mark == 4.){
+						u_outline = false
+						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_color = #red
+					}
+					else if(mark == 5.){
+						u_outline = true
+						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_color = #green
+					}
+				}
+
+				var t = "color = compute(%0x,$11y,$2t) "
+				var out = ''
+				for(var j = 0;j<200;j++){
+					for(var i = 0;i<17;i++) out += '%'+(j)+'$'+(i)+t
+					out += '\n'
+				}
+
+				text = out
+
+			}
 		}
 	}
 
