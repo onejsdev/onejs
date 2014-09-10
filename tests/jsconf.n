@@ -9,13 +9,7 @@ Deck{
 	selected = 0
 	anim_len = .5
 
-	dualtransition:(t, to_page){
-		if(mod(to_page,2.) == 0.)
-			return mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
-		return mix(buf_prev.sample(zoom(hp, 1.-t)), buf_next.sample(hp), t)
-	}
-
-	singletransition:(t, to_page){
+	single_transition:(t, to_page){
 		if(mod(to_page,2.) == 0.)
 			return vec4(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)).rgb, 1.-t)
 		return vec4(buf_prev.sample(zoom(hp, 1.-t)).rgb, 1.-t)
