@@ -56,9 +56,9 @@ class Glyphy{
 
 	sdf_cache = true
 
-	//font = impo_rt('fonts/code_font1_ascii.glf', 'arraybuffer')
-	//sdf_bake = true
-	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
+	//font = im_port('fonts/code_font1_ascii.glf', 'arraybuffer')
+	sdf_bake = true
+	font = import('fonts/code_font1_ascii_baked_low.glf', 'arraybuffer')
 
 	font_size = 10
 	line_height = 1.2
@@ -496,7 +496,7 @@ class Glyphy{
 			if(px + font_size > 1) px = left, py -= maxh, maxh = 0
 		}
 		// lets do a font scaling, and then just stack em horizontally
-		sdf_texture = Texture.rgba(1024, 1024)
+		sdf_texture = Texture.rgba(512, 512)
 
 		sdf_mesh = buf
 
@@ -555,7 +555,6 @@ class Glyphy{
 						pixel: glyphy_sdf_cache(pixel sdf_mesh[])
 					}
 					var data = sdf_header.subarray(sdf_header_offset)
-					console.log(sdf_header.length)
 					gl.readPixels(0,0,sdf_texture.w, sdf_texture.h, gl.RGBA, gl.UNSIGNED_BYTE, data)
 					// ok lets dump the header and the data to disk
 					var xhr = new XMLHttpRequest()
