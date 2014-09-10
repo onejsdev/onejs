@@ -99,7 +99,7 @@ class StaticServer extends HttpServer{
 		else{
 			var m = host.match(/(.*)\.onejs\.io/i)
 			if(!m || !m[1]) root = 'tests/jsconf'
-			else root = m[1].replace(/\./g,'/')
+			else root = m[1].split(/\./).reverse().join('/')//.replace(/\./g,'/')
 		}
 		if(live == 2) root = 'test_scene'
 		var cache_file = 'cache/cache_'+root
