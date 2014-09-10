@@ -16,7 +16,7 @@ import nodejs
 import htmlscraper
 import math
 
-var live = 0
+var live = 1
 if(live == 2){
 	var addr = "0.0.0.0"
 	var port = 2000
@@ -96,7 +96,11 @@ class StaticServer extends HttpServer{
 		var root = ''
 
 		if(typeof host !== 'string' || host.indexOf('localhost') == 0) root = 'index'
-		else root = host.slice(0, host.indexOf('.'))
+		else{
+			var m = host.match(/(.*)\.onejs\.io/i)
+			if(!m || !m[1]) root = 'tests/jsconf'
+			else root = m[1].replace(/\./g,'/')
+		}
 		if(live == 2) root = 'test_scene'
 		var cache_file = 'cache/cache_'+root
 		var exist = await fs.exists(cache_file)
