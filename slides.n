@@ -113,7 +113,7 @@ class Deck extends Scene{
 					this{
 						vertex: mesh[]
 						hp: ((pixel mesh[])+1.)/2.
-						pixel: dualtransition(t, slideid)
+						pixel: dual_transition(t, slideid)
 					}
 				}
 				else{
@@ -127,7 +127,7 @@ class Deck extends Scene{
 					this{
 						vertex: mesh[]
 						hp: ((pixel mesh[])+1.)/2.
-						pixel: singletransition(t, slideid)
+						pixel: single_transition(t, slideid)
 					}
 				}
 				else{
