@@ -44,7 +44,7 @@ Scene{
 		}
 		w = 400, h = 400
 		rz: midi.c11*10
-		tex = Texture.url('test_texture.jpg')
+		tex = Texture.url('tests/texture.jpg')
 		pixel: tex.sample(p) * (max(0.) do sin on length(hp) - midi.cc2*20.)
 		Layer{
 			rz: mouse.x * deg
