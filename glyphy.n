@@ -56,7 +56,7 @@ class Glyphy{
 
 	sdf_cache = true
 
-	//font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
+	//font = impo_rt('fonts/code_font1_ascii.glf', 'arraybuffer')
 	//sdf_bake = true
 	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
 
