@@ -56,7 +56,10 @@ class Glyphy{
 
 	sdf_cache = true
 
-	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
+	//font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
+	//sdf_bake = true
+	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
+
 	font_size = 10
 	line_height = 1.2
 	value = ''
@@ -69,7 +72,6 @@ class Glyphy{
 	vertex: mesh[].xy
 	pixel: glyphy_pixel//glyphy_draw(pixel mesh[])
 
-	
 
 	glyphy_coords: mesh[].zw
 
@@ -131,44 +133,73 @@ class Glyphy{
 		vfloat32 = new Float32Array(blob)
 		vuint8 = new Uint8Array(blob)
 
-		if(vuint32[0] != 0x01F01175){
-			throw new Error('Error in font file')
-		}
+		var info = {}
+		glyphy_info = info
 
-		var info = glyphy_info = {}
+		if(vuint32[0] == 0x02F01175){ // baked format
+			info.baked = true
+			// lets parse the glyph set
+			info.tex_w = vuint16[2]
+			info.tex_h = vuint16[3]
+			var length = info.count = vuint32[2]
 
-		// lets parse the glyph set
-		info.tex_w = vuint16[2]
-		info.tex_h = vuint16[3]
-		info.item_w = vuint16[4]
-		info.item_h = vuint16[5]
+			if(length>10000) throw new Error('Font seems incorrect')
+			var off = 3
 
-		var length = info.count = vuint32[3] / (7*4)
-
-		if(length>10000) throw new Error('Font seems incorrect')
-		var off = 4
-
-		var glyphs = info.glyphs = {}
-		for(var i = 0;i<length;i++){
-			var unicode = vuint32[off++]
-			var glyph = glyphs[unicode] = {
-				min_x: vfloat32[off++]
-				min_y: vfloat32[off++]
-				max_x: vfloat32[off++]
-				max_y: vfloat32[off++]
-				advance: vfloat32[off++]
-				nominal_w: vuint8[off*4]
-				nominal_h: vuint8[off*4+1]
-				atlas_x: vuint8[off*4+2]
-				atlas_y: vuint8[off*4+3]
+			var glyphs = info.glyphs = {}
+			for(var i = 0;i<length;i++){
+				var unicode = vuint32[off++]
+				var glyph = {
+					min_x: vfloat32[off++]
+					min_y: vfloat32[off++]
+					max_x: vfloat32[off++]
+					max_y: vfloat32[off++]
+					advance: vfloat32[off++]
+					tmin_x: vfloat32[off++]
+					tmin_y: vfloat32[off++]
+					tmax_x: vfloat32[off++]
+					tmax_y: vfloat32[off++]
+				}				
+				glyphs[unicode] = glyph
+				glyph.width = glyph.max_x - glyph.min_x 
+				glyph.height = glyph.max_y - glyph.min_y
 			}
-			glyph.width = glyph.max_x - glyph.min_x 
-			glyph.height = glyph.max_y - glyph.min_y
-
-			off++
+			info.sdf_texture = Texture.array(blob.slice(off * 4), info.tex_w, info.tex_h)
 		}
+		else if(vuint32[0] == 0x01F01175){ // glyphy format
+			// lets parse the glyph set
+			info.tex_w = vuint16[2]
+			info.tex_h = vuint16[3]
+			info.item_w = vuint16[4]
+			info.item_h = vuint16[5]
 
-		info.atlas = Atlas.array(blob.slice(off * 4), info.tex_w, info.tex_h)
+			var length = info.count = vuint32[3] / (7*4)
+
+			if(length>10000) throw new Error('Font seems incorrect')
+			var off = 4
+
+			var glyphs = info.glyphs = {}
+			for(var i = 0;i<length;i++){
+				var unicode = vuint32[off++]
+				var glyph = glyphs[unicode] = {
+					min_x: vfloat32[off++]
+					min_y: vfloat32[off++]
+					max_x: vfloat32[off++]
+					max_y: vfloat32[off++]
+					advance: vfloat32[off++]
+					nominal_w: vuint8[off*4]
+					nominal_h: vuint8[off*4+1]
+					atlas_x: vuint8[off*4+2]
+					atlas_y: vuint8[off*4+3]
+				}
+				off++
+				glyph.width = glyph.max_x - glyph.min_x 
+				glyph.height = glyph.max_y - glyph.min_y
+			}
+			info.atlas = Atlas.array(blob.slice(off * 4), info.tex_w, info.tex_h)
+		}
+		else throw new Error('Error in font file')
+
 		return glyphy_font_cache[name] = info
 	}
 
@@ -479,15 +510,71 @@ class Glyphy{
 
 		glyphy_coords: sdf_mesh[].zw
 
-		once:(){
-			// in this once, we generate our font texture.
-			sdf_texture{
-				clearAll(#black)
-				this{
-					vertex:sdf_mesh[].xy
-					pixel: glyphy_sdf_cache(pixel sdf_mesh[])
+		if(sdf_bake){
+			// lets re-encode our glyph table
+			var header = 12 + info.count * 10 * 4 
+			var body = sdf_texture.w_ * sdf_texture.h_ * 4
+
+			var data = new Uint8Array(header + body)
+			var vuint32 = new Uint32Array(data.buffer)
+			var vfloat32 = new Float32Array(data.buffer)
+			var vuint16 = new Uint16Array(data.buffer)
+
+			var off = 0
+			vuint32[off++] = 0x02F01175
+			vuint16[2] = sdf_texture.w_
+			vuint16[3] = sdf_texture.h_
+			off++
+			vuint32[off++] = info.count
+			var glyphs = info.glyphs
+			for(var unicode in glyphs){
+				var glyph = glyphs[unicode]
+				vuint32[off++] = unicode
+				vfloat32[off++] = glyph.min_x
+				vfloat32[off++] = glyph.min_y
+				vfloat32[off++] = glyph.max_x
+				vfloat32[off++] = glyph.max_y
+				vfloat32[off++] = glyph.advance
+				vfloat32[off++] = glyph.tmin_x
+				vfloat32[off++] = glyph.tmin_y
+				vfloat32[off++] = glyph.tmax_x
+				vfloat32[off++] = glyph.tmax_y
+			}
+			data._t_ = 1
+
+			// lets send the data over
+			sdf_header = data
+			sdf_header_offset = header
+
+			once:(){
+				// in this once, we generate our font texture.
+				sdf_texture{
+					clearAll(#black)
+					this{
+						vertex:sdf_mesh[].xy
+						pixel: glyphy_sdf_cache(pixel sdf_mesh[])
+					}
+					var data = sdf_header.subarray(sdf_header_offset)
+					console.log(sdf_header.length)
+					gl.readPixels(0,0,sdf_texture.w, sdf_texture.h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+					// ok lets dump the header and the data to disk
+					var xhr = new XMLHttpRequest()
+					xhr.open("POST", "/bake", false)
+					xhr.send(sdf_header)
 				}
 			}
+		}
+		else{
+			once:(){
+				// in this once, we generate our font texture.
+				sdf_texture{
+					clearAll(#black)
+					this{
+						vertex:sdf_mesh[].xy
+						pixel: glyphy_sdf_cache(pixel sdf_mesh[])
+					}
+				}
+			}			
 		}
 	}
 	
