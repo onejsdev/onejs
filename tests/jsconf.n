@@ -126,8 +126,8 @@ Deck{
 				y = 50
 				ax = 4
 				ay = 0
-				sx: 0.4 + 8.*pow(8.) on abs on sin(.2time.sec)
-				sy: 0.4 + 8.*pow(8.) on abs on sin(.2time.sec)
+				sx: 0.4 + 8.*pow(8.) on abs on sin(.1time.sec)
+				sy: 0.4 + 8.*pow(8.) on abs on sin(.1time.sec)
 				font_marked = true
 				style:(){
 					var pos = marks[].xy
@@ -157,7 +157,7 @@ Deck{
 					}
 				}
 
-				var t = "color = compute(%0x,$11y,$2t) "
+				var t = "color = compute(x,y,t) "
 				var out = ''
 				for(var j = 0;j<200;j++){
 					for(var i = 0;i<17;i++) out += '%'+(j)+'$'+(i)+t
