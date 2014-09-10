@@ -7,7 +7,7 @@ define text_hcenter parent.w*.5 - text_w*.5
 define text_vcenter parent.h*.5 - text.h*.5
 
 var key = Key.new()
-
+var mouse = Mouse.new()
 
 class Deck extends Scene{
 
@@ -15,11 +15,16 @@ class Deck extends Scene{
 	anim_len = .2
 
 	constructor(){
+		mouse.left=
+		key.enter =
 		key.right(v)=>{
 			if(v && selected < children.length - 1){
 				selected++
 			}
 		}
+		mouse.right = 
+		key.space=
+		key.escape = 
 		key.left(v)=>{
 			if(v && selected > 0){
 				selected --
