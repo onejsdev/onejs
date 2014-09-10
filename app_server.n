@@ -99,10 +99,10 @@ class StaticServer extends HttpServer{
 		else{
 			var m = host.match(/(.*)\.onejs\.io/i)
 			if(!m || !m[1]) root = 'tests/jsconf'
-			else root = m[1].split(/\./).reverse().join('/')//.replace(/\./g,'/')
+			else root = m[1].split(/\./).reverse().join('/')
 		}
 		if(live == 2) root = 'test_scene'
-		var cache_file = 'cache/cache_'+root
+		var cache_file = 'cache/cache_'+root.replace(/\//g,'_')
 		var exist = await fs.exists(cache_file)
 		var header = {
 			"Cache-control":"max-age=0"
