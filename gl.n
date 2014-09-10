@@ -80,8 +80,8 @@ class Draw extends WorkerProxy{
 		gl.clear(gl.DEPTH_BUFFER_BIT)
 	}
 	
-	drawChildren:(parent){
-		if(children) for(var c from children) c.draw(parent || this)
+	drawChildren:(parent, sec){
+		if(children) for(var c from children) c.draw(parent || this, sec)
 	}
 	
 	// default draw
@@ -570,6 +570,7 @@ class Draw extends WorkerProxy{
 				
 				var if_str = ''
 				var as_str = ''
+				var if_count = 0
 				for(var k in deps){
 					var dist = deps[k]
 					var name 
@@ -577,9 +578,12 @@ class Draw extends WorkerProxy{
 					else name = 'this.' + Array(dist).join('parent.') + k
 					var store = k.replace('.', '_')
 					if(if_str)if_str += ' || ', as_str += ', '
+					if(if_dbg)if_dbg += ', ', if_dbg2 += '+'
 					if_str += `shader.uv_${uni.name}_${store}_${guid} !== ${name}`
 					as_str += `shader.uv_${uni.name}_${store}_${guid} = ${name}`
+					if_count ++
 				}
+
 				if(!if_str) if_str = 'shader.once_' + if_id + ' !== '+guid, as_str = 'shader.once_' + if_id + ' = ' + guid
 				uniform_parts.setters += `
 				if(${if_str}){
@@ -589,7 +593,7 @@ class Draw extends WorkerProxy{
 				UniformTypeExpander(uni.node.infer, uniform_parts, uni.rename || uni.name, uni.rename || uni.name, 0)
 
 				uniform_parts.setters += `
-				}`
+				}else if(${if_count} == 3){debugger}`
 			}
 
 			ret += '\n'+uniform_parts.init
@@ -840,11 +844,12 @@ class Draw extends WorkerProxy{
 		js.uid = 0
 		js.store_tempid = 1
 		js.store_pretemp = 'this._store1._'
-		code += 'this._store1 = {}, this._store2 = {}\n'
-		
+
+		code += 'this._constructor = function(){ this._store1 = {}, this._store2 = {} }\n'
 		if(debug_draw) debug_draw(js)
 
 		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store;this._dirty = false;'
+
 		if(draw){
 			var flags = js.pull_flags(draw)
 			if(draw.type != 'Function') throw new Error('GL Draw not a function')
@@ -1224,9 +1229,9 @@ class Device extends Draw{
 	preserveDrawingBuffer = false
 	preferLowPowerToHighPerformance = false
 
-	draw:(){
+	draw:(parent, sec){
 		if(fill) clearAll(fill)
-		drawChildren(this)
+		drawChildren(this, sec)
 	}
 
 	// signal a redraw
@@ -1273,7 +1278,7 @@ class Device extends Draw{
 			p.pass(sec)
 		}
 
-		draw()
+		draw(this, sec)
 
 		if(time.hasBinds('sec')){
 			if(!anim_req){

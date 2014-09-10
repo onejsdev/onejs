@@ -92,59 +92,40 @@ class Mouse extends WorkerProxy{
 	}
 }
 
-class Key extends Base{
+class Key extends WorkerProxy{
+	
+	signal down, up, press
 
-	function init(){
-		var key = this
-		function keyupdown_toString(){
-			return browserKeyTable[ this.code ]
-		}
+	$constructor:(){
+		window.addEventListener('keydown') do(e)=>{
+			var k = browserKeyTable[ e.keyCode ]
+			if( k ) this[ k ] = 1
+			down = {	
+				repeat: e.repeat
+				code: e.keyCode
 
-		function makeKeyUpDownSignal( repeat, code ){
-			return {
-				repeat: repeat,
-				code: code,
-				toString: keyupdown_toString
 			}
 		}
-		function press_toString(){
-			return String.fromCharCode( this.code )
+
+		window.addEventListener('keyup') do(e)=>{
+			var k = browserKeyTable[ e.keyCode ]
+			if( k ) this[ k ] = 0
+			up = {
+				repeat: e.repeat
+				code: e.keyCode
+			}
 		}
 
-		window.addEventListener('keydown', function(e){
-			var t = e.toElement || e.target
-			var k = browserKeyTable[ e.keyCode ]
-			if( k ) key[ k ] = 1
-			var sig = makeKeyUpDownSignal( e.repeat, e.keyCode )
-			key.key = sig
-			if( !t || !t.one_node ) return
-			t.one_node.keydown = sig
-		})
-
-		window.addEventListener('keyup', function(e){
-			var t = e.toElement || e.target
-			var k = browserKeyTable[ e.keyCode ]
-			if( k ) key[ k ] = 0
-			var sig = makeKeyUpDownSignal( e.repeat, e.keyCode )
-
-			if( !t || !t.one_node ) return
-			t.one_node.keyup = sig
-		})
-
-		window.addEventListener('keypress', function(e){
-			var t = e.toElement || e.target
-			var sig = {
-				repeat: e.repeat,
-				code: e.charCode,
-				toString: press_toString
+		window.addEventListener('keypress') do(e)=>{
+			press = {
+				repeat: e.repeat
+				code: e.charCode
 			}
-			key.press = sig
-			if( !t || !t.one_node ) return
-			t.one_node.keypress = sig
-		})
+		}
 	}
 
-	var browserKeyTable = { // slap a usable name on keys
+	browserKeyTable = { // slap a usable name on keys
+		_t_:1, // flag for transfer
 		8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',
 		19:'pause',20:'caps',27:'escape',
 		32:'space',33:'pgup',34:'pgdn',
@@ -169,16 +150,8 @@ class Key extends Base{
 
 	for(var k in browserKeyTable){
 		var key = browserKeyTable[ k ]
-		this[ k ] = key
 		signal( key, 0 )
 	}
-	signal press, key
-
-	cmd: leftmeta || rightmeta
-	meta: leftmeta || rightmeta
-	
-	wasd: [ a?-1:d?1:0, w?-1:s?1:0 ]
-	arrows: [ left?-1:right?1:0, up?-1:down?1:0 ]
 }
 
 class Touch extends WorkerProxy{

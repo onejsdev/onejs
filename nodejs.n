@@ -47,6 +47,7 @@ class fs{
 		})
 	}
 	createReadStream(file) -> _fs.createReadStream(file)
+	createWriteStream(file) -> _fs.createWriteStream(file)
 
 	// fast file watcher
 	var stats = {}

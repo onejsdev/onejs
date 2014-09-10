@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = true
+ONE.fake_worker = false
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
@@ -592,7 +592,10 @@ ONE.proxy_ = function(){
 			if(msg.__class__) this.__class__ = msg.__class__
 
 			if(!this.hasOwnProperty('__class__')){
-				if(!isupdate && this.constructor) this.constructor()
+				if(!isupdate){
+					if(this._constructor) this._constructor()
+					if(this.constructor) this.constructor()
+				}
 				if(this._initBinds) this._initBinds()
 			}
 		}
@@ -611,7 +614,7 @@ ONE._createWorker = function(){
 		'\nONE.base_ = ' + ONE.base_.toString() +
 		'\nONE.proxy_ = ' + ONE.proxy_.toString() +
 		'\nONE.ast_ = ' + ONE.ast_.toString() +
-		'\nONE.zlib_ = ' + ONE.zlib_.toString() +
+		'\nONE.zlib_ = ' + (ONE.zlib_?ONE.zlib_.toString():'undefined') +
 		'\nONE.genjs_ = ' + ONE.genjs_.toString() +
 		'\nONE.genjs_compat_ = ' + ONE.genjs_compat_.toString() +
 		'\nONE.color_ = ' + ONE.color_.toString() +

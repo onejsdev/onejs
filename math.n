@@ -244,6 +244,213 @@ define dFdx(vec3 v) vec3.dFdx(v)
 define dFdx(vec4 v) vec4.dFdx(v)
 define dFdx(v)      v
 
+define easeLinear(t){
+	return t
+}
+
+define easeInQuad(t){
+	return t*t
+}
+
+define easeOutQuad(t){
+	return -t*(t-2.) 
+}
+
+define easeInOutQuad(t){
+	return (t/=0.5) < 1. ? 0.5*t*t : -0.5 * ((--t)*(t-2.) - 1.) 
+}
+
+define easeInCubic(t){
+	return t*t*t 
+}
+
+define easeOutCubic(t){
+	return ((t=t-1)*t*t + 1) 
+}
+
+define easeInOutCubic(t){
+	return (t/=0.5) < 1. ? 0.5*t*t*t : 1. /2.*((t-=2.)*t*t + 2.) 
+}
+
+define easeInQuart(t){
+	return t*t*t*t 
+}
+
+define easeOutQuart(t){
+	return -((t=t-1.)*t*t*t - 1.) 
+}
+
+define easeInOutQuart(t){
+	return (t/=0.5) < 1. ? 0.5*t*t*t*t : -0.5 * ((t-=2.)*t*t*t - 2.) 
+}
+
+define easeInQuint(t){
+	return t*t*t*t*t 
+}
+
+define easeOutQuint(t){
+	return ((t=t-1.)*t*t*t*t + 1.) 
+}
+
+define easeInOutQuint(t){
+	return (t/=0.5) < 1. ? 0.5*t*t*t*t*t : 0.5*((t-=2.)*t*t*t*t + 2.) 
+}
+
+define easeInSine(t){
+	return -cos(t * (PI/2.)) + 1. 
+}
+
+define easeOutSine(t){
+	return sin(t * (PI/2.))
+}
+
+define easeInOutSine(t){
+	return -0.5 * (cos(PI*t) - 1.) 
+}
+
+define easeInExpo(t){
+	return (t==0.)? 0.: pow(2., 10. * (t - 1.)) 
+}
+
+define easeOutExp(t){
+	return (t==1.)? 1.: (-pow(2., -10. * t) + 1.) 
+}
+
+define easeInCirc(t){
+	return - (sqrt(1. - t*t) - 1.)
+}
+
+define easeOutCirc(t){
+	return sqrt(1. - (t=t-1.)*t) 
+}
+
+define easeInOutCirc(t){
+	return (t/=0.5) < 1.? -0.5 * (sqrt(1. - t*t) - 1.): 0.5 * (sqrt(1. - (t-=2.)*t) + 1.) 
+}
+
+define easeInOutExpo(t){
+	if (t==0.) return 0.
+	if (t==1.) return 1.
+	if ((t/=0.5) < 1.) return 0.5 * Math.pow(2., 10. * (t - 1.)) 
+	return 0.5 * (-Math.pow(2., -10. * --t) + 2.) 
+}
+
+define easeInElastic(t){
+	var s=1.70158, p=0., a=1.;
+	if (t==0.) return 0.
+	if (t==1.) return 1.
+	if (!p) p=0.3
+	if (a < 1.) { a=1.; var s=p/4. }
+	else var s = p/(2.*PI) * asin(1./a)
+	return -(a*pow(2.,10.*(t-=1.)) * sin( (t*1.-s)*(2.*PI)/p )) 
+}
+
+define easeOutElastic(t){
+	var s=1.70158, p=0., a=1.
+	if (t==0.) return 0.
+	if (t==1.) return 1.
+	if (!p) p=1.*0.3
+	if (a < 1.) { a=1.; var s=p/4.; }
+	else var s = p/(2.*PI) * asin (1./a)
+	return a*pow(2.,-10.*t) * sin( (t*1.-s)*(2.*PI)/p ) + 1. 
+}
+
+define easeInOutElastic(t){
+	var s=1.70158, p=0., a=1.
+	if (t==0.) return 0.
+	if ((t/=0.5)==2.) return 1.
+	if (!p) p=(0.3*1.5)
+	if (a < 1.) { a=1.; var s=p/4.; }
+	else var s = p/(2.*PI) * asin (1./a)
+	if (t < 1.) return -.5*(a*pow(2.,10.*(t-=1.)) * sin( (t*1.-s)*(2.*PI)/p )) 
+	return a*pow(2.,-10.*(t-=1.)) * sin( (t*1.-s)*(2.*PI)/p )*0.5 + 1.
+}
+
+define easeInBack(t){
+	var s = 1.70158
+	return (t/=1.)*t*((s+1.)*t - s) 
+}
+
+define easeInBack(t, s){
+	return (t/=1.)*t*((s+1.)*t - s) 
+}
+
+define easeOutBack(t){
+	var s = 1.70158
+	return ((t=t/1-1)*t*((s+1)*t + s) + 1) 
+}
+
+define easeOutBack(t, s){
+	return ((t=t/1-1)*t*((s+1)*t + s) + 1) 
+}
+
+define easeInOutBack(t)->{
+	var s = 1.70158
+	if ((t/=0.5) < 1.) return 0.5*(t*t*(((s*=(1.525))+1.)*t - s)) 
+	return 0.5*((t-=2.)*t*(((s*=(1.525))+1.)*t + s) + 2.) 
+}
+
+define easeInOutBack(t, s)->{
+	if ((t/=0.5) < 1.) return 0.5*(t*t*(((s*=(1.525))+1.)*t - s)) 
+	return 0.5*((t-=2.)*t*(((s*=(1.525))+1.)*t + s) + 2.) 
+}
+
+define easeInBounce(t){
+	return 1. - easeOutBounce(1.-t) 
+}
+
+define easeOutBounce(t){
+	if (t < (1./2.75)) return (7.5625*t*t) 
+	else if (t < (2./2.75)) return (7.5625*(t-=(1.5/2.75))*t + 0.75) 
+	else if (t < (2.5/2.75)) return (7.5625*(t-=(2.25/2.75))*t + 0.9375) 
+	return (7.5625*(t-=(2.625/2.75))*t + .984375) 
+}
+
+define easeInOutBounce(t){
+	if (t < 0.5) return easeInBounce (t*2.) * 0.5 
+	return easeOutBounce (t*2.-1.) * 0.5 + 0.5 
+}
+
+define easeQuad(t){
+	return easeOutQuad(t)
+}
+
+define easeCubic(t){
+	return easeInOutCubic(t)
+}
+
+define easeQuart(t){
+	return easeOutQuart(t)
+}
+
+define easeQuint(t){
+	return easeOutQuint(t)
+}
+
+define easeSine(t){
+	return easeOutSine(t)
+}
+
+define easeExpo(t){
+	return easeOutExpo(t)
+}
+
+define easeElastic(t){
+	return easeOutElastic(t)
+}
+
+define easeCirc(t){
+	return easeOutCirc(t)
+}
+
+define easeBack(t){
+	return easeInOutBack(t)
+}
+
+define easeBounce(t){
+	return easeOutBounce(t)
+}
+	
 
 struct vec{
 

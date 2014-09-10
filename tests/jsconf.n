@@ -1,28 +1,107 @@
 import math
 import slides
 import codeview
+import noise
 
 Deck{
 	antialias = true
+	selected = 0
 	Slide{
-		Title{ text = 'Hello OneJS' }
+		//pixel:mix(#red,#yellow,abs on sin on time.sec)
+		Title{
+			text = 'JSConf EU 2014!'
+		}
+		Body{
+			pixel:mix(#black,#aero,abs on snoise3(8.p.x,8.p.y,time.sec))
+		}
+	}
+
+
+	Slide{
+		Title{
+			text = 'Why'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'GPU?'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'The Language'
+		}
+	}
+
+	Slide{
+		Title{ text = 'Hello world' }
 		Body{
 			Codeview{
 				x = 10
 				y = 20
-				var code = :(){
-					Device{
-						Draw{
-							mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
-							vertex: mesh[]
-							pixel: mix(#orange,#blue,mesh[].y +.75)
-						}
+				// pull out the right node and eval it
+				ast = :Device{
+					Draw{
+						mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
+						vertex: mesh[]
+						pixel: mix(#orange, #blue, mesh[].y +.75)
 					}
 				}
-				// pull out the right node and eval it
-				ast = code.body.steps[0]
-				eval(ast.body.steps[0], code)
 			}
+			Layer{
+				mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
+				pixel: mix(#orange, #blue, mesh[].y +.75)
+				x: parent.w*.5
+				y: parent.h - 250
+				ax = 0
+				ay = 0
+				sx = 3
+				sy = -3
+			}
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Scenegraph'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Interactivity'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'DSL creation'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Awesomeness'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Today'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Future'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Closing'
 		}
 	}
 }

@@ -53,7 +53,7 @@ class Scene extends Device{
 
 	// allright so lets solve our layout..
 	m_view = mat4.identity()//mat4.RT(0,0,0, 0,0,3)
-	draw:(){
+	draw:(parent, sec){
 		vec3 f = fill
 		clearAll(f)
 		m_proj = mat4.ortho(0, frame.w / frame.ratio, 0, frame.h / frame.ratio, -1000, 1000)
@@ -61,7 +61,7 @@ class Scene extends Device{
 		// silently assign camera matrix
 		__m_camera = mat4 m_view * mat4 m_proj 
 		m_childworld = mat4.identity()
-		drawChildren(this) 
+		drawChildren(this, sec) 
 	}
 }
 
@@ -84,7 +84,7 @@ class Layer extends Draw{
 	p: pixel mesh[]
 	hp: 2.*(pixel mesh[] -.5)
 
-	draw:(parent){
+	draw:(parent, sec){
 		mat4 m_parent = parent.m_childworld
 		// set our matrix
 		var dx = ax*w, dy = ay*h, dz = az*d
@@ -100,8 +100,9 @@ class Layer extends Draw{
 		this{}
 		// now lets make these things work
 		if(children){
+			//console.log(x,y,__proxy__,w,h)
 			m_childworld = m_child * m_world
-			drawChildren(this)
+			drawChildren(this, sec)
 		}
 	}
 	// anchor
