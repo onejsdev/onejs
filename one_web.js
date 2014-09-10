@@ -1106,7 +1106,7 @@ ONE.browser_boot_ = function(){
 	function init(){
 		var loader = {}
 		// when do we resolve a module? when all its deps have been loaded.
-		function load_dep( module_name ){
+		function load_dep( module_name, parent ){
 			// lets load a module
 			return ONE.Base.wrapSignal(function(sig){
 				var url = module_name + '.n'
@@ -1120,14 +1120,15 @@ ONE.browser_boot_ = function(){
 				data_sig.then(function(value){
 					// okay lets scan for our dependencies
 					var all = []
-					value = value.replace(/import\s*\(\s*[\'\"]([^\'\"]*?)[\'\"](?:\s*,\s*[\'\"]([^\'\"]*?)[\'\"])?\s*\)/g, function(m, url, responseType){
-						worker.sendToWorker({_type:'import', url:url, responseType:responseType})
-						return ''
-					})
+					if(first){
+						value = value.replace(/import\s*\(\s*[\'\"]([^\'\"]*?)[\'\"](?:\s*,\s*[\'\"]([^\'\"]*?)[\'\"])?\s*\)/g, function(m, url, responseType){
+							worker.sendToWorker({_type:'import', url:url, responseType:responseType})
+							return ''
+						})
+					}
 					value.replace(/import\s+(\w+)/g, function(m, mod){
-						all.push(load_dep(mod))
+						all.push(load_dep(mod, module_name))
 					})
-
 
 					ONE.Base.allSignals(all).then(function(){
 						if(first){
@@ -1149,7 +1150,7 @@ ONE.browser_boot_ = function(){
 				})
 			})
 		}
-		load_dep(root).then(function(){
+		load_dep(root, 'boot').then(function(){
 			// lets make the proxy_cache key 
 			var nodes = Object.keys(cache_db.source).sort()
 			// build a very crappy cache key. in the future we use module names
