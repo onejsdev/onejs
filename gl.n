@@ -1278,7 +1278,7 @@ class Device extends Draw{
 		for(var p from passes){
 			p.pass(sec)
 		}
-
+		if(pass) pass(sec)
 		draw(this, sec)
 
 		if(time.hasBinds('sec')){

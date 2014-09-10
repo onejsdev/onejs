@@ -15,9 +15,11 @@ class Deck extends Scene{
 
 	selected = 0
 	anim_len = .2
-	mode = 'shader'
+
+	transition_mode = 'single' // 'dual' 'slide'
+
 	constructor(){
-		buf_prev = Texture.rgba_depth(.5,.5)
+		buf_prev = Texture.rgba_depth()
 		buf_next = Texture.rgba_depth()
 
 		touch.swiperight=
@@ -43,29 +45,57 @@ class Deck extends Scene{
 			// depending on the direction yr swiping we transition between slides
 		}
 	}
-	
-	transition:(float t){
+
+	single_transition:(t, to_page){
+		if(mod(to_page,2.) == 0.)
+			return vec4(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)).rgb, 1.-t)
+		return vec4(buf_prev.sample(zoom(hp, 1.-t)).rgb, 1.-t)
+	}
+
+	dual_transition:(t, to_page){
+		if(mod(to_page,2.) == 0.)
+			return mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
 		return mix(buf_prev.sample(zoom(hp, 1.-t)), buf_next.sample(hp), t)
 	}
 
 	mesh = vec2Rect(-1,-1,2,2)
+	
 	// overload drawChildren
+	pass:(sec){
+		if(in_anim){
+			if(transition_mode != 'slide'){
+				if(buf_prev_done != prev_pass)
+				buf_prev{
+					buf_prev_done = prev_pass
+					prev_pass.draw(this, sec)
+				}
+				if(transition_mode != 'single'){
+					buf_next{
+						next_pass.draw(this, sec)
+					}
+				}
+				pass_drawn = 1
+			}
+		}
+	}
+
 	drawChildren:(parent, sec){
 		if(from_slide === undefined) from_slide = selected
 		if(from_slide !== selected && !in_anim){
 			time_start = sec
 			to_slide = selected
 			in_anim = true
+			pass_drawn = false
+			prev_pass = children[from_slide]
+			next_pass = children[to_slide]
 		}
 		if(in_anim){
 			var t = (sec - time_start) / anim_len
 			if(t > 1)in_anim = false,  t = 1
 
 			t = easeQuad(t)
-			var next = children[to_slide]
-			var prev = children[from_slide]
 
-			if(mode == 'slide'){
+			if(transition_mode == 'slide'){
 				if(to_slide>from_slide){
 					prev.x = -w*t
 					next.x = w*(1-t)
@@ -74,34 +104,45 @@ class Deck extends Scene{
 					prev.x = w*t
 					next.x = -w*(1-t)
 				}
-				prev.draw(this, sec)
-				next.draw(this, sec)
+				prev_pass.draw(this, sec)
+				next_pass.draw(this, sec)
 			}
-			else if(mode == 'shader'){
-				if(buf_prev_update != prev)
-				buf_prev{
-					buf_prev_update = prev
-					prev.draw(this, sec)
+			else if(transition_mode == 'shader'){
+				if(pass_drawn){
+					var slideid = to_slide
+					this{
+						vertex: mesh[]
+						hp: ((pixel mesh[])+1.)/2.
+						pixel: dualtransition(t, slideid)
+					}
 				}
-				//if(buf_next_update != next)
-				buf_next{
-				//	buf_next_update = next
-					next.draw(this, sec)
-				}
-				var slideid = to_slide
-				this{
-					vertex: mesh[]
-					hp: ((pixel mesh[])+1.)/2.
-					pixel: transition(t, slideid)
+				else{
+					prev_pass.draw(this, sec)
 				}
 			}
-
+			else if(transition_mode == 'single'){
+				if(pass_drawn){
+					var slideid = to_slide
+					next_pass.draw(this, sec)
+					this{
+						vertex: mesh[]
+						hp: ((pixel mesh[])+1.)/2.
+						pixel: singletransition(t, slideid)
+					}
+				}
+				else{
+					prev_pass.draw(this, sec)
+				}
+			}
 			if(!in_anim){
 				if(to_slide != selected){
 					time_start = sec
 					from_slide = to_slide
 					to_slide = selected
+					pass_drawn = false
 					in_anim = true
+					prev_pass = children[from_slide]
+					next_pass = children[to_slide]
 				}
 				else from_slide = to_slide
 			}
@@ -113,7 +154,7 @@ class Deck extends Scene{
 			if(c) c.draw(this, sec)
 		}
 	}
-
+	
 	class Slide extends Layer{
 		x = 0
 		y = 0
