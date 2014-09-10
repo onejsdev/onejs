@@ -1075,15 +1075,16 @@ class Texture extends WorkerProxy{
 		}
 
 		var width = 0
-		if(img.w_ === null) width = old_frame.w
-		else if(img.w_ <= 1) width = old_frame.w * img.w_
+		var ratio = 1
+
+		if(img.w_ === null) width = old_frame.w, ratio = old_frame.ratio
+		else if(img.w_ <= 1) width = old_frame.w * img.w_, ratio = 1
 		else width = img.w_
 
-
 		var height = 0
-		if(img.h_ === null) height = old_frame.h
-		else if(img.h_ <= 1) height = old_frame.h * img.h_
-		else height = img.h_
+		if(img.h_ === null) height = old_frame.h, ratio = old_frame.ratio
+		else if(img.h_ <= 1) height = old_frame.h * img.h_, ratio = 1
+		else height = img.h_, ratio = 1
 
 		if(!img.buf || img.h != height || img.w != width){
 			img.w = width
@@ -1157,7 +1158,7 @@ class Texture extends WorkerProxy{
 		}
 		gl._curFrame = img
 		gl.viewport(0, 0, img.w, img.h)//img.w / gl.ratio, img.h / gl.ratio)
-		device.w = img.w, device.h = img.h
+		device.w = img.w / ratio, device.h = img.h/ ratio
 		
 		if(img_obj.flipped){
 			img_obj.tex = img_obj.buf2.tex

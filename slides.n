@@ -9,6 +9,7 @@ define text_vcenter parent.h*.5 - text.h*.5
 
 var key = Key.new()
 var mouse = Mouse.new()
+var touch = Touch.new()
 
 class Deck extends Scene{
 
@@ -16,9 +17,10 @@ class Deck extends Scene{
 	anim_len = .2
 	mode = 'shader'
 	constructor(){
-		buf_prev = Texture.rgba_depth()
+		buf_prev = Texture.rgba_depth(.5,.5)
 		buf_next = Texture.rgba_depth()
 
+		touch.swiperight=
 		mouse.left=
 		key.enter =
 		key.right(v)=>{
@@ -26,6 +28,8 @@ class Deck extends Scene{
 				selected++
 			}
 		}
+
+		touch.swipeleft =
 		mouse.right = 
 		key.space=
 		key.escape = 
@@ -33,6 +37,10 @@ class Deck extends Scene{
 			if(v && selected > 0){
 				selected --
 			}
+		}
+
+		touch.start(){
+			// depending on the direction yr swiping we transition between slides
 		}
 	}
 	
@@ -70,10 +78,14 @@ class Deck extends Scene{
 				next.draw(this, sec)
 			}
 			else if(mode == 'shader'){
+				if(buf_prev_update != prev)
 				buf_prev{
+					buf_prev_update = prev
 					prev.draw(this, sec)
 				}
+				//if(buf_next_update != next)
 				buf_next{
+				//	buf_next_update = next
 					next.draw(this, sec)
 				}
 				var slideid = to_slide
