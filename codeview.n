@@ -241,9 +241,9 @@ class Codeview extends Text{
 	Array(n){//: { elems:2 },
 		var mygroup = group++
 		BracketL(_Array, mygroup)
-		for(var elem from n.elems){
+		for(var i, elem from n.elems){
+			if(i) Comma(_Array, group++)
 			expand(elem)
-			Comma(_Array, group++)
 		}
 		BracketR(_Array, mygroup)
 	}
@@ -533,6 +533,10 @@ class Codeview extends Text{
 			if(i) Comma(_Function), space()
 			expand(param)
 		}
+		if(n.rest){
+			if(i) Comma(_Function), space()
+			expand(n.rest)
+		}
 		ParenR(_Function,mygroup)
 		expand(n.body)
 	}
@@ -663,7 +667,7 @@ class Codeview extends Text{
 		expand(n.quote)
 	}
 	Rest(n){//: { id:1, dots:0 },
-		Operator('...', _Rest)
+		Operator('...', _Rest, group++)
 		expand(n.id)
 	}
 	Then(n){//: { name:1, do:1 },

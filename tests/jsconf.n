@@ -6,7 +6,7 @@ import warps
 
 Deck{
 	antialias = true
-	selected = 2
+	selected = 0
 	anim_len = .5
 
 	single_transition:(t, to_page){
@@ -117,23 +117,23 @@ Deck{
 
 	Slide{
 		Title{
-			text = 'GPU?'
+			text = 'Massive Parallelism'
 		}
 		Body{
 			Bullet{
 				font_size = 10
-				x = -200
+				x = -270
 				y = 50
-				ax = 4
+				ax = 6
 				ay = 0
-				sx: 0.4 + 8.*pow(8.) on abs on sin(.1time.sec)
-				sy: 0.4 + 8.*pow(8.) on abs on sin(.1time.sec)
+				sx: 0.4 + 6.*pow(8.) on abs on sin(.1time.sec)
+				sy: 0.4 + 6.*pow(8.) on abs on sin(.1time.sec)
 				font_marked = true
 				style:(){
 					var pos = marks[].xy
 					var markxy = marks[].zw * vec2(1.,0.12) - vec2(8.,8.)
 
-					var mark = floor(mod(length(markxy)-time.sec,6.))
+					var mark = floor(mod(length(markxy)-2.time.sec,6.))
 					if(mark == 0.){
 						u_color = #white
 					}
@@ -142,40 +142,97 @@ Deck{
 					}
 					else if(mark == 2.){
 						u_outline = true
-						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_outline_thickness = 1. + .4sin(8.pos.x+8.*time.sec)
 						u_color = #aero
 					}
 					else if(mark == 4.){
 						u_outline = false
-						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						//u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
 						u_color = #red
 					}
 					else if(mark == 5.){
 						u_outline = true
-						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_outline_thickness = 1. + .4sin(9.pos.y+2.*time.sec)
 						u_color = #green
 					}
 				}
-
-				var t = "color = compute(x,y,t) "
 				var out = ''
 				for(var j = 0;j<200;j++){
-					for(var i = 0;i<17;i++) out += '%'+(j)+'$'+(i)+t
+					for(var i = 0;i<17;i++) out += '|%'+j+'$'+(i)+'color = compute('+('00'+i).slice(-2)+','+('00'+j).slice(-2)+',t)'
 					out += '\n'
 				}
-
 				text = out
-
 			}
 		}
 	}
 
 	Slide{
 		Title{
-			text = 'The Language'
+			text = 'The Familiar'
+		}
+		Body{
+			Codeview{
+				ast:(){
+					var x // its just JavaScript
+					[3] // no semi colons!
+		
+					var [a,b,{x:y}] = call() // destructuring
+
+					test(a, ...rest){ 
+						var x = [...rest] // splats and rest arguments
+					}
+
+					class BaseClass{
+						method(){} 
+					}
+
+					class SubClass extends BaseClass{
+						method(){
+							MyClass::method() // super call
+						}						
+					}
+
+					var x = SubClass.new() // new method, not operator
+					x.method()
+
+				}
+			}
 		}
 	}
 
+	Slide{
+		Title{
+			text = 'The New'
+		}
+		Body{
+			Codeview{
+				ast:(){
+					struct vec2{
+						float x
+						float y
+					}
+
+					vec2 t; // typed variables
+			
+					x = :y + 1 // symbolic expressions
+
+					x = :(){
+						quoted(expression) // symbolic function
+					}
+
+					my_symbolic_method:(){
+						var i_only_exist = as_an_ast_node
+					}
+
+					MyClass{
+						Div{
+							background: #red // look familiar? 
+						}
+					}
+				}
+			}
+		}
+	}
 	Slide{
 		Title{ text = 'Hello world' }
 		Body{
