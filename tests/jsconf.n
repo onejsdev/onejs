@@ -528,8 +528,8 @@ Deck{
 				ax: 10
 				ay: 2
 				rz: 0.2*sin(time.sec)
-				sy: pow(8.+7.sin(.5time.sec),.5)
-				sx: pow(8.+7.sin(.5time.sec),.5)
+				sy: pow(7.3+7.sin(.5time.sec),.5)
+				sx: pow(7.3+7.sin(.5time.sec),.5)
 				font_size = 80
 				u_outline = true
 				ast:(){
