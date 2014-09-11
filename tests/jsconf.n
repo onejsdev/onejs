@@ -476,9 +476,8 @@ Deck{
 		}
 		w:parent.w 
 		h:parent.h
-		buf = Texture.rgba_depth_flipped()
+		buf = Texture.rgba_depth_flipped(.5,.5)
 		pixel:	buf.flipped(vec2(p.x,p.y))
-		skip_children = true
 		pass:(sec){
 			if(drawn) drawn = false
 			else return
@@ -486,7 +485,7 @@ Deck{
 				clearDepth()
 				this{
 					vertex:(mesh[]-.5)*2.
-					pixel:.98*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+					pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
 				}
 				if(delay){
 					drawChildren(this.parent, sec)
@@ -497,32 +496,28 @@ Deck{
 	}
 
 	Slide{
-		Title{
-			text = 'Winamp'
-		}
-		Body{
-			Blur{
-				Codeview{
-					x:0
-					y =-100
-					ax: 10
-					ay: 2
-					sy: pow(8.+7.sin(.5time.sec),.5)
-					sx: pow(8.+7.sin(.5time.sec),.5)
-					font_size = 80
-					u_outline = true
-					ast:Layer{
-						a+b*c/d-e=f[1]+i-j=k*l<m==n
-						i-j=k*l<m==n-a+b*c/d-e=f[1]
-						a+b*c/d-e=f[1]+i-j=k*l<m==n
-						i-j=k*l<m==n-a+b*c/d-e=f[1]
-						a+b*c/d-e=f[1]+i-j=k*l<m==n
-						i-j=k*l<m==n-a+b*c/d-e=f[1]
-						a+b*c/d-e=f[1]+i-j=k*l<m==n
-						i-j=k*l<m==n-a+b*c/d-e=f[1]
-						a+b*c/d-e=f[1]+i-j=k*l<m==n
-						i-j=k*l<m==n-a+b*c/d-e=f[1]
-					}
+		Blur{
+			Codeview{
+				x:0
+				y =-100
+				ax: 10
+				ay: 2
+				rz: 0.2*sin(time.sec)
+				sy: pow(8.+7.sin(.5time.sec),.5)
+				sx: pow(8.+7.sin(.5time.sec),.5)
+				font_size = 80
+				u_outline = true
+				ast:Layer{
+					a+b*c/d-e=f[1]+i-j=k*l<m==n
+					i-j=k*l<m==n-a+b*c/d-e=f[1]
+					a+b*c/d-e=f[1]+i-j=k*l<m==n
+					i-j=k*l<m==n-a+b*c/d-e=f[1]
+					a+b*c/d-e=f[1]+i-j=k*l<m==n
+					i-j=k*l<m==n-a+b*c/d-e=f[1]
+					a+b*c/d-e=f[1]+i-j=k*l<m==n
+					i-j=k*l<m==n-a+b*c/d-e=f[1]
+					a+b*c/d-e=f[1]+i-j=k*l<m==n
+					i-j=k*l<m==n-a+b*c/d-e=f[1]
 				}
 			}
 		}
