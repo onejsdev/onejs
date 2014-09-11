@@ -165,7 +165,7 @@ class Deck extends Scene{
 		w:device.w
 		h:device.h
 
-		pixel:#111
+		pixel:#000
 
 		class Title extends Text{
 			font_size = 80
@@ -178,7 +178,7 @@ class Deck extends Scene{
 		}
 
 		class Body extends Layer{
-			pixel: #222
+			pixel: #111
 			y: 140
 			x: 20
 			w: parent.w - 2*x
