@@ -1268,7 +1268,7 @@ class Device extends Draw{
 	frame_id = 0
 
 	$drawloop:(now){
-		if(frame_limit && frame_id > frame_limit) return
+		if(frame_limit && frame_id >= frame_limit) return
 
 		if(frame_rate){
 			document.title = parseInt(1000/(now - last))

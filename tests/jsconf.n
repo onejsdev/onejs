@@ -168,6 +168,27 @@ Deck{
 
 	Slide{
 		Title{
+			text = 'First principles'
+		}
+		Body{
+			Bullet{
+				y = 20
+				text = 'Programmable: beyond configurable'
+			}
+
+			Bullet{
+				y = 220
+				text = 'Style and behavior are irreducible'
+			}
+			Bullet{
+				y = 420
+				text = 'Inefficiency is ok when parallel'
+			}
+
+		}
+	}
+	Slide{
+		Title{
 			text = 'The Familiar'
 		}
 		Body{
@@ -441,7 +462,7 @@ Deck{
 		Body{
 			Bullet{
 				y = 20
-				text = 'Constraints'
+				text = 'Constraints, layout and UI'
 			}
 			Codeview{
 				x = 40
@@ -454,7 +475,7 @@ Deck{
 			}
 			Bullet{
 				y = 220
-				text = 'Live coding'
+				text = 'Live coding editor'
 			}
 			Bullet{
 				y = 320
@@ -462,7 +483,7 @@ Deck{
 			}
 			Bullet{
 				y = 420
-				text = 'Cloud9 UI complexity'
+				text = 'Cloud9 UI'
 			}
 
 		}

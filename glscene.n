@@ -100,6 +100,7 @@ class Layer extends Draw{
 
 		// draw ourselves
 		this{}
+
 		// now lets make these things work
 		if(children){
 			//console.log(x,y,__proxy__,w,h)

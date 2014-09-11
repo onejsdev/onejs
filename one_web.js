@@ -1022,7 +1022,6 @@ ONE.browser_boot_ = function(){
 					obj[msg.name].call(obj, msg.args)
 				}
 				else if(msg._type == 'proxify'){
-					
 					// lets check our 
 					var old_obj = this.proxy_obj[msg._uid]
 					var obj
