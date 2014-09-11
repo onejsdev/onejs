@@ -20,7 +20,7 @@ Deck{
 
 	Slide{
 		Title{
-			text = 'JSConf EU 2014!'
+			text = 'OneJS at JSCONF EU'
 		}
 		Body{
 			pixel:mix(#black,#aero,abs on snoise3(4.p.x,4.p.y,0.1*time.sec))
@@ -485,6 +485,10 @@ Deck{
 				y = 420
 				text = 'Cloud9 UI'
 			}
+			Bullet{
+				y = 520
+				text = 'github.com/onejs/onejs'
+			}
 
 		}
 	}
@@ -528,17 +532,17 @@ Deck{
 				sx: pow(8.+7.sin(.5time.sec),.5)
 				font_size = 80
 				u_outline = true
-				ast:Layer{
-					a+b*c/d-e=f[1]+i-j=k*l<m==n
-					i-j=k*l<m==n-a+b*c/d-e=f[1]
-					a+b*c/d-e=f[1]+i-j=k*l<m==n
-					i-j=k*l<m==n-a+b*c/d-e=f[1]
-					a+b*c/d-e=f[1]+i-j=k*l<m==n
-					i-j=k*l<m==n-a+b*c/d-e=f[1]
-					a+b*c/d-e=f[1]+i-j=k*l<m==n
-					i-j=k*l<m==n-a+b*c/d-e=f[1]
-					a+b*c/d-e=f[1]+i-j=k*l<m==n
-					i-j=k*l<m==n-a+b*c/d-e=f[1]
+				ast:(){
+					pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+					pixel:mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
+					pixel:mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+					pixel:1. + .4sin(9.pos.y+2.*time.sec)
+					pixel:mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
+					pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+					pixel:mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
+					pixel:mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+					pixel:1. + .4sin(9.pos.y+2.*time.sec)
+					pixel:mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
 				}
 			}
 		}
