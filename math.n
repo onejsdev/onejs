@@ -244,6 +244,24 @@ define dFdx(vec3 v) vec3.dFdx(v)
 define dFdx(vec4 v) vec4.dFdx(v)
 define dFdx(v)      v
 
+define mix3(a,  b,  c,  d, f){
+	if(f<.5) return mix(a, b, f*2.)
+	return mix(c, d, (f-.5)*2.)
+}
+
+define mix4(a,  b,  c,  d, f){
+	if(f<1./3.) return mix(a, b, f*3.)
+	if(f<2./3.) return mix(b, c, (f-(1./3.))*3.)
+	return mix(c, d, (f-2./3.)*3.)
+}
+
+define mix5(a, b, c, d, e, f){
+	if(f<.25) return mix(a, b, f*4.)
+	if(f<.5) return mix(b, c, (f-.25)*4.)
+	if(f<.75) return mix(c, d, (f-.5)*4.)
+	return mix(d, e, (f-.75)*4.)
+}
+
 define easeLinear(t){
 	return t
 }

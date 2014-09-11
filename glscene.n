@@ -85,16 +85,18 @@ class Layer extends Draw{
 	hp: 2.*(pixel mesh[] -.5)
 
 	draw:(parent, sec){
+		drawn = true
 		mat4 m_parent = parent.m_childworld
 		// set our matrix
 		var dx = ax*w, dy = ay*h, dz = az*d
 		mat4 m_local = mat4.TSRT(-dx,-dy,-dz ,sx,sy,sz, rx,ry,rz, x+dx,y+dy,z+dz)
-
 		// scale our mesh
 		m_mesh = mat4.S(w, h, d)
 
 		// generate our world matrix
 		m_world = m_local * m_parent
+
+		//if(__proxy__ == 72)console.log(m_local)
 
 		// draw ourselves
 		this{}
@@ -102,7 +104,7 @@ class Layer extends Draw{
 		if(children){
 			//console.log(x,y,__proxy__,w,h)
 			m_childworld = m_child * m_world
-			drawChildren(this, sec)
+			if(!skip_children)drawChildren(this, sec)
 		}
 	}
 	// anchor

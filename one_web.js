@@ -310,7 +310,11 @@ ONE.proxy_ = function(){
 				var ch = name.charCodeAt(0)
 
 				// make sure our property-settered values get forwarded
-				if(ch == 95 && name.charCodeAt(1) == 95) name = name.slice(2), ch = 0
+				if(ch == 95 && name.charCodeAt(1) == 95 && 
+					(name.charCodeAt(name.length - 1) != 95 || 
+					   name.charCodeAt(name.length - 2) != 95)){
+					name = name.slice(2), ch = 0
+				}
 
 				if(ch == 36){ //$
 					var base = name.slice(1)
@@ -363,7 +367,7 @@ ONE.proxy_ = function(){
 									msg[local_name] = local_val.__proxy__
 									msg._refs.push(local_name)
 								}
-								else{
+								else if(typeof prop != 'object' || (prop && prop._t_)){
 									msg[local_name] = local_val
 								}
 							}
@@ -434,7 +438,6 @@ ONE.proxy_ = function(){
 			else msg.__class__ = 'Host - '+this.__class__
 			this.__compilehash__ = hash
 			msg._code = msg._code?msg._code + methods:methods
-
 			// ok we first send our object with codehash
 			ONE.host.sendToHost(msg)
 		}
@@ -516,6 +519,7 @@ ONE.proxy_ = function(){
 		}
 
 		this._unbindProp = function(obj, prop){
+			if(!obj) return
 			var bind_store = '_bind_' + prop
 			var arr = obj[bind_store]
 			var i
@@ -990,7 +994,6 @@ ONE.browser_boot_ = function(){
 
 			for(var i = 0, l = data.length;i < l;i++){
 				var msg = data[i]
-
 				if(msg._type == 'setref'){
 					var on_obj = this.proxy_obj[msg._uid]
 					if(!on_obj) throw new Error('Ref set on nonexistant object ' + msg._uid)
@@ -1019,6 +1022,7 @@ ONE.browser_boot_ = function(){
 					obj[msg.name].call(obj, msg.args)
 				}
 				else if(msg._type == 'proxify'){
+					
 					// lets check our 
 					var old_obj = this.proxy_obj[msg._uid]
 					var obj

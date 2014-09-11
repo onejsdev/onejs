@@ -186,7 +186,8 @@ class Deck extends Scene{
 
 			// lets center bullets
 			class Bullet extends Text{
-
+				x = 40
+				font_size = 60
 			}
 		}
 	}

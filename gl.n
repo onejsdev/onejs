@@ -508,6 +508,7 @@ class Draw extends WorkerProxy{
 					var pix_source = "${pix_shader}"
 					var vtx_source = "${vtx_shader}"
 					var cache_key = pix_source + vtx_source
+					if(!gl._shadercache) debugger;
 					shader = gl._shadercache[cache_key]
 					if(!shader){
 						var pix_shader = gl.createShader(${glc.FRAGMENT_SHADER})
@@ -572,10 +573,18 @@ class Draw extends WorkerProxy{
 				var as_str = ''
 				var if_count = 0
 				for(var k in deps){
-					var dist = deps[k]
+					var type = deps[k]
 					var name 
-					if(dist < 0) name = k
-					else name = 'this.' + Array(dist).join('parent.') + k
+					if(type === 1) name = k // its an immediate local
+					else{
+						name = 'this.'+ k
+						if(type.slots > 1){
+							if_str = '1'
+							as_str = ''
+							break
+						}
+					}
+
 					var store = k.replace('.', '_')
 					if(if_str)if_str += ' || ', as_str += ', '
 					if(if_dbg)if_dbg += ', ', if_dbg2 += '+'
@@ -1016,6 +1025,15 @@ class Texture extends WorkerProxy{
 
 	sample:(vec2 v){
 		return texture2D(this, v, {
+			MIN_FILTER:LINEAR
+			MAG_FILTER:LINEAR
+			WRAP_S:CLAMP_TO_EDGE
+			WRAP_T:CLAMP_TO_EDGE
+		})
+	}
+
+	flipped:(vec2 v){
+		return texture2D(this, vec2(v.x, 1.-v.y), {
 			MIN_FILTER:LINEAR
 			MAG_FILTER:LINEAR
 			WRAP_S:CLAMP_TO_EDGE

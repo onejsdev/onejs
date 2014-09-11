@@ -24,10 +24,12 @@ Run it (use node 0.11 or higher, check out the use of await, ah its nice to live
 node --harmony one_node.js app_server.n
 
 open in browser:
-http://localhost:2000#test_framebuf
+http://localhost:2000#tests/jsconf
+http://localhost:2000#tests/framebuf
+etc.
 
 (onejs apps are served using the #hash)
 
-Sofar you can find the same files accessible as: http://test_framebuf.onejs.io with the file as subdomainname.
+Sofar you can find the same files accessible as: http://jsconf.tests.onejs.io using the subdomain name
 
 OneJS is currently getting a fully fledged UI kit with constraints, and a font engine. Stay tuned.

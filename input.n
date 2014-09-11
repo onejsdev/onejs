@@ -71,6 +71,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mousedown') do(e) => {
+			x = e.pageX
+			y = e.pageY
 			if(e.button === 0 ) left = 1, leftdown = 1
 			if(e.button === 1 ) middle = 1
 			if(e.button === 2 ) right = 1, rightdown = 1
@@ -78,6 +80,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mouseup') do(e) => {
+			x = e.pageX
+			y = e.pageY
 			if(e.button === 0 ) left = 0, leftup = 1
 			if(e.button === 1 ) middle = 0
 			if(e.button === 2 ) right = 0, rightup = 1
@@ -106,7 +110,6 @@ class Touch extends WorkerProxy{
 			if(e.touches.length>3) x4 = e.touches[3].clientX, y4 = e.touches[3].clientY
 			if(e.touches.length>4) x5 = e.touches[4].clientX, y5 = e.touches[4].clientY
 			if(e.touches.length>5) x6 = e.touches[5].clientX, y6 = e.touches[5].clientY
-
 		}
 
 		window.addEventListener('touchstart') do(e)=>{

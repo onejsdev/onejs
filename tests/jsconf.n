@@ -1,6 +1,7 @@
 import math
 import gl
 import glscene
+import input
 import slides
 import codeview
 import noise
@@ -37,7 +38,6 @@ Deck{
 			Bullet{
 				x = 20
 				y = 40
-				font_size = 60
 				font_marked = true
 				text = "$0The $1Creative $0Power\n    of the $2GPU"
 				style:(){
@@ -58,13 +58,11 @@ Deck{
 				}
 			}
 			Bullet{
-				font_size = 60
 				x = 20
 				y = 200
 				text = "They are everywhere!"
 			}
 			Bullet{
-				font_size = 60
 				x = 20
 				y = 300
 				text = "GPUs are Hard"
@@ -177,7 +175,6 @@ Deck{
 				ast:(){
 					var x // its just JavaScript
 					[3] // no semi colons!
-		
 					var [a,b,{x:y}] = call() // destructuring
 
 					test(a, ...rest){ 
@@ -315,28 +312,125 @@ Deck{
 	}
 
 	Slide{
+		var code = :Scene{
+			var mouse = Mouse.new()
+			Layer{
+				w = 250
+				h = 250
+				x = 800
+				y = 500
+				pixel:#green
+				vertex:mesh[] * (m_mesh * m_world *device.m_camera)
+				mouse.leftdown()=>{
+					x: mouse.x - .5 * w
+					y: mouse.y - .5 * h
+					pixel: mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
+					alpha: 1.-2.*length(p-.5)
+				}
+				mouse.leftup()=>{
+					x = mouse.x - .5 * w
+					y = mouse.y - .5 * h
+					pixel: #blue
+					alpha:1.
+				}
+			}
+		}
 		Title{
 			text = 'Interactivity'
 		}
-
-
+		Body{
+			Codeview{
+				x = 10
+				y = 20
+				// pull out the right node and eval it
+				ast = code
+			}
+			Layer{
+				x:800
+				y:50
+			}
+		}
+		eval(code.body, code)
 	}
 
 	Slide{
 		Title{
 			text = 'Making slides: a DSL'
 		}
-	}
+		Body{
+			Codeview{
+				ast:(){
+					class Deck extends Scene{
+						draw:(){
+							this{}
+							children[current].draw(this, parent)
+							...
+						}
+						class Slide extends Layer{
+							class Title extends Text{
+								font_size = 40
+							}
+							class Body extends Layer{
+								y = 100
+								h:parent.h - y - 20
+								class Bullet extends Text{
+									font_size = 20
+								}
+							}
+						}
+					}
 
-	Slide{
-		Title{
-			text = 'Awesomeness'
+					Deck{
+						Slide{
+							Title{
+								text = 'Slide Title'
+							}
+							Body{
+								Bullet{
+									text = 'Bullet 1'
+								}
+								Bullet{
+									text = 'Bullet 2'
+								}
+							}
+						}
+						Slide{
+							...
+						}
+					}
+				}
+			}
 		}
+
 	}
 
 	Slide{
 		Title{
 			text = 'Today'
+		}
+		Body{
+			Bullet{
+				y = 20
+				text = 'NOT ready for use'
+			}
+
+			Bullet{
+				y = 120
+				text = 'Multithreaded'
+			}
+			Bullet{
+				y = 220
+				text = '130k over the wire + fonts (100k ascii)'
+			}
+			Bullet{
+				y = 320
+				text = 'Slides 850ms startup, 450ms cached'
+			}
+			Bullet{
+				y = 420
+				text = 'iOS8 is great, android not so much'
+			}
+
 		}
 	}
 
@@ -344,11 +438,93 @@ Deck{
 		Title{
 			text = 'Future'
 		}
+		Body{
+			Bullet{
+				y = 20
+				text = 'Constraints'
+			}
+			Codeview{
+				x = 40
+				y = 100
+				ast:(){
+					Layer{
+						x > 10 && x < button.x
+					}
+				}
+			}
+			Bullet{
+				y = 220
+				text = 'Live coding'
+			}
+			Bullet{
+				y = 320
+				text = 'VR Support'
+			}
+			Bullet{
+				y = 420
+				text = 'Cloud9 UI complexity'
+			}
+
+		}
+	}
+
+	class Blur extends Layer{
+		warp:(vec2 p){
+			return vec2(
+				p.x + 0.002*sin(10.*p.x+4.*time.sec),
+				p.y + 0.002*cos(10.*p.y+4.*time.sec))
+		}
+		w:parent.w 
+		h:parent.h
+		buf = Texture.rgba_depth_flipped()
+		pixel:	buf.flipped(vec2(p.x,p.y))
+		skip_children = true
+		pass:(sec){
+			if(drawn) drawn = false
+			else return
+			buf{
+				clearDepth()
+				this{
+					vertex:(mesh[]-.5)*2.
+					pixel:.98*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+				}
+				if(delay){
+					drawChildren(this.parent, sec)
+				}
+				delay = true
+			}
+		}
 	}
 
 	Slide{
 		Title{
-			text = 'Closing'
+			text = 'Winamp'
+		}
+		Body{
+			Blur{
+				Codeview{
+					x:0
+					y =-100
+					ax: 10
+					ay: 2
+					sy: pow(8.+7.sin(.5time.sec),.5)
+					sx: pow(8.+7.sin(.5time.sec),.5)
+					font_size = 80
+					u_outline = true
+					ast:Layer{
+						a+b*c/d-e=f[1]+i-j=k*l<m==n
+						i-j=k*l<m==n-a+b*c/d-e=f[1]
+						a+b*c/d-e=f[1]+i-j=k*l<m==n
+						i-j=k*l<m==n-a+b*c/d-e=f[1]
+						a+b*c/d-e=f[1]+i-j=k*l<m==n
+						i-j=k*l<m==n-a+b*c/d-e=f[1]
+						a+b*c/d-e=f[1]+i-j=k*l<m==n
+						i-j=k*l<m==n-a+b*c/d-e=f[1]
+						a+b*c/d-e=f[1]+i-j=k*l<m==n
+						i-j=k*l<m==n-a+b*c/d-e=f[1]
+					}
+				}
+			}
 		}
 	}
 }

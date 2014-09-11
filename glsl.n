@@ -209,7 +209,7 @@ class DepTraceGLSL extends AST.Walk{
 			return Post(n)
 		}
 		if(prop._ast_){ // expression
-			if(renamed_uniforms[name]){
+			if(renamed_uniforms && renamed_uniforms[name]){
 				throw new Error('Assigning to ast value wont do what you expect '+name)
 			}
 			if(prop.type != 'Value'){
@@ -1440,7 +1440,7 @@ class GenUniformJS extends AST.ToJS{
 		}
 
 		if(imm_locals && imm_locals[name]){
-			deps[name] = -1
+			deps[name] = 1
 			return name
 		}
 
@@ -1456,7 +1456,7 @@ class GenUniformJS extends AST.ToJS{
 				name = main_uid + '_local_' + name
 				main_this[name] = locals[name]
 
-				deps[name] = 1
+				deps[name] = n.infer
 				return 'this.' + name
 			}
 			else return this.resolve(n.name, n)
@@ -1475,16 +1475,16 @@ class GenUniformJS extends AST.ToJS{
 		
 		if(typeof prop == 'object'){
 			//!TODO convert to signal
-			deps[name] = dist
+			deps[name] = n.infer
 			return 'this.' + name
 		} 
 		else if(typeof prop == 'number'){
 			//!TODO convert to signal
-			deps[name] = dist
+			deps[name] = n.infer
 			return 'this.' + name
 		}
 		else if(typeof prop == 'boolean'){
-			deps[name] = dist
+			deps[name] = n.infer
 			return 'this.' + name
 		}
 		else throw new Error('Cant generate uniformJS for '+name)
@@ -1494,7 +1494,7 @@ class GenUniformJS extends AST.ToJS{
 		if(n.remote){
 			var prop_name = n.object.name
 			var dep_name = n.object.name + '.' + n.key.name
-			deps[dep_name] = 1
+			deps[dep_name] = n.infer
 			return 'this.' + dep_name
 		}
 		return AST.ToJS::Key(n)
