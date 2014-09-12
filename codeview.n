@@ -719,8 +719,57 @@ class Codeview extends Text{
 		ast = __ast
 	}
 
-	// needlessly animating default style
 	style:(){
+		vec4 m = marks[] // magical comments!
+		vec2 pos = m.xy 
+		vec2 center = pos - .5
+
+		var group = m.z
+		var type = floor(m.w / 65536.)
+		var sub = mod(floor(m.w/256.), 256.)
+		var part  = mod(m.w, 256.)
+		
+		if(sub == _Paren || sub == _Brace || sub == _Bracket){
+			if(sub == _Paren){
+				u_color = mix(#aero, #magenta, abs on sin on group)
+				u_boldness = 0.4 + 0.3*sin on group
+			}
+			else if(sub == _Bracket){
+				u_color = #ccc//mix(#red, #yellow, abs on sin on group)
+				u_boldness =  .3*sin on group
+			}
+			else{
+				u_color = #yellow//mix(#red, #yellow, abs on sin on group)
+				u_boldness =  .3*sin on group
+			}
+			u_outline = true
+			u_outline_thickness = (1.+.6*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
+		}
+		else if(sub == _Operator){
+			u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
+			u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
+		}
+		else if(type == _Id){
+			u_color = #white
+			if(sub == _Color){
+				u_color = #pink
+			}
+		}
+		else if(type == _Value){
+			u_color = #aero
+		}
+		else if(type == _TypeVar){
+			u_color = #00ff00
+		}
+		else if(type == _Comment){
+			u_color = mix(#777,#ccc,.5+.5*sin(pos.x+pos.y-0.5time.sec))
+		}
+		else {
+			u_color = #orange
+		}
+	}
+	// needlessly animating default style
+	style2:(){
         
         vec4 c//COMEABS
 		vec4 m = marks[] // maal comments!
