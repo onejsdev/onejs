@@ -111,7 +111,6 @@ ONE.ast_ = function(){
 		}
 		else if(module_name && module_name._ast_ && module_name.module){
 			js.module = module_name.module
-			js.debug_flag = 1
 			js.locals = module_name.locals
 		}
 

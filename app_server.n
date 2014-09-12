@@ -169,6 +169,7 @@ class StaticServer extends HttpServer{
 		var exist = await fs.exists(fullpath)
 		if(!exist){
 			res.writeHead(404)
+			console.log('file not found', path)
 			res.end('File not found')
 			return
 		}
@@ -182,6 +183,7 @@ class StaticServer extends HttpServer{
 		if( req.headers['if-none-match'] == header.ETag){
 			res.writeHead(304,header)
 			res.end()
+			console.log('304', path)
 			return 
 		}
 
@@ -190,6 +192,7 @@ class StaticServer extends HttpServer{
 			var stream = fs.createReadStream(cache_file)
 			res.writeHead(200, header)
 			stream.pipe(res)
+			console.log('sending', path)
 			return
 		}
 

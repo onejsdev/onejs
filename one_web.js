@@ -14,10 +14,16 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = true
+ONE.fake_worker = false
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
+ONE.hammer_time = 50
+
+ONE.hacklog = function(txt){
+	if(document.body)
+	document.body.innerHTML += '<span style="color:#fff">'+txt+'</span>&nbsp;'
+}
 
 ONE.worker_boot_ = function(host){
 
@@ -1085,11 +1091,28 @@ ONE.browser_boot_ = function(){
 			// do some XMLHTTP
 			var pthis = this
 			var req = new XMLHttpRequest()
-			req.open("GET",url,true)
-			req.onreadystatechange = function(){
+			var timeout = undefined
+			if(ONE.hammer_time){
+				timeout = setTimeout(function(){
+					if(timeout){
+						req.onreadystatechange = undefined
+						req = new XMLHttpRequest()
+						req.onreadystatechange = result
+						req.open("GET", url, true)
+						req.send()
+						//ONE.hacklog('FAIL: ' + url)
+					}
+				}, ONE.hammer_time)
+			}
+			req.open("GET", url, true)
+			req.onreadystatechange = result
+			function result(){
 				if(req.readyState == 4){
+					if(timeout) clearTimeout(timeout)
+					timeout = undefined
 					if(req.status != 200) return sig.throw(req.status)
 					var value = req.responseText
+					//ONE.hacklog("DONE: "+url)
 					cache_db.check_module(module_name, value, function(){
 						sig.end(value)
 					})

@@ -1,8 +1,11 @@
 import math
 import gl
 import glscene
+import font_styles
 
 class Codeview extends Text{
+
+    load( FontStyles )
 
 	// Base node markers
 	_Id:1.
@@ -718,7 +721,9 @@ class Codeview extends Text{
 
 	// needlessly animating default style
 	style:(){
-		vec4 m = marks[] // magical comments!
+        
+        vec4 c//COMEABS
+		vec4 m = marks[] // maal comments!
 		vec2 pos = m.xy 
 		vec2 center = pos - .5
 
@@ -727,48 +732,56 @@ class Codeview extends Text{
 		var sub = mod(floor(m.w/256.), 256.)
 		var part  = mod(m.w, 256.)
 		
-		if(sub == _Paren || sub == _Brace || sub == _Bracket){
-			if(sub == _Paren){
-				u_color = mix(#aero, #magenta, abs on sin on group)
-				u_boldness = 0.4 + 0.3*sin on group
-			}
-			else if(sub == _Bracket){
-				u_color = #ccc//mix(#red, #yellow, abs on sin on group)
-				u_boldness =  .3*sin on group
-			}
-			else{
-				u_color = #yellow//mix(#red, #yellow, abs on sin on group)
-				u_boldness =  .3*sin on group
-			}
-			u_outline = true
-			u_outline_thickness = (1.+.6*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
-		}
-		else if(sub == _Operator){
-			u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
-			u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
+		if( sub == _Paren  ){
+				
+           u_color = weirdColor.iceBlue( pos , mesh[].xy )
+   
+        }else if( type ==  _Key ){
+
+          // Setting outline inside weirdColor
+          // is weird
+          u_outline = true
+          u_color = weirdColor.whiteDot( pos , mesh[].xy )
+
+         
+          
+        }else if(sub == _Bracket){
+              u_color = #aero 
+              //#ccc//mix(#red, #yellow, abs on sin on group)
+              u_boldness =  .3*sin on group
+        }else if(sub == _Operator){
+
+			u_color = weirdColor.redBludge( pos , mesh[].xy )
+              
+            //u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
 		}
 		else if(type == _Id){
-			u_color = #white
+			u_color = weirdColor.redNight( pos , mesh[].xy )
 			if(sub == _Color){
 				u_color = #pink
 			}
+
+
 		}
 		else if(type == _Value){
-			u_color = #aero
-		}
+			u_color = weirdColor.whiteLight( pos , mesh[].xy )
+        }
 		else if(type == _TypeVar){
-			u_color = #00ff00
-		}
-		else if(type == _Comment){
-			u_color = mix(#777,#ccc,.5+.5*sin(pos.x+pos.y-0.5time.sec))
-		}
-		else if(type == _Class){
+		  u_color = weirdColor.swampFire( pos , mesh[].xy ) 
+		}else if(type == _Var){
+		  u_color = weirdColor.galaxyPurple( pos , mesh[].xy ) 
+		}else if(type == _Comment){
+			u_color = weirdColor.starryNight( pos , mesh[].xy )
+        }else if(type == _Class){
 			u_color = #sky
 		}
 		else{
-			u_color = #orange
+			u_color = weirdColor.sleepTime( pos , mesh[].xy ) 
 		}
 	}
 
 
+
+
+              
 }

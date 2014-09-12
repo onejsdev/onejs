@@ -2,6 +2,7 @@ import math
 import gl
 import glscene
 import codeview
+import input
 
 Scene{
 	antialias = true
@@ -10,15 +11,33 @@ Scene{
 		h: device.h
 		var  i = 1.
 		blarp = 0.1
-		pixel: #222
+		pixel: #000
 	}
 	Codeview{
-		x:10
-		y:10
-		sx:1
-		sy:1
-		font_size = 20
-		u_boldness = 0.7
+		x:(device.w / 2 ) -4. * (device.w - mouse.x)
+		y:(device.h/ 2 ) - 4. * (device.h - mouse.y)
+       
+        leftDown = false
+       
+        beforeMatrix:(){
+
+
+        }
+        
+        mouse.leftdown()=>{
+          leftDown = true
+        }
+
+        mouse.leftup()=>{
+          leftDown = false
+        }
+        
+		sx = 1.
+		sy = 1.
+		font_size = 60
+		u_boldness = 0.7 
 		ast = style
+        mouse = Mouse.new()
 	}
+
 }

@@ -570,11 +570,16 @@ class Draw extends WorkerProxy{
 				var guid = jsblob_guid_lut[js] || (jsblob_guid_lut[js] = ++jsblob_guid)
 				
 				var if_str = ''
+				var dbg_str = ''
 				var as_str = ''
 				var if_count = 0
 				for(var k in deps){
 					var type = deps[k]
 					var name 
+					if(name == 'this.u_outline'){
+						//dbg_str += 'console.log(this.u_outline)'
+
+					}
 					if(type === 1) name = k // its an immediate local
 					else{
 						name = 'this.'+ k
@@ -595,6 +600,7 @@ class Draw extends WorkerProxy{
 
 				if(!if_str) if_str = 'shader.once_' + if_id + ' !== '+guid, as_str = 'shader.once_' + if_id + ' = ' + guid
 				uniform_parts.setters += `
+				${dbg_str}
 				if(${if_str}){
 					${as_str}
 					var v = ${js}\n`

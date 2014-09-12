@@ -244,3 +244,10 @@ class Midi extends WorkerProxy{
 		}
 	}
 }
+
+class Gamepad extends WorkerProxy{
+	$init:(){
+		gamepads = navigator.webkitGetGamepads()
+		console.log(gamepads)
+	}
+}

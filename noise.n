@@ -3,6 +3,7 @@
 // MIT License. 
 // Google keywords: GLSL simplex noise
 
+
 define permute1(x){
 	return mod((34.0 * x + 1.0) * x, 289.0)
 }

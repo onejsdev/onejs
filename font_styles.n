@@ -1,0 +1,183 @@
+
+import math
+import weird_color
+
+class FontStyles{
+
+    load( SubFontStyles )
+
+    class weirdColor extends Base{
+      load( WeirdColor )
+    }
+
+
+
+        weirdColor1:( pos  ){
+
+          u_outline = true
+          u_outline_thickness = pos.x
+          vec3 c = vec3( 0. )
+
+
+          vec2 v = mesh[].xy
+          
+          float pi2 = 3.1415926535 * 2.0;
+          float cx = -cos( .494 + sin( time.sec ) * (mouse.y / device.h) * .0001 );
+
+          float cy = -sin(.488)//@(mouse.y / device.h) );
+          float z = 0.0;
+          float m = 0.0;
+
+          for(int i = 0; i < 50; i ++){
+
+
+            v.x = abs(v.x) ;
+            v.y = abs(v.y);
+            m = v.x * v.x + v.y * v.y;
+            v.x = v.x / m + cx;
+            v.y = v.y / m + cy;
+
+          }
+
+          u_outline_thickness = length( v )
+          normalize( v )
+            
+          return abs(vec3( sin( v.x) , cos( v.y ) , 0. ))
+
+        }
+
+        weirdColor2:( pos  ){
+
+          u_outline = true
+          vec3 c = vec3( 0. )
+
+
+          vec2 v = mesh[].xy
+          
+          float pi2 = 3.1415926535 * 2.0;
+          //0.7172701949860725
+        //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
+        //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+           
+          float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
+          float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+
+          float z = 0.0;
+          float m = 0.0;
+
+          for(int i = 0; i < 30; i ++){
+
+
+            v.x = abs(v.x) ;
+            v.y = abs(v.y);
+            m = v.x * v.x + v.y * v.y;
+            v.x = v.x / m + cx;
+            v.y = v.y / m + cy;
+
+          }
+
+          
+         u_outline_thickness = length( v )
+
+          normalize( v )
+
+            
+          return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
+
+        }
+
+        weirdColor3:( pos  ){
+
+          u_outline = true
+          vec3 c = vec3( 0. )
+
+
+          vec2 v = mesh[].xy
+          
+          float pi2 = 3.1415926535 * 2.0;
+          //0.7172701949860725
+        //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
+        //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+           
+          float cx = -0.8580193310201044 + .0002 * cos( 4. * (mouse.y / device.h) )
+          float cy = -0.8118743525832136 + .0005 * sin( 10. * (mouse.x / device.w) )
+
+          float z = 0.0;
+          float m = 0.0;
+
+          for(int i = 0; i < 30; i ++){
+
+
+            v.x = abs(v.x) ;
+            v.y = abs(v.y);
+            m = v.x * v.x + v.y * v.y;
+            v.x = v.x / m + cx;
+            v.y = v.y / m + cy;
+
+          }
+
+          
+          u_outline_thickness = length( v )
+
+          normalize( v )
+
+            
+          return abs(vec3( sin( u_distance * 10000.)))
+
+        }
+
+        shade2:( pos ){
+
+         // u_outline = true
+          vec3 c = vec3( 0. )
+
+
+          vec2 v = mesh[].xy
+
+          var dif = vec2( 
+              mesh[].x - mouse.x , 
+              mesh[].y - mouse.y 
+          )
+         
+          
+          float x = dFdx( u_distance );  
+          float y = dFdy( u_distance );  
+
+
+          vec2 dir = vec2( x , y);
+
+          float fr = dot( -dir  , dif );
+
+          //var c = ( 100. / length( dif ) ) * vec3( 1. , .7 , .7 )
+
+          vec3 raster = 10. / (fr*fr*fr) * vec3(1.);
+
+
+        
+          return raster
+            
+            //return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
+
+        }
+        shade:( pos ){
+
+          var dif = vec2( 
+              mesh[].x - mouse.x , 
+              mesh[].y - mouse.y 
+          )
+
+
+
+
+
+          var c = (100. / (length( dif ) ))  * vec3( 1. )
+          //vec3( abs( cos( 4. * sin( u_distance * 1000. )) ))
+
+          return c
+
+        }
+
+
+
+
+}

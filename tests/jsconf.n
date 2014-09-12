@@ -12,18 +12,47 @@ Deck{
 	selected = 0
 	anim_len = .5
 
+	clampit:(vec2 p, t){
+	//	if(p.x < 0. || p.x > 1. || p.y < 0. || p.y >1. ) return vec4(#black, t)
+		return vec4(buf_prev.sample(p).rgb, t)
+	}
+
 	single_transition:(t, to_page){
-		if(mod(to_page,2.) == 0.)
-			return vec4(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)).rgb, 1.-t)
+		if(mod(to_page,2.) == 0.){
+			return clampit(zoom(rotate(hp, 1.*t + sin(hp.x)*t*1.2),  1. -t), 1.-t)
+		}
 		return vec4(buf_prev.sample(zoom(hp, 1.-t)).rgb, 1.-t)
 	}
 
 	Slide{
 		Title{
-			text = 'OneJS at JSCONF EU'
+			text = 'OneJS JSCONF EU'
 		}
 		Body{
-			pixel:mix(#black,#aero,abs on snoise3(4.p.x,4.p.y,0.1*time.sec))
+			implicit:(float x, float y, float sec){
+				x -= 1.
+				y -= 1.
+				float x1 = x-cos(2.*sec)
+				float y1 = y-sin(2.*sec)
+				float x2 = x+sin(2.1*sec)
+				float y2 = y+cos(1.1*sec)
+				float x3 = x+sin(sec)
+				float y3 = y+cos(0.5*sec)
+				return sqrt(x1*x1+y1*y1) + 
+					sqrt(x2*x2+y2*y2) + sqrt(x3*x3+y3*y3)
+			}
+			blob:(){
+				float sec = time.sec*0.2
+				float level1 = implicit(2.p.x, 2.p.y,0.7*sec)
+				float level2 = implicit(2.p.x+0.0001, 2.p.y,0.7*sec)
+				float level3 = implicit(2.p.x, 2.p.y+0.0001,0.7*sec)
+				float dx = level1 - level2
+				float dy = level1 - level3
+				float index = sin(18.atan(dx, dy)  + sec*3.)
+				if(index < 0.)return mix(#black,#blue,-index)
+				return mix(#black,#006677,index)
+			}
+			pixel:blob()
 		}
 	}
 
@@ -272,6 +301,8 @@ Deck{
 					}
 				}
 			}
+			// the triangle has no matrix stack so, lets not use eval.
+			// that would break our slide deck
 			Layer{
 				mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
 				pixel: mix(#orange, #blue, mesh[].y +.75)
@@ -363,7 +394,7 @@ Deck{
 			Codeview{
 				x = 10
 				y = 20
-				// pull out the right node and eval it
+				// show the code
 				ast = code
 			}
 			Layer{
@@ -371,6 +402,7 @@ Deck{
 				y:50
 			}
 		}
+		// and evaluate it. ahh so nice. by evalling body we rip off the Scene{ }
 		eval(code.body, code)
 	}
 
@@ -467,6 +499,7 @@ Deck{
 			Codeview{
 				x = 40
 				y = 100
+				u_outline = false
 				ast:(){
 					Layer{
 						x > 10 && x < button.x

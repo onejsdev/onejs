@@ -59,7 +59,7 @@ class Glyphy{
 
 	//font = im_port('fonts/code_font1_ascii.glf', 'arraybuffer')
 	//sdf_bake = true
-	font = import('fonts/code_font1_ascii_baked_low.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
 
 	font_size = 10
 	line_height = 1.2
