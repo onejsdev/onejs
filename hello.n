@@ -706,7 +706,10 @@ Deck{
 				y = 720
 				text = 'github.com/onejs/onejs'
 			}
-
+			Bullet{
+				y = 820
+				text = 'hello.onejs.io'
+			}
 		}
 	}
 
