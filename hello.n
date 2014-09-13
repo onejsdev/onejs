@@ -11,7 +11,7 @@ Deck{
 	antialias = true
 	selected = 0
 	anim_len = .5
-
+	ratio = 1
 	clampit:(vec2 p, t){
 	//	if(p.x < 0. || p.x > 1. || p.y < 0. || p.y >1. ) return vec4(#black, t)
 		return vec4(buf_prev.sample(p).rgb, t)
@@ -692,11 +692,7 @@ Deck{
 			}
 			Bullet{
 				y = 420
-				text = 'Live coding editor'
-			}
-			Bullet{
-				y = 520
-				text = 'VR Support'
+				text = 'Live coding editor in VR'
 			}
 			Bullet{
 				y = 620
