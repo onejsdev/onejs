@@ -19,7 +19,7 @@ import glyphy
 class Scene extends Device{
 
 	mouse = Mouse.new()
-	midi = Midi.new()
+	//midi = Midi.new()
 
 	m_camera = mat4()
 
