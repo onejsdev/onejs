@@ -71,8 +71,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mousedown') do(e) => {
-			x = e.pageX
-			y = e.pageY
+			x = e.pageX * window.devicePixelRatio
+			y = e.pageY * window.devicePixelRatio
 			if(e.button === 0 ) left = 1, leftdown = 1
 			if(e.button === 1 ) middle = 1
 			if(e.button === 2 ) right = 1, rightdown = 1
@@ -80,8 +80,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mouseup') do(e) => {
-			x = e.pageX
-			y = e.pageY
+			x = e.pageX * window.devicePixelRatio
+			y = e.pageY * window.devicePixelRatio
 			if(e.button === 0 ) left = 0, leftup = 1
 			if(e.button === 1 ) middle = 0
 			if(e.button === 2 ) right = 0, rightup = 1
@@ -89,8 +89,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mousemove') do(e) => {
-			x = e.pageX
-			y = e.pageY
+			x = e.pageX * window.devicePixelRatio
+			y = e.pageY * window.devicePixelRatio
 			move = 1
 		}
 	}
