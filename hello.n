@@ -9,7 +9,7 @@ import warps
 
 Deck{
 	antialias = true
-	selected = 6
+	selected = 0
 	anim_len = .5
 
 	clampit:(vec2 p, t){
