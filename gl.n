@@ -1284,7 +1284,7 @@ class Device extends Draw{
 		frame_id ++
 
 		anim_req = false
-
+		var do_next = false
 		// call update
 		if(!start) start = now
 		sec = (now - start) / 1000
@@ -1298,14 +1298,18 @@ class Device extends Draw{
 				o.once(sec)
 			}
 		}
-
+		if(ONE.drawloop.length){
+			for(var call from ONE.drawloop){
+				if(call(this, sec)) do_next = true
+			}
+		}
 		for(var p from passes){
 			p.pass(sec)
 		}
 		if(pass) pass(sec)
 		draw(this, sec)
 
-		if(time.hasBinds('sec')){
+		if(do_next || time.hasBinds('sec')){
 			if(!anim_req){
 				anim_req = true
 				window.requestAnimationFrame(drawloop)
@@ -1374,7 +1378,13 @@ class Device extends Draw{
 		
 		anim_req = false
 		gl._shadercache = {}
-
+		gl.loop = [] 
+		gl.redraw()=>{
+			if(!anim_req){
+				anim_req = true
+				window.requestAnimationFrame(drawloop)
+			}
+		}
 		passes = []
 		once_list = []
 		
@@ -1396,12 +1406,17 @@ class Device extends Draw{
 			this.w = (frame.w = sw) / frame.ratio
 			this.h = (frame.h = sh) / frame.ratio
 			this.ratio = frame.ratio
+
 			redraw()
 			// todo, fire event?
 		}
 		// lets request an init
 		last = 0
 		window.count = 0
+
+		//document.body.addEventListener('mousedown', function(){
+		//	document.body.webkitRequestFullscreen()
+		//})
 
 		drawloop = drawloop.bind(this)
 

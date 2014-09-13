@@ -1,0 +1,797 @@
+import math
+import gl
+import glscene
+import input
+import slides
+import codeview
+import noise
+import warps
+
+Deck{
+	antialias = true
+	selected = 6
+	anim_len = .5
+
+	clampit:(vec2 p, t){
+	//	if(p.x < 0. || p.x > 1. || p.y < 0. || p.y >1. ) return vec4(#black, t)
+		return vec4(buf_prev.sample(p).rgb, t)
+	}
+
+	single_transition:(t, to_page){
+		if(mod(to_page,2.) == 0.){
+			return clampit(zoom(rotate(hp, 1.*t + sin(hp.x)*t*1.2),  1. -t), 1.-t)
+		}
+		return vec4(buf_prev.sample(zoom(hp, 1.-t)).rgb, 1.-t)
+	}
+
+	Slide{
+		Title{
+			text = 'OneJS JSCONF EU'
+		}
+		Body{
+			implicit:(float x, float y, float sec){
+				x -= 1.
+				y -= 1.
+				float x1 = x-cos(2.*sec)
+				float y1 = y-sin(2.*sec)
+				float x2 = x+sin(2.1*sec)
+				float y2 = y+cos(1.1*sec)
+				float x3 = x+sin(sec)
+				float y3 = y+cos(0.5*sec)
+				return sqrt(x1*x1+y1*y1) + 
+					sqrt(x2*x2+y2*y2) + sqrt(x3*x3+y3*y3)
+			}
+			blob:(){
+				float sec = time.sec*0.2
+				float level1 = implicit(2.p.x, 2.p.y,0.7*sec)
+				float level2 = implicit(2.p.x+0.0001, 2.p.y,0.7*sec)
+				float level3 = implicit(2.p.x, 2.p.y+0.0001,0.7*sec)
+				float dx = level1 - level2
+				float dy = level1 - level3
+				float index = sin(18.atan(dx, dy)  + sec*3.)
+				if(index < 0.)return mix(#black,#white,-index)
+				return mix(#black,#006677,index)
+			}
+			pixel:blob()
+		}
+	}
+
+	Slide{
+		Title{
+			x: 400
+			u_outline = true
+			u_color:#white
+			text = 'Why WHY???'
+		}
+		Left{
+			
+			Bullet{
+				x = 20
+				y = 40
+				font_marked = true
+				text = "$0The $1Creative $0Power\n    of the $2GPU"
+				style:(){
+					var pos = marks[].xy
+					var mark = marks[].z
+					if(mark == 0.){
+						u_color = #white
+					}
+					else if(mark == 1.){
+						u_color = mix(#white,#red,abs on sin on length(pos-.5)*8. - 3.time.sec)
+					}
+					else if(mark == 2.){
+						u_outline = true
+						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_color = mix(#orange,#aero,abs on sin(14.pos.x*sin(time.sec)) * sin(14.pos.y*sin(time.sec) + time.sec))
+					}
+
+				}
+			}
+			Bullet{
+				x = 20
+				y = 350
+				text = "They are everywhere!"
+			}
+			Bullet{
+				x = 20
+				y = 650
+				text = "GL and GPUs are Hard"
+			}
+		}
+		Right{
+			Layer{
+				pixel:#111
+				alpha:0.8
+				y:-300*mod(time.sec,8.) - 100
+				x:0
+				w:device.w - 80
+				h:device.h - y - 140
+				Codeview{
+					font_size = 30
+					u_boldness = 1.2
+					ast = :(){
+						rttFramebuffer = gl.createFramebuffer()
+						gl.bindFramebuffer(gl.FRAMEBUFFER, rttFramebuffer)
+						rttFramebuffer.width = 512
+						rttFramebuffer.height = 512
+						rttTexture = gl.createTexture()
+						gl.bindTexture(gl.TEXTURE_2D, rttTexture)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+						gl.generateMipmap(gl.TEXTURE_2D)
+						var renderbuffer = gl.createRenderbuffer()
+						gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer)
+						gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, rttFramebuffer.width, rttFramebuffer.height)
+						gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rttTexture, 0)
+						gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer)
+						gl.bindTexture(gl.TEXTURE_2D, null)
+						gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+
+						var fs = gl.createShader(gl.FRAGMENT_SHADER)
+						gl.shaderSource(fs, f)
+						gl.compileShader(fs)
+						if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs))
+
+						var vs = gl.createShader(gl.VERTEX_SHADER)
+						gl.shaderSource(vs, v)
+						gl.compileShader(vs)
+						if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs))
+
+						sp = gl.createProgram()
+						gl.attachShader(sp, vs)
+						gl.attachShader(sp, fs)
+						gl.linkProgram(sp)
+
+						gl.bindTexture(gl.TEXTURE_2D, t)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+						gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+						gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+						gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c)
+						gl.bindTexture(gl.TEXTURE_2D, null)
+						gl.bindBuffer(gl.ARRAY_BUFFER, b)
+						gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW)
+						gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
+
+						gl.useProgram(sp)
+						gl.uniform1i(gl.getUniformLocation(sp, '_0'), 0)
+						gl.activeTexture(gl.TEXTURE0)
+						gl.bindTexture(gl.TEXTURE_2D, t)
+						gl.enableVertexAttribArray(cl)
+
+						gl.viewport(0, 0, cx, cy) 
+						gl.drawArrays(gl.TRIANGLES, 0, 6)
+						rttFramebuffer = gl.createFramebuffer()
+						gl.bindFramebuffer(gl.FRAMEBUFFER, rttFramebuffer)
+						rttFramebuffer.width = 512
+						rttFramebuffer.height = 512
+						rttTexture = gl.createTexture()
+						gl.bindTexture(gl.TEXTURE_2D, rttTexture)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST)
+						gl.generateMipmap(gl.TEXTURE_2D)
+						var renderbuffer = gl.createRenderbuffer()
+						gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer)
+						gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, rttFramebuffer.width, rttFramebuffer.height)
+						gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rttTexture, 0)
+						gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer)
+						gl.bindTexture(gl.TEXTURE_2D, null)
+						gl.bindRenderbuffer(gl.RENDERBUFFER, null)
+
+						var fs = gl.createShader(gl.FRAGMENT_SHADER)
+						gl.shaderSource(fs, f)
+						gl.compileShader(fs)
+						if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(fs))
+
+						var vs = gl.createShader(gl.VERTEX_SHADER)
+						gl.shaderSource(vs, v)
+						gl.compileShader(vs)
+						if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(vs))
+
+						sp = gl.createProgram()
+						gl.attachShader(sp, vs)
+						gl.attachShader(sp, fs)
+						gl.linkProgram(sp)
+
+						gl.bindTexture(gl.TEXTURE_2D, t)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+						gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+						gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+						gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+						gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c)
+						gl.bindTexture(gl.TEXTURE_2D, null)
+						gl.bindBuffer(gl.ARRAY_BUFFER, b)
+						gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW)
+						gl.vertexAttribPointer(cl, 2, gl.FLOAT, false, 0, 0);
+
+						gl.useProgram(sp)
+						gl.uniform1i(gl.getUniformLocation(sp, '_0'), 0)
+						gl.activeTexture(gl.TEXTURE0)
+						gl.bindTexture(gl.TEXTURE_2D, t)
+						gl.enableVertexAttribArray(cl)
+
+						gl.viewport(0, 0, cx, cy) 
+						gl.drawArrays(gl.TRIANGLES, 0, 6)
+					}
+				}
+			}
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Massive Parallelism'
+		}
+		Body{
+			Bullet{
+				font_size = 5
+				x:device.w /2 - 600
+				y = 0
+				ax = 6
+				ay = 0
+				sx: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
+				sy: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
+				font_marked = true
+				style:(){
+					var pos = marks[].xy
+					var markxy = marks[].zw * vec2(1.,0.12) - vec2(8.,8.)
+
+					var mark = floor(mod(length(markxy)-2.time.sec,6.))
+					if(mark == 0.){
+						u_color = #white
+					}
+					else if(mark == 1.){
+						u_color = #orange
+					}
+					else if(mark == 2.){
+						u_outline = true
+						u_outline_thickness = 1. + .4sin(8.pos.x+8.*time.sec)
+						u_color = #aero
+					}
+					else if(mark == 4.){
+						u_outline = false
+						//u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
+						u_color = #red
+					}
+					else if(mark == 5.){
+						u_outline = true
+						u_outline_thickness = 1. + .4sin(9.pos.y+2.*time.sec)
+						u_color = #green
+					}
+				}
+				var out = ''
+				for(var j = 0;j<200;j++){
+					for(var i = 0;i<17;i++) out += '|%'+j+'$'+(i)+'color = compute('+('00'+i).slice(-2)+','+('00'+j).slice(-2)+',t)'
+					out += '\n'
+				}
+				text = out
+			}
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'First principles'
+		}
+		
+		Center{
+			font_marked = true
+			style:(){
+				var pos = marks[].xy
+				var mark = marks[].z
+				if(mark == 0.){
+					u_color = #white
+					u_outline_thickness = 2.+sin(length(pos - .5)*18. + 8.*time.sec)
+				}
+				else if(mark == 1.){
+					u_outline = false
+					u_color = #orange
+				}
+				else if(mark == 2.){
+					u_outline = false
+					u_color = #aero
+				}
+			}
+
+			text = '$0Programmable: $1beyond $2configurable'
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'First principles'
+		}
+		
+		Center{
+			u_outline = false
+			font_marked = true
+			style:(){
+				var pos = marks[].xy
+				var mark = marks[].z
+				if(mark == 0.){
+					u_color = #white
+					
+				}
+				else if(mark == 1.){
+					u_outline = false
+					u_outline = mod(pos.y+time.sec*0.2,0.1) > 0.05
+					u_color = #orange
+				}
+				else if(mark == 2.){
+					u_outline = false
+					u_color = #aero
+				}
+			}
+
+			text = '$1Style $0and $2Behaviour $0are irreducible'
+		}
+	}
+	
+	Slide{
+		Title{
+			text = 'First principles'
+		}
+		Center{
+			u_outline = false
+			font_marked = true
+			style:(){
+				var pos = marks[].xy
+				var mark = marks[].z
+				if(mark == 0.){
+					u_color = #white
+				}
+				else if(mark == 1.){
+					u_outline = false
+					u_outline = mod(pos.y+time.sec*0.2,0.1) > 0.05
+					u_color = #aero
+				}
+				else if(mark == 2.){
+					u_outline = false
+					u_color = #aero
+				}
+			}
+
+			text = '$0Inefficiency is $1OK $0when parallel'
+		}
+	}
+	Slide{
+		Title{
+			text = 'So what to change?'
+		}
+		
+		Center{
+			font_marked = true
+			style:(){
+				var pos = marks[].xy
+				var mark = marks[].z
+				if(mark == 0.){
+					u_color = #white
+					u_outline = false
+					//u_outline_thickness = 2.+sin(length(pos - .5)*18. + 8.*time.sec)
+				}
+				else if(mark == 1.){
+					u_outline = false
+					u_color = #orange
+				}
+				else if(mark == 2.){
+					u_outline = false
+					u_color = #aero
+				}
+			}
+
+			text = 'Fuse $2GLSL$0 with $1JS'
+		}
+	}
+	Slide{
+		Title{
+			text = 'OneJS: Is JS'
+		}
+		Left{
+			Codeview{
+				font_size = 45
+				ast:(){
+					test()
+					[random_array]
+
+					splats(a, ...rest){ 
+						var x = [...rest]
+					}
+
+					class Super{
+						method = (arg){
+							this_auto = arg 
+						}
+					}
+				}
+			}
+		}
+		Right{
+			Codeview{
+				font_size = 45
+				ast:(){
+					class Sub extends Super{
+						method(arg){
+							Super::method(arg)
+						}						
+					}
+
+					var x = SubClass.new()
+					x.method() do(){
+						im_in_a_callback()
+					}
+
+				}
+			}
+		}
+	}
+	Slide{
+		Title{
+			text = 'The interesting part'
+		}
+		Left{
+			Codeview{
+				font_size = 45
+				ast:(){
+					struct vec2{
+						float x
+						float y
+					}
+
+					vec2 a(0,0)
+					vec2 b(1,1)
+					var c = a + b
+				}
+			}
+		}
+		Right{
+			Codeview{
+				font_size = 45
+				ast:(){
+					var x = (im,a,fn){}
+
+					x = :y + 1
+
+					symmethod:(){
+						var we_are = an_astnode
+					}
+				}
+			}
+		}
+	}
+	Slide{
+		Title{ text = 'The Triangle' }
+		Body{
+			Codeview{
+				font_size = 45
+				x = 10
+				y = 20
+				// pull out the right node and eval it
+				ast = :Device{
+					Draw{
+						mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
+						vertex: mesh[]
+						pixel: mix(#orange, #blue, mesh[].y +.75)
+					}
+				}
+			}
+			// the triangle has no matrix stack so, lets not use eval.
+			// that would break our slide deck
+			Layer{
+				mesh = vec2[3](-.5,-.75,0,.25,.5,-.75)
+				pixel: mix(#orange, #blue, mesh[].y +.75)
+				x: parent.w - 500
+				y: 400
+				ax = 0
+				ay = 0
+				sx = 5
+				sy = -4
+			}
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Scenegraph'
+		}
+		Body{
+			var code = :Scene{
+				Layer{
+					w = 300
+					h = 300
+					background = Texture.url('tests/texture.jpg')
+					pixel:background.sample(pixel mesh[])
+					rz:sin(time.sec)*.1
+					Layer{
+						rz:time.sec
+						pixel:mix(#blue, #orange, mesh[].y)
+						Layer{
+							w = 10
+							h = 10
+							pixel:#white
+						}
+					}
+					Text{
+						x: 10
+						sx = sy = :1.+.3sin(time.sec)
+						y: parent.h - 60
+						font_size = 20
+						//u_outline = true
+						u_color = #orange
+						text="Ugliest example ever"
+					}
+				}
+			}
+
+			Codeview{
+				font_size = 27
+				x = 10
+				y = 20
+				// pull out the right node and eval it
+				ast = code
+			}
+			Layer{
+				sx:2
+				sy:2
+				x:device.w -  750
+				y:200
+				eval(code.body, code)
+			}
+		}
+	}
+
+	Slide{
+		var code = :Scene{
+			var mouse = Mouse.new()
+			Layer{
+				w = 250
+				h = 250
+				x = 800
+				y = 500
+				pixel:#white
+				vertex:mesh[] * (m_mesh * m_world *device.m_camera)
+				mouse.leftdown()=>{
+					x: mouse.x - .5 * w
+					y: mouse.y - .5 * h
+					pixel: mix4(#orange, #blue, #purple, #white, abs on sin(4.length(p-.5)-time.sec))
+					alpha: 1.-pow(2.*length(p-.5),10.)
+				}
+				mouse.leftup()=>{
+					x = mouse.x - .5 * w
+					y = mouse.y - .5 * h
+					pixel: #red
+					alpha:1.
+				}
+			}
+		}
+		Title{
+			text = 'Interactivity'
+		}
+		Body{
+			Codeview{
+				font_size = 27
+				x = 10
+				y = 20
+				// show the code
+				ast = code
+			}
+			Layer{
+				x:800
+				y:50
+			}
+		}
+		// and evaluate it. ahh so nice. by evalling body we rip off the Scene{ }
+		eval(code.body, code)
+	}
+	Slide{
+		Title{
+			text = 'Making slides: a DSL'
+		}
+		Left{
+			Codeview{
+				font_size = 35
+				ast:(){
+					class Deck extends Scene{
+						draw:(){
+							this{}
+							children[current].draw()
+							...
+						}
+						class Slide extends Layer{
+							class Title extends Text{
+								font_size = 40
+							}
+							class Body extends Layer{
+								y = 100
+								h:parent.h - y - 20
+								class Bullet extends Text{
+									font_size = 20
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		Right{
+			Codeview{
+				font_size = 35
+				ast:(){
+					Deck{
+						Slide{
+							Title{
+								text = 'Slide Title'
+							}
+							Body{
+								Bullet{
+									text = 'Bullet 1'
+								}
+								Bullet{
+									text = 'Bullet 2'
+								}
+							}
+						}
+						Slide{
+							...
+						}
+					}
+
+				}
+			}
+		}
+	}
+	
+	Slide{
+		Title{
+			text = 'Today'
+		}
+		Body{
+			Bullet{
+				y = 20
+				text = 'NOT ready for use'
+			}
+
+			Bullet{
+				y = 120
+				text = 'Multithreaded'
+			}
+			Bullet{
+				y = 220
+				text = '130k over the wire + fonts (100k ascii)'
+			}
+			Bullet{
+				y = 320
+				text = 'Slides 850ms startup, 450ms cached'
+			}
+			Bullet{
+				y = 420
+				text = 'iOS8 is great, android not so much'
+			}
+
+		}
+	}
+
+	Slide{
+		Title{
+			text = 'Future'
+		}
+		Body{
+			Bullet{
+				y = 20
+				text = 'Constraints, layout and UI'
+			}
+			Codeview{
+				x = 40
+				y = 100
+				u_outline = false
+				font_size = 45
+				ast:(){
+					Layer{
+						x > parent.x + 10 && x < button.x
+					}
+				}
+			}
+			Bullet{
+				y = 420
+				text = 'Live coding editor'
+			}
+			Bullet{
+				y = 520
+				text = 'VR Support'
+			}
+			Bullet{
+				y = 620
+				text = 'Cloud9 UI'
+			}
+			Bullet{
+				y = 720
+				text = 'github.com/onejs/onejs'
+			}
+
+		}
+	}
+
+	class Blur extends Layer{
+		warp:(vec2 p){
+			return vec2(
+				p.x + 0.002*sin(10.*p.x+4.*time.sec),
+				p.y + 0.002*cos(10.*p.y+4.*time.sec))
+		}
+		w:parent.w 
+		h:parent.h
+		buf = Texture.rgba_depth_flipped(.5,.5)
+		pixel:	buf.flipped(vec2(p.x,p.y))
+		pass:(sec){
+			if(drawn) drawn = false
+			else return
+			buf{
+				clearDepth()
+				this{
+					vertex:(mesh[]-.5)*2.
+					pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+				}
+				if(delay){
+					drawChildren(this.parent, sec)
+				}
+				delay = true
+			}
+		}
+	}
+
+	Slide{
+		Blur{
+			Codeview{
+				x:0
+				y =-100
+				ax: 10
+				ay: 2
+				rz: 0.2*sin(time.sec)
+				sy: pow(7.3+7.sin(.5time.sec),.5)
+				sx: pow(7.3+7.sin(.5time.sec),.5)
+				font_size = 80
+				u_outline = true
+				ast:(){
+					pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+					pixel:mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
+					pixel:mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+					pixel:1. + .4sin(9.pos.y+2.*time.sec)
+					pixel:mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
+					pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+					pixel:mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
+					pixel:mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+					pixel:1. + .4sin(9.pos.y+2.*time.sec)
+					pixel:mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
+				}
+			}
+		}
+	}
+
+	Slide{
+		Codeview{
+			u_outline_thickness = 3.
+			param_x: 10. * sin(0.005*time.sec)
+			param_y = 0.1
+			style = style2
+			x:sin(0.1*time.sec)* 1000
+			y: -600 +  1000 *cos(0.1*time.sec)
+			ax: 10
+			ay: 2
+			rz: 0.1*sin(0.3*time.sec)
+			sy: 4.//(5+4.sin(.5time.sec))
+			sx: 4.//(5+4.sin(.5time.sec))
+			font_size = 80
+			u_outline = true
+			ast:(){
+				pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+				pixel:mix(zoom(rotate(hp, 10.*t*t), 1.+5.*t), buf_next.sample(hp), t)
+				pixel:mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+				pixel:1. + .4sin(9.pos.y+2.*time.sec)
+				pixel:mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
+				pixel:.995*buf.sample(warp(pixel mesh[])) + .05mix(#black, #444, snoise3(14.p.x, 14.p.y,time.sec))
+				pixel:mix(buf_prev.sample(zoom(rotate(hp, 10.*t*t), 1.+5.*t)), buf_next.sample(hp), t)
+				pixel:mix(#111,#444,abs on snoise3(3.p.x,3.p.y,0.1*time.sec))
+				pixel:1. + .4sin(9.pos.y+2.*time.sec)
+				pixel:mix4(#orange, #blue, #purple, #white, abs on sin(length(p-.5)-time.sec))
+			}
+		}
+	}
+}

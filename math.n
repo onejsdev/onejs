@@ -117,7 +117,7 @@ define mod(vec4 a, vec4 b)    vec4.mod2(a, b)
 define mod(vec2 a, float b)   vec2.mod(a, b)
 define mod(vec3 a, float b)   vec3.mod(a, b)
 define mod(vec4 a, float b)   vec4.mod(a, b)
-define mod(a, b)    Math.mod(a, b)
+define mod(a, b)    Math._mod(a, b)
 
 define min(vec2 a, vec2 b)    vec2.min2(a, b)
 define min(vec3 a, vec3 b)    vec3.min2(a, b)

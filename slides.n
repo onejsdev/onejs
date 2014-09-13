@@ -170,25 +170,46 @@ class Deck extends Scene{
 		class Title extends Text{
 			font_size = 80
 			u_outline = true
-			constructor(){
-				Text::constructor()
+			//constructor(){
+			//	Text::constructor()
 				y: 20
 				x: text_hcenter
-			}
+			//}
 		}
-
+		class Left extends Layer{
+			x: 100
+			y: 140
+			w:(parent.w / 2) - 75
+			h:parent.h - y - 20
+			pixel:#111
+		}
+		class Right extends Layer{
+			x: (parent.w / 2) + 75
+			y: 140
+			w:(parent.w / 2) - 150
+			h:parent.h - y - 20
+			pixel:#111
+		}
+		// lets center bullets
+		class Bullet extends Text{
+			x = 40
+			font_size = 70
+		}
+		class Center extends Text{
+			font_size = 80
+			u_outline = true
+			x:device.w*.5 - text_w *.5
+			y:device.h*.5 - text_h *.5
+		}
+		Left.Bullet = Bullet
+		Right.Bullet = Bullet
 		class Body extends Layer{
 			pixel: #111
 			y: 140
 			x: 20
 			w: parent.w - 2*x
 			h: parent.h - y - 20
-
-			// lets center bullets
-			class Bullet extends Text{
-				x = 40
-				font_size = 40
-			}
 		}
+		Body.Bullet = Bullet
 	}
 }

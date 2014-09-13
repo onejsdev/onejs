@@ -32,6 +32,9 @@ ONE.init = function(){
 	// make ONE the new root scope
 	this.__Base__.__modules__ = this.__modules__ = Object.create(null)
 
+	// global drawloop
+	this.drawloop = []
+
 	if(this.zlib_) this.zlib_()
 }
 

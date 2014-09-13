@@ -22,9 +22,9 @@ class WeirdColor{
 
       vec2 v = mesh        
       float pi2 = 3.1415926535 * 2.0;
-      float cx = -cos( .494 + sin( time.sec ) * (mouse.y / device.h) * .0001 );
+      float cx = -cos( .494 + sin( time.sec ) * (param_y) * .0001 );
 
-      float cy = -sin(.488)//@(mouse.y / device.h) );
+      float cy = -sin(.488)//@(param_y / device.h) );
       float z = 0.0;
       float m = 0.0;
 
@@ -56,11 +56,11 @@ class WeirdColor{
           
           float pi2 = 3.1415926535 * 2.0;
           //0.7172701949860725
-        //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-        //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+        //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+        //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
            
-          float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-          float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+          float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+          float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
 
           float z = 0.0;
           float m = 0.0;
@@ -97,11 +97,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;
@@ -136,11 +136,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;
@@ -174,11 +174,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;
@@ -214,11 +214,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;
@@ -255,11 +255,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 5.  * time.sec ) * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin(5.  *  time.sec ) * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 5.  * time.sec ) * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin(5.  *  time.sec ) * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;
@@ -296,11 +296,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 5.  * time.sec ) * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin(5.  *  time.sec ) * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 5.  * time.sec ) * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin(5.  *  time.sec ) * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;
@@ -337,11 +337,11 @@ class WeirdColor{
       
       float pi2 = 3.1415926535 * 2.0;
       //0.7172701949860725
-      //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-      //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+      //  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+      //  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
        
-      float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-      float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+      float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+      float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
 
       float z = 0.0;
       float m = 0.0;

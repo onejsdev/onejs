@@ -218,7 +218,7 @@ class Midi extends WorkerProxy{
 		signal('c'+i, 0)
 	}
 
-	$init:(){
+	$constructor:(){
 		var pthis = this
 		if(navigator.requestMIDIAccess){
 			navigator.requestMIDIAccess({sysex:true}).then do(_midi)=>{
@@ -246,8 +246,100 @@ class Midi extends WorkerProxy{
 }
 
 class Gamepad extends WorkerProxy{
-	$init:(){
-		gamepads = navigator.webkitGetGamepads()
-		console.log(gamepads)
+
+	constructor(id){
+		pad_id = id || 0
+	}
+
+	buttonTable = {
+		cross:0
+		square:2
+		circle:1
+		triangle:3
+		left_hi:4
+		right_hi:5
+		left_low:6,
+		right_low:7,
+		select:8
+		start:9
+		left_click:10
+		right_click:11
+		up:12
+		down:13
+		left:14
+		right:15
+	}
+
+	axesTable = {
+		left_x:0
+		left_y:1
+		right_x:2
+		right_y:3
+	}
+	buttonTableRev = {}
+	axesTableRev = {}
+	for(var k in buttonTable){
+		buttonTableRev[buttonTable[k]] = k
+		signal(k, 0)
+	}
+	for(var k in axesTable){
+		axesTableRev[axesTable[k]] = k
+		signal(k, 0)
+	}
+	// mark for transfer
+	buttonTableRev._t_ = axesTableRev._t_ = 1
+
+	$constructor:(){
+		var firefoxTable = {
+			14:'cross'
+			15:'square'
+			13:'circle'
+			12:'triangle'
+			10:'left_hi'
+			11:'right_hi'
+			8:'left_low'
+			9:'right_low'
+			0:'select'
+			4:'start'
+			1:'left_click'
+			2:'right_click'
+			4:'up'
+			6:'down'
+			7:'left'
+			5:'right'
+		}
+
+		if(!navigator.getGamepads) return
+		gamepads = navigator.getGamepads()
+		// how do we hook the renderloop as something outside the render thing?
+		ONE.drawloop.push() do()=>{
+			// poll the gamepads!
+			var pads = navigator.getGamepads()
+			var pad = pads[pad_id]
+			if(!pad) return
+
+			console.log(pad.axes[0])
+			// lets set some signals
+			var buttons = pad.buttons
+			var axes = pad.axes
+			var len = buttons.length
+			for(var i = 0; i < len;i++){
+				var name = firefoxTable[i]
+				var name = buttonTableRev[i]
+				if(name && this['__'+name] != buttons[i].value){
+					console.log(name, buttons[i].value)
+					this[name] = buttons[i].value
+				}
+			}
+			var len = axes.length
+			for(var i = 0; i < len;i++){
+				var name = axesTableRev[i]
+				if(this['__'+name] != axes[i]){
+					this[name] = axes[i]
+				}
+			}
+
+			return true
+		}
 	}
 }
