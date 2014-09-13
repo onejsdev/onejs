@@ -1395,14 +1395,13 @@ class Device extends Draw{
 			var h = parent.offsetHeight
 			var sw = w * pixelRatio
 			var sh = h * pixelRatio
-			gl.ratio = pixelRatio
 			gl.width = canvas.width = sw
 			gl.height = canvas.height = sh
 			canvas.style.width = w + 'px'
 			canvas.style.height = h + 'px'
 			_gl.viewport(0, 0, sw, sh)
 			// store our w/h and pixelratio on our frame
-			frame.ratio = pixelRatio
+			frame.ratio = ratio || pixelRatio
 			this.w = (frame.w = sw) / frame.ratio
 			this.h = (frame.h = sh) / frame.ratio
 			this.ratio = frame.ratio
