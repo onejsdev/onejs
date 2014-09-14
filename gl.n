@@ -1323,8 +1323,7 @@ class Device extends Draw{
 
 		canvas = document.createElement("canvas")
 		parent.appendChild(canvas)
-
-		var _gl = gl = canvas.getContext('webgl',{
+		var options = {
 			alpha: frame.type.indexOf('rgba') != -1
 			depth: frame.type.indexOf('depth') != -1
 			stencil: frame.type.indexOf('stencil') != -1
@@ -1332,7 +1331,9 @@ class Device extends Draw{
 			premultipliedAlpha: premultipliedAlpha
 			preserveDrawingBuffer: preserveDrawingBuffer
 			preferLowPowerToHighPerformance:preferLowPowerToHighPerformance
-		})
+		}
+		var _gl = gl = canvas.getContext('webgl',options) || 
+			canvas.getContext('webgl-experimental')
 
 		// extension cache
 		_gl._getExtension(name){
