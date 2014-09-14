@@ -26,7 +26,7 @@ Deck{
 
 	Slide{
 		Title{
-			text = 'OneJS JSCONF EU'
+			text = 'OneJS: github.com/onejs/onejs Use arrow keys'
 		}
 		Body{
 			implicit:(float x, float y, float sec){
@@ -558,7 +558,7 @@ Deck{
 				mouse.leftup()=>{
 					x = mouse.x - .5 * w
 					y = mouse.y - .5 * h
-					pixel: #red
+					pixel: mix(#blue, #orange, mesh[].y)
 					alpha:1.
 				}
 			}
