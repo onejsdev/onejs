@@ -1,0 +1,142 @@
+import math
+import glscene
+
+class Edit extends Text{
+
+	// single cursor
+	class Cursor extends Layer{
+		constructor(text_layer){
+			parent = this.text_layer = text_layer
+			Layer::constructor()
+			start = 0
+			end = 0
+			max = 0
+			// denormalized positions
+			ax = 0
+			ay = 0
+			w = 1
+			x = 0
+			pixel:#white
+		}
+
+		hideProperties()
+
+		update(){
+			// lets find our start and end coordinates
+			var b = text_layer.charBounds(start)
+			x = floor(b.x)
+			y = floor(b.y - text_layer.font_size)
+			h = text_layer.font_size
+		}
+
+		moveLeft(){
+			start = end = start - 1
+			update()
+			max = x
+		}
+
+		moveRight(){
+			start = end = start + 1
+			update()
+			max = x
+		}
+
+		moveUp(lines){
+			lines ?= 1
+			var i = end
+			while(lines>0){
+				if(text_layer.charMark(i).z == 10) i--
+				while(i>0){
+					if( text_layer.charMark(i).z == 10) break
+					i--
+				}
+				var first = i
+				while(i>0){
+					if(i != first && text_layer.charMark(i).z == 10) break
+					if(text_layer.charBounds(i-1).x < max || text_layer.charBounds(i).x <= max){
+						break
+					}
+					i--
+				}
+				lines--
+			}
+			start = end = i
+			update()
+		}
+
+		moveDown(lines){
+			lines ?= 1
+			// alright so, now we have chars in our array. yay.
+			var i = end
+			while(lines>0){
+				while(i<text_layer.char_length){
+					if(text_layer.charMark(i).z == 10)break
+					i++
+				}
+				i++
+				// alright so now we scan until we hit max or newline
+				while(i<text_layer.char_length){
+					if(text_layer.charMark(i).z == 10 || 
+						text_layer.charBounds(i).x >= max) break
+					i++
+				}
+				lines--
+			}
+			start = end = i
+			update()
+		}
+
+		isSelection(){
+			return start !== end
+		}
+
+		isCursor(){
+			return start === end
+		}
+	}
+
+	// cursor set 
+	class Cursors{
+		constructor(text_layer){
+			list = [Cursor.new(text_layer)]
+		}
+
+		for(var key in Cursor) bind(key){
+			if(typeof Cursor[key] == 'function'){
+				this[key] = (){
+					for(var cursor from list) cursor[key](...)
+				}
+			}
+		}
+	}
+
+	constructor(){
+		Text::constructor()
+		cursors = Cursors.new(this)
+
+		key.press(v)=>{
+			out(v)
+		}
+
+		key.down(v)=>{
+			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
+			if(this[name]) this[name](v)
+		}
+	}
+
+	keyLeftarrow(){
+		cursors.moveLeft()
+	}
+
+	keyRightarrow(){
+		cursors.moveRight()
+	}
+
+	keyUparrow(){
+		cursors.moveUp()
+	}
+
+	keyDownarrow(){
+		cursors.moveDown()
+	}
+}
