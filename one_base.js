@@ -126,10 +126,13 @@ ONE.base_ = function(){
 
 		if(typeof role == 'object'){
 			for(var key in role){
-				if(role.__lookupSetter__(key)){
+				var set 
+				if(set = role.__lookupSetter__(key)){
 					// copy getter and setter
-					var desc = Object.getOwnPropertyDescriptor(role, key)
-					Object.defineProperty(this, key, desc)
+					var get = role.__lookupGetter__(key)
+					Object.defineProperty(this, key, {
+						get:get, set:set, configurable:true
+					})
 				}
 				else{
 					// we might have to copy things
@@ -403,6 +406,7 @@ ONE.base_ = function(){
 
 	// Make properties non enumerable
 	this.hideProperties = function( enums ){
+		if(!enums) enums = Object.keys(this)
 		for( var i = enums.length - 1; i>=0; i--){
 			var k = enums[i]
 			Object.defineProperty( this, k, {enumerable:false, configurable:true})

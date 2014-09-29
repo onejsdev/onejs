@@ -30,24 +30,24 @@ class Blur extends Draw{
 	vertex: mesh[]
 	pixel:	buf.sample(pixel mesh[]*.5+.5)
 
-	pass:(){
+	pass:(sec){
 		buf{
 			clearDepth()
 			this{
 				pixel:buf.sample(warp(pixel mesh[]*0.49+0.5))
 			}
-			drawChildren(this)
+			drawChildren(this,sec)
 		}
 	}
-	draw:(){
+	draw:(parent,sec){
 		this{}
-		drawChildren(this)
+		drawChildren(this,sec)
 	}
 }
-
+var mouse = Mouse.new()
 class Test extends Draw{
 	viewmtx: mat4.perspective(70deg, 1, -1, 1)
-	objmtx: mat4.RT(10deg, 90deg*time.sec, time.sec, 0, 0, 3+ 35*abs on sin(time.sec))
+	objmtx: mat4.RT(10deg, 0.01*mouse.y, time.sec, 0, 0, 3+ 35*abs on sin(time.sec))
 
 	mesh = vec2Rect(-2, -2, 4, 4)
 	vertex: mesh[] * (objmtx * viewmtx)

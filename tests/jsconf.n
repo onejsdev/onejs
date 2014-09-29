@@ -26,7 +26,7 @@ Deck{
 
 	Slide{
 		Title{
-			text = 'OneJS JSCONF EU'
+			text = 'OneJS'
 		}
 		Body{
 			implicit:(float x, float y, float sec){
@@ -55,7 +55,7 @@ Deck{
 			pixel:blob()
 		}
 	}
-
+/*
 	Slide{
 		Title{
 			text = 'Why'
@@ -580,4 +580,5 @@ Deck{
 			}
 		}
 	}
+	*/
 }

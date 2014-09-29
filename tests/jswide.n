@@ -329,7 +329,7 @@ Deck{
 	
 	Slide{
 		Title{
-			text = 'First principles'
+			text = 'Something new'
 		}
 		Center{
 			u_outline = false

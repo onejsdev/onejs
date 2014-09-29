@@ -191,7 +191,7 @@ class DepTraceGLSL extends AST.Walk{
 		}
 
 		if(prop === undefined){
-			throw new Error('Cannot resolve ' + name)
+			throw new Error('Cannot resolve ' + name + ' on ' + context.__class__)
 		}
 		
 		// what if we are a type

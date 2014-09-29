@@ -1,11 +1,9 @@
 import math
 import gl
 import glscene
-import font_styles
 
-class Codeview extends Text{
+class CodeView extends Text{
 
-    load( FontStyles )
 
 	// Base node markers
 	_Id:1.
@@ -121,51 +119,48 @@ class Codeview extends Text{
 		_Tab:13.
 		_Keyword:14.
 		_Color:15.
-		// Keywordy things
-
-	// Helper functions
 
 	DColon(type, group){
-		pack_mark('::', group, type, _DColon)
+		syntaxText('::', group, type, _DColon)
 	}
 
 	Dot(type, group){
-		pack_mark('.', group, type, _Dot)
+		syntaxText('.', group, type, _Dot)
 	}
 
 	Colon(type, group){
-		pack_mark(':', group, type, _Colon)
+		syntaxText(':', group, type, _Colon)
 	}
 
 	SemiColon(type, group){
-		pack_mark(':', group, type, _SemiColon)
+		syntaxText(':', group, type, _SemiColon)
 	}
 
 	Comma(type, group){
-		pack_mark(',', group, type, _Comma)
+		syntaxText(',', group, type, _Comma)
 	}
 
 	ParenL(type, group){
-		pack_mark('(', group, type, _Paren, _ParenL)
+		syntaxText('(', group, type, _Paren, _ParenL)
 	}
 
 	ParenR(type, group){
-		pack_mark(')', group, type, _Paren, _ParenL)
+		syntaxText(')', group, type, _Paren, _ParenL)
 	}
 	BraceL(type, group){
-		pack_mark('{', group, type, _Brace, _BraceL)
+		syntaxText('{', group, type, _Brace, _BraceL)
 	}
 
 	BraceR(type, group){
-		pack_mark('}', group, type, _Brace, _BraceR)
+		syntaxText('}', group, type, _Brace, _BraceR)
 	}
 
 	BracketL(type, group){
-		pack_mark('[', group, type, _Bracket, _BracketL)
+		syntaxText('[', group, type, _Bracket, _BracketL)
 	}
 
 	BracketR(type, group){
-		pack_mark(']', group, base, _Bracket, _BracketR )
+		syntaxText(']', group, base, _Bracket, _BracketR )
 	}
 
 	Operator(op, type, group){
@@ -196,49 +191,54 @@ class Codeview extends Text{
 		if(op == '?') col = _TerniaryQ
 		if(op == ':') col = _TerniaryC
 
-		pack_mark(op, group, type, _Operator, col)
+		syntaxText(op, group, type, _Operator, col)
 	}
 
 	Keyword(value, type, group){
-		pack_mark(value, group || 0, type, _Keyword)
+		syntaxText(value, group || 0, type, _Keyword)
 	}
 
 	// AST Expander
-
 	expand(n){
-		if(n)this[n.type](n)
+
+		if(n){
+			if(!this[n.type]) throw new Error('type '+n.type+' not in codeview')
+			else this[n.type](n)
+		}
 	}
 
 	Program(n){}
 
 	Empty(n){}
 
-	pack_mark(text, group, l1, l2, l3){
+	syntaxText(text, group, l1, l2, l3){
 		if(l1 && l1._ast_)l1 = l1.value
 		if(l2 && l2._ast_)l2 = l2.value
 		if(l3 && l3._ast_)l3 = l3.value
-		mark(text, group, 65536*(l1||0)+256*(l2||0)+(l3||0))
+		mark_x = group
+		mark_y = 65536*(l1||0)+256*(l2||0)+(l3||0)
+		string(text)
 	}
 
 	Id(n){//{ name:0, flag:0, typing:1 },
 		if(n.flag){
-			pack_mark('#'+n.name, group++, _Id, _Color)
+			syntaxText('#'+n.name, group++, _Id, _Color)
 		}
 		else
-			pack_mark(n.name, group++, _Id, _Id)
+			syntaxText(n.name, group++, _Id, _Id)
 	}
 
 	Value(n){//: { value:0, raw:0, kind:0, multi:0 },
 		if(n.kind == 'num')
-			pack_mark(n.raw, group++, _Value, _Number)
+			syntaxText(n.raw, group++, _Value, _Number)
 		else if(n.kind == 'string')
-			pack_mark(n.raw, group++, _Value, _String)
+			syntaxText(n.raw, group++, _Value, _String)
 		else
-			pack_mark(n.raw, group++, _Value)
+			syntaxText(n.raw, group++, _Value)
 	}
 	
 	This(n){//: { },
-		pack_mark('this', group++, _This, _Keyword)
+		syntaxText('this', group++, _This, _Keyword)
 	}
 
 	Array(n){//: { elems:2 },
@@ -279,7 +279,7 @@ class Codeview extends Text{
 	}
 
 	Comment(text){
-		pack_mark(' // '+text, group++, _Comment)
+		syntaxText(' // '+text, group++, _Comment)
 	}
 
 	class CollectComments extends AST.Walk{
@@ -706,11 +706,19 @@ class Codeview extends Text{
 		__ast = v
 		// ok lets turn this AST into an actual codeview.
 		if(is_initialized){
-			alloc(1000, true)
+			//var dt = Date.now()
+			allocText(100000, true)
 			indent = 0
 			group = 0
+			newline()
 			expand(v)
-			update()
+			newline()
+			updateText()
+			//out(dt - Date.now())
+			//var dt = Date.now()
+			//var s = reserialize()
+			//out(dt - Date.now())
+
 		}
 	}
 
@@ -721,33 +729,35 @@ class Codeview extends Text{
 
 	style:(){
 		vec4 m = marks[] // magical comments!
-		vec2 pos = m.xy 
+		vec2 pos = mark_pos 
 		vec2 center = pos - .5
 
-		var group = m.z
-		var type = floor(m.w / 65536.)
-		var sub = mod(floor(m.w/256.), 256.)
-		var part  = mod(m.w, 256.)
+		var group = m.x
+		var type = floor(m.y / 65536.)
+		var sub = mod(floor(m.y/256.), 256.)
+		var part  = mod(m.y, 256.)
 		
 		if(sub == _Paren || sub == _Brace || sub == _Bracket){
 			if(sub == _Paren){
-				u_color = mix(#aero, #magenta, abs on sin on group)
-				u_boldness = 0.4 + 0.3*sin on group
+				//u_color = mix(#aero, #magenta, abs on sin on group)
+				u_color = #white
+				//u_boldness = 0.4 + 0.3*sin on group
 			}
 			else if(sub == _Bracket){
 				u_color = #ccc//mix(#red, #yellow, abs on sin on group)
-				u_boldness =  .3*sin on group
+				//u_boldness =  .3*sin on group
 			}
 			else{
 				u_color = #yellow//mix(#red, #yellow, abs on sin on group)
-				u_boldness =  .3*sin on group
+				//u_boldness =  .3*sin on group
 			}
-			u_outline = true
-			u_outline_thickness = (1.+.6*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
+			//u_outline = true
+			//u_outline_thickness = (1.+.6*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
 		}
 		else if(sub == _Operator){
-			u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
-			u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
+			u_color = #yellow
+			//u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
+			//u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
 		}
 		else if(type == _Id){
 			u_color = #white
@@ -768,69 +778,4 @@ class Codeview extends Text{
 			u_color = #orange
 		}
 	}
-	// needlessly animating default style
-	style2:(){
-        
-        vec4 c//COMEABS
-		vec4 m = marks[] // maal comments!
-		vec2 pos = m.xy 
-		vec2 center = pos - .5
-
-		var group = m.z
-		var type = floor(m.w / 65536.)
-		var sub = mod(floor(m.w/256.), 256.)
-		var part  = mod(m.w, 256.)
-		
-		if( sub == _Paren  ){
-				
-           u_color = weirdColor.iceBlue( pos , mesh[].xy )
-   
-        }else if( type ==  _Key ){
-
-          // Setting outline inside weirdColor
-          // is weird
-          u_outline = true
-          u_color = weirdColor.whiteDot( pos , mesh[].xy )
-
-         
-          
-        }else if(sub == _Bracket){
-              u_color = #aero 
-              //#ccc//mix(#red, #yellow, abs on sin on group)
-              u_boldness =  .3*sin on group
-        }else if(sub == _Operator){
-
-			u_color = weirdColor.redBludge( pos , mesh[].xy )
-              
-            //u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
-		}
-		else if(type == _Id){
-			u_color = weirdColor.redNight( pos , mesh[].xy )
-			if(sub == _Color){
-				u_color = #pink
-			}
-
-
-		}
-		else if(type == _Value){
-			u_color = weirdColor.whiteLight( pos , mesh[].xy )
-        }
-		else if(type == _TypeVar){
-		  u_color = weirdColor.swampFire( pos , mesh[].xy ) 
-		}else if(type == _Var){
-		  u_color = weirdColor.galaxyPurple( pos , mesh[].xy ) 
-		}else if(type == _Comment){
-			u_color = weirdColor.starryNight( pos , mesh[].xy )
-        }else if(type == _Class){
-			u_color = #sky
-		}
-		else{
-			u_color = weirdColor.sleepTime( pos , mesh[].xy ) 
-		}
-	}
-
-
-
-
-              
 }

@@ -13,17 +13,34 @@ Scene{
 		//pixel:#444
 	}
 	var boldness = 1.0
+
+	class MyStyle{
+		color1:#red
+		color2:#green
+		u_color: mix(color1, color2, mesh[].y/100.)
+	}
+
 	Text{
+		learn(MyStyle)
+		sy =
+		sx = :1+8.*abs on sin on time.sec
 		x:10
 		y:10
 		ax:0
 		ay:0
 		//pixel: glyphy_pixel
-		var txt = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*\n'
-		var o = ''
-		for(var i = 0;i<200;i++)
-			o += txt
-		text = o
+		setInterval(()=>{
+			var txt = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ12342567890!@#%^&*\n'
+			var o = ''
+			for(var i = 0;i<100;i++){
+				for(var j = 0;j<100;j++){
+					o += txt.charAt(Math.random()*(txt.length-1))
+				}
+				o+='\n'
+			}
+			text = o
+		},10)
+		text = 'hi'
 		font_size = 12
 		u_outline = false
 		u_boldness = boldness

@@ -152,38 +152,47 @@ class Key extends WorkerProxy{
 
 	$constructor:(){
 		window.addEventListener('keydown') do(e)=>{
-			var k = browserKeyTable[ e.keyCode ]
+			var k = toKey[ e.keyCode ]
 			if( k ) this[ k ] = 1
-			down = {	
+			var msg = {	
 				repeat: e.repeat
 				code: e.keyCode
-
+				name: toKey[e.keyCode]
 			}
+			msg[msg.name] = 1
+			down = msg
+			if(e.keyCode == toCode.backspace) e.preventDefault()
 		}
 
 		window.addEventListener('keyup') do(e)=>{
-			var k = browserKeyTable[ e.keyCode ]
+			var k = toKey[ e.keyCode ]
 			if( k ) this[ k ] = 0
-			up = {
+			var msg = {
 				repeat: e.repeat
 				code: e.keyCode
+				name: toKey[e.keyCode]
 			}
+			msg[msg.name] = 1
+			up = msg
+			if(e.keyCode == toCode.backspace) e.preventDefault()
 		}
 
 		window.addEventListener('keypress') do(e)=>{
 			press = {
 				repeat: e.repeat
-				code: e.charCode
+				value: String.fromCharCode(e.charCode)
+				char: e.charCode
 			}
+			e.preventDefault()
 		}
 	}
 
-	browserKeyTable = { // slap a usable name on keys
+	toKey = { // slap a usable name on keys
 		_t_:1, // flag for transfer
 		8:'backspace',9:'tab',13:'enter',16:'shift',17:'ctrl',18:'alt',
 		19:'pause',20:'caps',27:'escape',
 		32:'space',33:'pgup',34:'pgdn',
-		35:'end',36:'home',37:'left',38:'up',39:'right',40:'down',
+		35:'end',36:'home',37:'leftarrow',38:'uparrow',39:'rightarrow',40:'downarrow',
 		45:'insert',46:'delete',
 		48:'num0',49:'num1',50:'num2',51:'num3',52:'num4',
 		53:'num5',54:'num6',55:'num7',56:'num8',57:'num9',
@@ -201,9 +210,13 @@ class Key extends WorkerProxy{
 		189:'dash',190:'period',191:'slash',192:'accent',219:'openbracket',
 		220:'backslash',221:'closebracket',222:'singlequote'
 	}
+	toCode = {
+		_t_:1
+	}
 
-	for(var k in browserKeyTable){
-		var key = browserKeyTable[ k ]
+	for(var k in toKey){
+		var key = toKey[ k ]
+		toCode[key] = k
 		signal( key, 0 )
 	}
 }

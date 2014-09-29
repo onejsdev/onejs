@@ -24,7 +24,7 @@ class Deck extends Scene{
 
 		touch.swiperight=
 		key.enter =
-		key.right(v)=>{
+		key.rightarrow(v)=>{
 			if(v && selected < children.length - 1){
 				selected++
 			}
@@ -33,7 +33,7 @@ class Deck extends Scene{
 		touch.swipeleft =
 		key.space=
 		key.escape = 
-		key.left(v)=>{
+		key.leftarrow(v)=>{
 			if(v && selected > 0){
 				selected --
 			}
@@ -172,7 +172,7 @@ class Deck extends Scene{
 			u_outline = true
 			//constructor(){
 			//	Text::constructor()
-				y: 20
+				y: 20 + font_size
 				x: text_hcenter
 			//}
 		}

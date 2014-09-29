@@ -14,11 +14,12 @@ import gl
 import math
 import constraint 
 import input
-import glyphy
+import text
 
 class Scene extends Device{
 
 	mouse = Mouse.new()
+	key = Key.new()
 	//midi = Midi.new()
 
 	m_camera = mat4()
@@ -75,6 +76,7 @@ class Layer extends Draw{
 	// forward the mouse object
 	mouse = Scene.mouse
 	midi = Scene.midi
+	key = Scene.key
 	// define object types
 	mesh = vec2Rect(0, 0, 1, 1)
 
@@ -139,7 +141,13 @@ class Layer extends Draw{
 }
 
 class Text extends Layer{
-	load(Glyphy)
+	load(MarkedTextImpl)
+	
+	constructor(){
+		Layer::constructor()
+		MarkedTextImpl::constructor()
+	}
+
 	font_size = 20
 	u_boldness= 0.8
 	color: #white

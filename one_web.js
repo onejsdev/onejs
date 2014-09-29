@@ -18,7 +18,7 @@ ONE.fake_worker = false
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
-ONE.hammer_time = 50
+ONE.hammer_time = 50 // its about as bad an idea as the song
 
 ONE.hacklog = function(txt){
 	if(document.body)

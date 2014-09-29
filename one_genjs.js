@@ -525,10 +525,19 @@ ONE.genjs_ = function(){
 					return 'ONE.color("'+n.name+'", __module__.local_types.vec3)'
 				}
 			}
-			if(n.typing && n.typing.type == 'Id'){
-				var type = this.find_type(n.typing.name)
-				if(type){
-					n.infer = type
+			if(n.typing){
+				if(n.typing.type == 'Id'){
+					var type = this.find_type(n.typing.name)
+					if(type){
+						n.infer = type
+					}
+				}
+				if(n.typing.type == 'Index'){
+					var type = this.find_type(n.typing.object.name)
+					if(type){
+						n.infer = Object.create(type)
+						n.infer.dim = 1
+					}
 				}
 			}
 			return this.resolve( n.name, n )
@@ -571,7 +580,7 @@ ONE.genjs_ = function(){
 					else{
 						// check
 						base = this.expand(node, node.parent)
-						type = this.scope[base]
+						type = node.infer && node.infer._type_ ? node.infer : this.scope[base]
 					}
 					// lookup type on context object
 					var ctx
@@ -598,8 +607,8 @@ ONE.genjs_ = function(){
 								if(node.object.index) throw new Error('Dont support double indexes on structs')
 								// we can only support indexes on fields with primitive
 								// subtypes or on fields with dimensions.
-								if(!field.dim && field.prim) throw new Error('cannot index primitive field')
-								if(!field.size) throw new Error('cannot index 0 size field'+outer.AST.toString(n))
+								if(!field.dim && field.prim) throw new Error('cannot index primitive field '+outer.AST.toString(n)+' '+n.infer)
+								if(!field.size) throw new Error('cannot index 0 size field '+outer.AST.toString(n))
 								
 								// so if we have dim, we want index calcs.
 								if(idx!=='') idx += '+'
@@ -655,7 +664,7 @@ ONE.genjs_ = function(){
 							ret += ',' + output + ')'
 							return ret
 						}
-
+						//console.log(node,field)
 						if((!node.index || field.dim) && !field.prim){
 							n.infer = field
 							n.inferptr = 1
@@ -674,7 +683,7 @@ ONE.genjs_ = function(){
 							this.find_function(n).call_var = 1
 							if(voff == '0') return base
 							this.module.local_types[type.name] = type
-							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + '),'+
+							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + ','+voff + '+' + field.slots + '),'+
 								this.call_tmpvar+'._t_=__module__.local_types.'+type.name+','+this.call_tmpvar+')'
 						}
 						return base + '[' + voff+ ']'
@@ -1172,7 +1181,7 @@ ONE.genjs_ = function(){
 					name = typing.name
 					type = this.find_type(name)
 					if(!type){
-						console.log(this.module)
+						//console.log(this.module)
 						throw new Error('Cannot find type ' + name)
 					}
 				}
@@ -1934,7 +1943,6 @@ ONE.genjs_ = function(){
 				if(arg.type == 'Rest') throw new Error('... is not supported in typed calls')
 			}
 			ret += ')'
-
 			n.infer = type
 
 			return ret
@@ -2042,7 +2050,7 @@ ONE.genjs_ = function(){
 			func.type_nesting--
 			
 			ret += ','+output+')'
-			
+
 			n.infer = type
 			
 			return ret

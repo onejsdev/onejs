@@ -6,10 +6,129 @@ import slides
 import codeview
 import noise
 import warps
+import font_styles
+
+class CrazyCode extends CodeView{
+    load( FontStyles )
+
+	style:(){
+		vec4 m = marks[] // magical comments!
+		vec2 pos = mark_pos 
+		vec2 center = pos - .5
+
+		var group = m.x
+		var type = floor(m.y / 65536.)
+		var sub = mod(floor(m.y/256.), 256.)
+		var part  = mod(m.y, 256.)
+		
+		if(sub == _Paren || sub == _Brace || sub == _Bracket){
+			if(sub == _Paren){
+				u_color = mix(#aero, #magenta, abs on sin on group)
+				u_boldness = 0.4 + 0.3*sin on group
+			}
+			else if(sub == _Bracket){
+				u_color = #ccc//mix(#red, #yellow, abs on sin on group)
+				u_boldness =  .3*sin on group
+			}
+			else{
+				u_color = #yellow//mix(#red, #yellow, abs on sin on group)
+				u_boldness =  .3*sin on group
+			}
+			u_outline = true
+			u_outline_thickness = (1.+.6*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
+		}
+		else if(sub == _Operator){
+			u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
+			u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
+		}
+		else if(type == _Id){
+			u_color = #white
+			if(sub == _Color){
+				u_color = #pink
+			}
+		}
+		else if(type == _Value){
+			u_color = #aero
+		}
+		else if(type == _TypeVar){
+			u_color = #00ff00
+		}
+		else if(type == _Comment){
+			u_color = mix(#777,#ccc,.5+.5*sin(pos.x+pos.y-0.5time.sec))
+		}
+		else {
+			u_color = #orange
+		}
+	}
+	// needlessly animating default style
+	style2:(){
+        
+        vec4 c//COMEABS
+		vec4 m = marks[] // maal comments!
+		vec2 pos = mark_pos
+		vec2 center = pos - .5
+
+		var group = m.x
+		var type = floor(m.y / 65536.)
+		var sub = mod(floor(m.y/256.), 256.)
+		var part  = mod(m.y, 256.)
+		
+		if( sub == _Paren  ){
+				
+           u_color = weirdColor.iceBlue( pos , mesh[].xy )
+   
+        }
+        else if( type ==  _Key ){
+
+          // Setting outline inside weirdColor
+          // is weird
+          u_outline = true
+          u_color = weirdColor.whiteDot( pos , mesh[].xy )
+
+         
+          
+        }
+        else if(sub == _Bracket){
+              u_color = #aero 
+              //#ccc//mix(#red, #yellow, abs on sin on group)
+              u_boldness =  .3*sin on group
+        }
+        else if(sub == _Operator){
+
+			u_color = weirdColor.redBludge( pos , mesh[].xy )
+              
+            //u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
+		}
+		else if(type == _Id){
+			u_color = weirdColor.redNight( pos , mesh[].xy )
+			if(sub == _Color){
+				u_color = #pink
+			}
+
+
+		}
+		else if(type == _Value){
+			u_color = weirdColor.whiteLight( pos , mesh[].xy )
+        }
+		else if(type == _TypeVar){
+		  u_color = weirdColor.swampFire( pos , mesh[].xy ) 
+		}else if(type == _Var){
+		  u_color = weirdColor.galaxyPurple( pos , mesh[].xy ) 
+		}else if(type == _Comment){
+			u_color = weirdColor.starryNight( pos , mesh[].xy )
+        }else if(type == _Class){
+			u_color = #sky
+		}
+		else{
+			u_color = weirdColor.sleepTime( pos , mesh[].xy ) 
+		}
+	}
+
+}
 
 Deck{
 	antialias = true
-	selected = 0
+	selected = 1
 	anim_len = .5
 	ratio = 1
 	clampit:(vec2 p, t){
@@ -59,6 +178,7 @@ Deck{
 	Slide{
 		Title{
 			x: 400
+			y: font_size
 			u_outline = true
 			u_color:#white
 			text = 'Why WHY???'
@@ -68,11 +188,11 @@ Deck{
 			Bullet{
 				x = 20
 				y = 40
-				font_marked = true
+				inline_marks = true
 				text = "$0The $1Creative $0Power\n    of the $2GPU"
 				style:(){
-					var pos = marks[].xy
-					var mark = marks[].z
+					var pos = mark_pos
+					var mark = marks[].x
 					if(mark == 0.){
 						u_color = #white
 					}
@@ -106,7 +226,7 @@ Deck{
 				x:0
 				w:device.w - 80
 				h:device.h - y - 140
-				Codeview{
+				CrazyCode{
 					font_size = 30
 					u_boldness = 1.2
 					ast = :(){
@@ -231,10 +351,10 @@ Deck{
 				ay = 0
 				sx: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
 				sy: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
-				font_marked = true
+				inline_marks = true
 				style:(){
-					var pos = marks[].xy
-					var markxy = marks[].zw * vec2(1.,0.12) - vec2(8.,8.)
+					var pos = mark_pos
+					var markxy = marks[].xy * vec2(1.,0.12) - vec2(8.,8.)
 
 					var mark = floor(mod(length(markxy)-2.time.sec,6.))
 					if(mark == 0.){
@@ -275,10 +395,10 @@ Deck{
 		}
 		
 		Center{
-			font_marked = true
+			inline_marks = true
 			style:(){
-				var pos = marks[].xy
-				var mark = marks[].z
+				var pos = mark_pos
+				var mark = marks[].x
 				if(mark == 0.){
 					u_color = #white
 					u_outline_thickness = 2.+sin(length(pos - .5)*18. + 8.*time.sec)
@@ -304,10 +424,10 @@ Deck{
 		
 		Center{
 			u_outline = false
-			font_marked = true
+			inline_marks = true
 			style:(){
-				var pos = marks[].xy
-				var mark = marks[].z
+				var pos = mark_pos
+				var mark = marks[].x
 				if(mark == 0.){
 					u_color = #white
 					
@@ -333,10 +453,10 @@ Deck{
 		}
 		Center{
 			u_outline = false
-			font_marked = true
+			inline_marks = true
 			style:(){
-				var pos = marks[].xy
-				var mark = marks[].z
+				var pos = mark_pos
+				var mark = marks[].x
 				if(mark == 0.){
 					u_color = #white
 				}
@@ -360,10 +480,10 @@ Deck{
 		}
 		
 		Center{
-			font_marked = true
+			inline_marks = true
 			style:(){
-				var pos = marks[].xy
-				var mark = marks[].z
+				var pos = mark_pos
+				var mark = marks[].x
 				if(mark == 0.){
 					u_color = #white
 					u_outline = false
@@ -387,7 +507,7 @@ Deck{
 			text = 'OneJS: Is JS'
 		}
 		Left{
-			Codeview{
+			CrazyCode{
 				font_size = 45
 				ast:(){
 					test()
@@ -406,7 +526,7 @@ Deck{
 			}
 		}
 		Right{
-			Codeview{
+			CrazyCode{
 				font_size = 45
 				ast:(){
 					class Sub extends Super{
@@ -429,7 +549,7 @@ Deck{
 			text = 'The interesting part'
 		}
 		Left{
-			Codeview{
+			CrazyCode{
 				font_size = 45
 				ast:(){
 					struct vec2{
@@ -444,7 +564,7 @@ Deck{
 			}
 		}
 		Right{
-			Codeview{
+			CrazyCode{
 				font_size = 45
 				ast:(){
 					var x = (im,a,fn){}
@@ -461,7 +581,7 @@ Deck{
 	Slide{
 		Title{ text = 'The Triangle' }
 		Body{
-			Codeview{
+			CrazyCode{
 				font_size = 45
 				x = 10
 				y = 20
@@ -522,7 +642,7 @@ Deck{
 				}
 			}
 
-			Codeview{
+			CrazyCode{
 				font_size = 27
 				x = 10
 				y = 20
@@ -567,7 +687,7 @@ Deck{
 			text = 'Interactivity'
 		}
 		Body{
-			Codeview{
+			CrazyCode{
 				font_size = 27
 				x = 10
 				y = 20
@@ -587,7 +707,7 @@ Deck{
 			text = 'Making slides: a DSL'
 		}
 		Left{
-			Codeview{
+			CrazyCode{
 				font_size = 35
 				ast:(){
 					class Deck extends Scene{
@@ -613,7 +733,7 @@ Deck{
 			}
 		}
 		Right{
-			Codeview{
+			CrazyCode{
 				font_size = 35
 				ast:(){
 					Deck{
@@ -679,7 +799,7 @@ Deck{
 				y = 20
 				text = 'Constraints, layout and UI'
 			}
-			Codeview{
+			CrazyCode{
 				x = 40
 				y = 100
 				u_outline = false
@@ -738,7 +858,7 @@ Deck{
 
 	Slide{
 		Blur{
-			Codeview{
+			CrazyCode{
 				x:0
 				y =-100
 				ax: 10
@@ -765,7 +885,7 @@ Deck{
 	}
 
 	Slide{
-		Codeview{
+		CrazyCode{
 			u_outline_thickness = 3.
 			param_x: 10. * sin(0.005*time.sec)
 			param_y = 0.1

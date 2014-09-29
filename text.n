@@ -20,12 +20,11 @@ import math
 import gl
 import network
 
-class Glyphy{
+class TextImpl{
 
 	class Atlas extends Texture{
 		lookup:(int offset, ivec2 _atlas_pos){
-			//ivec4 atlas = u_atlas_info
-			//ivec2 item_geom = atlas.zw
+
 			vec2 pos =(vec2(_atlas_pos.xy * u_item_geom +
 				ivec2(mod(float(offset), u_item_geom_x), offset / u_item_geom.x)) +
 				vec2(.5, .5)) / u_atlas_size
@@ -39,11 +38,11 @@ class Glyphy{
 		}
 	}
 
-	//u_boldness: 0.25*(sin(4time.sec+mesh[].x+mesh[].y))
+	// shader font styling options
 	u_boldness = 0
 	u_scaling = 0
 	u_distance = 0
-	u_gamma_adjust = 1
+	u_gamma_adjust = 0.75
 	u_outline = false
 	u_debug = false
 	u_contrast = 1.
@@ -54,32 +53,29 @@ class Glyphy{
 	text_w = 0
 	text_h = 0
 
-	sdf_cache = true
-	font_marked = false
-
-	//font = im_port('fonts/code_font1_ascii.glf', 'arraybuffer')
-	//sdf_bake = true
+	// fundamental rendering modes
+	mode_sdf = true // turn sdf mode on or off
+	mode_whitespace = true // wether whitespace generates triangles
+	mode_tabs_are_spaces = false
+	// our font blob
 	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
-
+	
 	font_size = 10
 	line_height = 1.2
-	value = ''
 
-	// type mark it
+	//mes
 	mesh = vec4[]()
 
-	//up:pixel mesh[].xy
-
+	// initial pixel and vertex shaders
 	vertex: mesh[].xy
 	pixel: glyphy_pixel//glyphy_draw(pixel mesh[])
 
-
+	// placeholder to get the coordinates
 	glyphy_coords: mesh[].zw
 
 	__text = ''
 
 	style:(){
-
 	}
 
 	// define a getter and setter
@@ -92,27 +88,36 @@ class Glyphy{
 		if(typeof v !== 'string') v = '<invalid type>'
 		__text = v
 		if(is_initialized){
-			alloc(__text.length, font_marked)
-			add(__text)
-			update()
+			allocText(__text.length)
+			string(__text)
+			updateText()
 		}
 	}
 
 	constructor(){
-		var info = glyphy_font_cache[font && font.name] || parseBlob(font, font.name)
+		var font_name = font && font.name
+		var info = glyphy_font_cache[font_name] || 
+			(glyphy_font_cache[font_name] = parseFont(font))
 
-		if(sdf_cache){
-			if(!info.sdf_texture) createSDFCache(info)
+		// we cant do glyphy mode with baked textures
+		if(info.baked) mode_sdf = true
+
+		if(mode_sdf){
+			if(!info.sdf_texture) generateSDFCache(info)
 			else sdf_texture = info.sdf_texture
-			glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
+			if(u_background_color)
+				glyphy_pixel: glyphy_sdf_draw_subpixel(pixel mesh[])
+			else
+				glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
 		}
 		else{
-			glyphy_pixel: glyphy_draw(pixel mesh[])
+			glyphy_pixel: glyphy_atlas_draw(pixel mesh[])
 		}
 		
 		u_item_geom_x = info.item_w
 		u_item_geom = ivec2(info.item_w, info.item_h)
 		u_atlas_size = vec2(info.tex_w, info.tex_h)
+
 		glyphy_atlas = info.atlas
 		glyphy_info = info
 		
@@ -127,12 +132,12 @@ class Glyphy{
 	// global font cache
 	glyphy_font_cache = {}
 
-	parseBlob(blob, name){
+	parseFont(blob){
 		// lets parse the font
-		vuint16 = new Uint16Array(blob)
-		vuint32 = new Uint32Array(blob)
-		vfloat32 = new Float32Array(blob)
-		vuint8 = new Uint8Array(blob)
+		var vuint16 = new Uint16Array(blob)
+		var vuint32 = new Uint32Array(blob)
+		var vfloat32 = new Float32Array(blob)
+		var vuint8 = new Uint8Array(blob)
 
 		var info = {}
 		glyphy_info = info
@@ -200,37 +205,56 @@ class Glyphy{
 			info.atlas = Atlas.array(blob.slice(off * 4), info.tex_w, info.tex_h)
 		}
 		else throw new Error('Error in font file')
-
-		return glyphy_font_cache[name] = info
+		// we need to add a space, newline and tab character.
+		info.glyphs[32] = {
+			min_x: 0
+			min_y: 0
+			max_x: 0
+			max_y: 0
+			advance:0.5
+			width: 0
+			height: 0
+		}
+		info.glyphs[10] = {
+			min_x: 0
+			min_y: 0
+			max_x: 0
+			max_y: 0
+			advance:0
+			width: 0
+			height: 0
+		}		
+		info.glyphs[9] = {
+			min_x: 0
+			min_y: 0
+			max_x: 0
+			max_y: 0
+			advance:1.5
+			width: 0
+			height: 0
+		}
+		return info
 	}
 
-
-	alloc(length, marked){
+	allocText(len){
 		add_px = 0
 		text_w = 0
 		text_h = 0
 		add_py = 0
 		alloc_off = 0
-		alloc_length = length * 6
+		alloc_length = len * 6
+		char_length = 0
 		alloc_mesh = vec4[alloc_length]()
-		if(marked){
-			alloc_marks = vec4[alloc_length]()
-		}
 	}
 
-	realloc(extra){
+	reallocText(extra){
 		vec4[] old_mesh = alloc_mesh
-		vec4[] old_marks = alloc_marks
-		var old_length = alloc_length
-		
+
 		alloc_length += extra * 6
 		alloc_mesh = vec4[alloc_length]()
-		if(alloc_marks){
-			alloc_marks = vec4[alloc_length]()
-		}
+
 		// lets copy it
 		vec4[] nmesh = alloc_mesh
-		vec4[] nmarks = alloc_marks
 
 		for(var i = 0;i<old_length;i++){
 			nmesh[i].x = old_mesh[i].x
@@ -238,227 +262,153 @@ class Glyphy{
 			nmesh[i].z = old_mesh[i].z
 			nmesh[i].w = old_mesh[i].w
 		}
-		if(alloc_marks){
-			for(var i = 0;i<old_length;i++){
-				nmarks[i].x = old_marks[i].x
-				nmarks[i].y = old_marks[i].y
-				nmarks[i].z = old_marks[i].z
-				nmarks[i].w = old_marks[i].w
-			}
-		}
 	}
 
-	mark_direct(off, length, z, w){
-		var o = off
-		vec4[] buf = alloc_marks
-		for(var i = 0; i < length; i++){
-			buf[o].x = 0
-			buf[o].y = 0
-			buf[o].z = z
-			buf[o].w = w
-			o++
-			buf[o].x = 1
-			buf[o].y = 0
-			buf[o].z = z
-			buf[o].w = w
-			o++
-			buf[o].x = 0
-			buf[o].y = 1
-			buf[o].z = z
-			buf[o].w = w
-			o++
-			buf[o].x = 0
-			buf[o].y = 1
-			buf[o].z = z
-			buf[o].w = w
-			o++
-			buf[o].x = 1
-			buf[o].y = 0
-			buf[o].z = z
-			buf[o].w = w
-			o++
-			buf[o].x = 1
-			buf[o].y = 1
-			buf[o].z = z
-			buf[o].w = w
-			o++
-		}		
-	}
-
-	mark(text, z, w){
-		var length = text.length
-		// resize text mesh buffer
-		if(alloc_off + length *6 > alloc_length){
-			realloc(alloc_off / 6 + length)
+	charBounds(off){
+		// lets find the bounds rectangle for a char
+		var idx = off*6
+		vec4[] mesh = alloc_mesh
+		vec4 m0 = mesh[idx]
+		vec4 m1 = mesh[idx + 1]
+		vec4 m2 = mesh[idx + 2]
+		return {
+			x:m0.x
+			y:m0.y
+			w:m1.x - m0.x
+			h:m2.y - m0.y
 		}
-		mark_direct(alloc_off, text.length, z, w)
-
-		add(text)
 	}
 	
+	// white space
 	space(t){
 		if(t===undefined) t = 1
-		add_px += glyphy_info.glyphs[36].width * font_size * t
+		if(mode_whitespace){
+			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[32])
+		}
+		else{
+			add_px += glyphy_info.glyphs[32].advance * font_size * t
+		}
+		return t
 	}
 
-	newline(){
+	newline(t){
+		if(t===undefined) t = 1
+		if(mode_whitespace){
+			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[10])
+		}
 		add_px = 0
-		add_py += font_size * line_height
+		add_py += font_size * line_height * t
+		return t
 	}
 
 	tab(t){
-		space(3 * (t===undefined?1:t))
+		if(t===undefined) t = 1
+		if(mode_tabs_are_spaces){
+			return space(3 * t)
+		}
+		else {
+			if(mode_whitespace){
+				for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[9])
+			}
+			else add_px += glyphy_info.glyphs[9].advance * font_size
+		}
+		return t
 	}
 
-	add(text, x, y){
-		if(x === undefined) x = add_px
-		if(y === undefined) y = add_py
-		var length = text.length
-		if(sdf_cache){
-			// alloc a buffer
-			//vec4[] buf = vec4[length * 6]()
-			vec4[] buf = alloc_mesh
-			var o = alloc_off
-			var px = x
-			var py = y + font_size
-			var mark_z, mark_w
-			// alright lets convert some text babeh!
-			for(var i = 0; i < length; i++){
-				var unicode = text.charCodeAt(i)
-
-				if(font_marked && (unicode == 36||unicode==37)){
-					var t = i
-					var next
-					while((next = text.charCodeAt(t+1)) >= 48 && next <=57){
-						t++
-					}
-					if(i != t){
-						var out = parseInt(text.slice(i+1, i-t))
-						if(unicode == 36) mark_z = out
-						else mark_w = out
-						i = t
-						continue
-					}
-				}
-				if(unicode == 10){
-					px = 0
-					py += font_size * line_height
-					continue
-				}
-				var glyph = glyphy_info.glyphs[unicode]
-				if(!glyph){
-					px += glyphy_info.glyphs[39].width * font_size
-					continue
-				}
-				if(mark_w !== undefined || mark_z !== undefined) mark_direct(o, 1, mark_z, mark_w)
-				// 0___14 
-				// |   /|
-				// |  / |
-				// | /  |
-				// |/   | 
-				// 23---5
-				// lets add some vertices
-				var gx = ((glyph.atlas_x<<6) | glyph.nominal_w)<<1
-				var gy = ((glyph.atlas_y<<6) | glyph.nominal_h)<<1
-				buf[o].x = px + font_size * glyph.min_x
-				buf[o].y = py - font_size * glyph.min_y
-				buf[o].z = glyph.tmin_x
-				buf[o].w = glyph.tmin_y
-				o++
-				buf[o+3].x = buf[o].x = px + font_size * glyph.max_x
-				buf[o+3].y = buf[o].y = py - font_size * glyph.min_y
-				buf[o+3].z = buf[o].z = glyph.tmax_x
-				buf[o+3].w = buf[o].w = glyph.tmin_y
-				o++
-				buf[o+1].x = buf[o].x = px + font_size * glyph.min_x
-				buf[o+1].y = buf[o].y = py - font_size * glyph.max_y
-				buf[o+1].z = buf[o].z = glyph.tmin_x
-				buf[o+1].w = buf[o].w = glyph.tmax_y
-				o+=3
-				buf[o].x = px + font_size * glyph.max_x
-				buf[o].y = py - font_size * glyph.max_y
-				buf[o].z = glyph.tmax_x
-				buf[o].w = glyph.tmax_y
-				o++
-				px += glyph.advance * font_size
-				if(px > text_w)text_w = px
-				//console.log(o)
-			}
-			alloc_off = o
-			add_px = px
-			add_py = py - font_size
-			if(py > text_h) text_h = py	
+	addChar(info){
+		vec4[] buf = alloc_mesh
+		var o = alloc_off
+		//add_px = Math.round(add_px)
+		//add_py = Math.round(add_py)
+		if(mode_sdf){
+			buf[o].x = add_px + font_size * info.min_x
+			buf[o].y = add_py - font_size * info.min_y
+			buf[o].z = info.tmin_x
+			buf[o].w = info.tmin_y
+			o++
+			buf[o+3].x = buf[o].x = add_px + font_size * info.max_x
+			buf[o+3].y = buf[o].y = add_py - font_size * info.min_y
+			buf[o+3].z = buf[o].z = info.tmax_x
+			buf[o+3].w = buf[o].w = info.tmin_y
+			o++
+			buf[o+1].x = buf[o].x = add_px + font_size * info.min_x
+			buf[o+1].y = buf[o].y = add_py - font_size * info.max_y
+			buf[o+1].z = buf[o].z = info.tmin_x
+			buf[o+1].w = buf[o].w = info.tmax_y
+			o+=3
+			buf[o].x = add_px + font_size * info.max_x
+			buf[o].y = add_py - font_size * info.max_y
+			buf[o].z = info.tmax_x
+			buf[o].w = info.tmax_y
+			o++
 		}
 		else{
-			
-			// alloc a buffer
-			vec4[] buf = alloc_mesh
-			var o = alloc_off
-			var px = x
-			var py = y + font_size
-			// alright lets convert some text babeh!
-			for(var i = 0; i < length; i++){
-				var unicode = __text.charCodeAt(i)
-
-				if(unicode == 10){
-					px = 0
-					py += font_size * line_height
-					continue
-				}
-				var glyph = glyphy_info.glyphs[unicode]
-				if(!glyph){
-					px += glyphy_info.glyphs[39].width * font_size
-					continue
-				}
-
-				// 0___14 
-				// |   /|
-				// |  / |
-				// | /  |
-				// |/   | 
-				// 23---5
-				// lets add some vertices
-				var gx = ((glyph.atlas_x<<6) | glyph.nominal_w)<<1
-				var gy = ((glyph.atlas_y<<6) | glyph.nominal_h)<<1
-				buf[o].x = px + font_size * glyph.min_x
-				buf[o].y = py - font_size * glyph.min_y
-				buf[o].z = gx
-				buf[o].w = gy
-				o++
-				buf[o+3].x = buf[o].x = px + font_size * glyph.max_x
-				buf[o+3].y = buf[o].y = py - font_size * glyph.min_y
-				buf[o+3].z = buf[o].z = gx | 1
-				buf[o+3].w = buf[o].w = gy
-				o++
-				buf[o+1].x = buf[o].x = px + font_size * glyph.min_x
-				buf[o+1].y = buf[o].y = py - font_size * glyph.max_y
-				buf[o+1].z = buf[o].z = gx
-				buf[o+1].w = buf[o].w = gy | 1
-				o+=3
-				buf[o].x = px + font_size * glyph.max_x
-				buf[o].y = py - font_size * glyph.max_y
-				buf[o].z = gx | 1
-				buf[o].w = gy | 1
-				o++
-				px += glyph.advance * font_size
-				if(px > text_w)text_w = px
-				//console.log(o)
-			}
-			alloc_off = o
-			add_px = px
-			add_py = py	- font_size
-			if(py > text_h) text_h = py	
+			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1
+			var gy = ((info.atlas_y<<6) | info.nominal_h)<<1
+			buf[o].x = add_px + font_size * info.min_x
+			buf[o].y = add_py - font_size * info.min_y
+			buf[o].z = gx
+			buf[o].w = gy
+			o++
+			buf[o+3].x = buf[o].x = add_px + font_size * info.max_x
+			buf[o+3].y = buf[o].y = add_py - font_size * info.min_y
+			buf[o+3].z = buf[o].z = gx | 1
+			buf[o+3].w = buf[o].w = gy
+			o++
+			buf[o+1].x = buf[o].x = add_px + font_size * info.min_x
+			buf[o+1].y = buf[o].y = add_py - font_size * info.max_y
+			buf[o+1].z = buf[o].z = gx
+			buf[o+1].w = buf[o].w = gy | 1
+			o+=3
+			buf[o].x = add_px + font_size * info.max_x
+			buf[o].y = add_py - font_size * info.max_y
+			buf[o].z = gx | 1
+			buf[o].w = gy | 1
+			o++
 		}
-
+		char_length++
+		add_px += info.advance * font_size
+		if(add_px > text_w)text_w = add_px
+		alloc_off = o
 	}
 
-	update(){
+	string(text, x, y){
+		if(x !== undefined) add_px = x 
+		if(y !== undefined) add_py = y 
+		var length = text.length
+
+		if(alloc_off + length *6 > alloc_length) reallocText(alloc_off / 6 + length)
+
+		// alright lets convert some text babeh!
+		for(var i = 0; i < length; i++){
+			var unicode = text.charCodeAt(i)
+
+			if(unicode == 10){ // newline
+				newline()
+				continue
+			}
+			if(unicode == 9){ // tab
+				tab()
+			}
+			var info = glyphy_info.glyphs[unicode]
+			if(!info){
+				space()
+				continue
+			}
+			// lets add some vertices
+			addGlyph(info)
+			//console.log(o)
+		}
+		if(add_py > text_h) text_h = add_py	
+	}
+
+	updateText(){
 		mesh = alloc_mesh
 		marks = alloc_marks
 	}
 
 	// we build up an sdf texture that we draw to in once:(){}
-	createSDFCache(info){
+	generateSDFCache(info){
 
 		vec4[] buf = vec4[info.count * 6]()
 
@@ -466,6 +416,10 @@ class Glyphy{
 		var font_size = .2
 		// if we render to a font we go -1,-1 bottom left to 1,1 top right
 		// 
+		var width = 1024
+		var height = 1024
+		var margin = 4./width
+
 		var glyphs = info.glyphs
 		var left = -1  + 0.03
 		var top = -1 + font_size
@@ -473,9 +427,8 @@ class Glyphy{
 		var py = 1
 		var o = 0
 		var maxh = 0
-
 		for(var k in glyphs){
-			var glyph = glyphs[k]
+			var info = glyphs[k]
 			// 0___14 
 			// |   /|
 			// |  / |
@@ -483,50 +436,50 @@ class Glyphy{
 			// |/   | 
 			// 23---5
 			// lets add some vertices
-			var gx = ((glyph.atlas_x<<6) | glyph.nominal_w)<<1
-			var gy = ((glyph.atlas_y<<6) | glyph.nominal_h)<<1
-			buf[o].x = glyph.tmin_x = px
-			buf[o].y = glyph.tmin_y = py
+			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1
+			var gy = ((info.atlas_y<<6) | info.nominal_h)<<1
+			buf[o].x = info.tmin_x = px
+			buf[o].y = info.tmin_y = py
 			buf[o].z = gx
 			buf[o].w = gy
 			o++
-			buf[o+3].x = buf[o].x = glyph.tmax_x = px + font_size * glyph.width
+			buf[o+3].x = buf[o].x = info.tmax_x = px + font_size * info.width
 			buf[o+3].y = buf[o].y = py
 			buf[o+3].z = buf[o].z = gx | 1
 			buf[o+3].w = buf[o].w = gy
 			o++
 			buf[o+1].x = buf[o].x = px
-			buf[o+1].y = buf[o].y = glyph.tmax_y = py - font_size * glyph.height
+			buf[o+1].y = buf[o].y = info.tmax_y = py - font_size * info.height
 			buf[o+1].z = buf[o].z = gx
 			buf[o+1].w = buf[o].w = gy | 1
 			o+=3
-			buf[o].x = px + font_size * glyph.width
-			buf[o].y = py - font_size * glyph.height
+			buf[o].x = px + font_size * info.width
+			buf[o].y = py - font_size * info.height
 			buf[o].z = gx | 1
 			buf[o].w = gy | 1
 			o++
-			px += (glyph.tmax_x-glyph.tmin_x)//glyph.advance * font_size
+			px += (info.tmax_x-info.tmin_x) + margin//glyph.advance * font_size
 			// scale it into texture coordinates
-			var my_h = (glyph.tmin_y-glyph.tmax_y)
+			var my_h = (info.tmin_y-info.tmax_y) + margin
 			if(my_h > maxh) maxh = my_h
 
-			glyph.tmin_x = glyph.tmin_x *.5 + .5
-			glyph.tmin_y = glyph.tmin_y *.5 + .5
-			glyph.tmax_x = glyph.tmax_x *.5 + .5
-			glyph.tmax_y = glyph.tmax_y *.5 + .5
+			info.tmin_x = info.tmin_x *.5 + .5
+			info.tmin_y = info.tmin_y *.5 + .5
+			info.tmax_x = info.tmax_x *.5 + .5
+			info.tmax_y = info.tmax_y *.5 + .5
 
 			if(px + font_size > 1) px = left, py -= maxh, maxh = 0
 		}
 		// lets do a font scaling, and then just stack em horizontally
-		sdf_texture = Texture.rgba(512, 512)
+		sdf_texture = Texture.rgba(width, height)
 
 		sdf_mesh = buf
 
 		info.sdf_texture = sdf_texture
 		
-		if(sdf_dump){
+		if(dump_sdf){
 			mymesh = vec2Rect(0,0,1,1)
-			vertex: mymesh[]*vec2(2.,2.) * (m_mesh * m_world * device.m_camera)
+			vertex: mymesh[]*vec2(8.,8.) * (m_mesh * m_world * device.m_camera)
 			pixel: sdf_texture.sample(pixel mymesh[])// + mix(#black,#red,pixel mymesh[].y)
 		}
 
@@ -550,17 +503,17 @@ class Glyphy{
 			vuint32[off++] = info.count
 			var glyphs = info.glyphs
 			for(var unicode in glyphs){
-				var glyph = glyphs[unicode]
+				var info = glyphs[unicode]
 				vuint32[off++] = unicode
-				vfloat32[off++] = glyph.min_x
-				vfloat32[off++] = glyph.min_y
-				vfloat32[off++] = glyph.max_x
-				vfloat32[off++] = glyph.max_y
-				vfloat32[off++] = glyph.advance
-				vfloat32[off++] = glyph.tmin_x
-				vfloat32[off++] = glyph.tmin_y
-				vfloat32[off++] = glyph.tmax_x
-				vfloat32[off++] = glyph.tmax_y
+				vfloat32[off++] = info.min_x
+				vfloat32[off++] = info.min_y
+				vfloat32[off++] = info.max_x
+				vfloat32[off++] = info.max_y
+				vfloat32[off++] = info.advance
+				vfloat32[off++] = info.tmin_x
+				vfloat32[off++] = info.tmin_y
+				vfloat32[off++] = info.tmax_x
+				vfloat32[off++] = info.tmax_y
 			}
 			data._t_ = 1
 
@@ -574,7 +527,7 @@ class Glyphy{
 					clearAll(#black)
 					this{
 						vertex:sdf_mesh[].xy
-						pixel: glyphy_sdf_cache(pixel sdf_mesh[])
+						pixel: glyphy_sdf_generate(pixel sdf_mesh[])
 					}
 					var data = sdf_header.subarray(sdf_header_offset)
 					gl.readPixels(0,0,sdf_texture.w, sdf_texture.h, gl.RGBA, gl.UNSIGNED_BYTE, data)
@@ -592,7 +545,7 @@ class Glyphy{
 					clearAll(#black)
 					this{
 						vertex:sdf_mesh[].xy
-						pixel: glyphy_sdf_cache(pixel sdf_mesh[])
+						pixel: glyphy_sdf_generate(pixel sdf_mesh[])
 					}
 				}
 			}			
@@ -756,7 +709,7 @@ class Glyphy{
 		return l
 	}
 
-	glyphy_antialias:(float d){
+	glyphy_antialias:(d){
 		return smoothstep(-.75, +.75, d)
 	}
 
@@ -881,7 +834,7 @@ class Glyphy{
 		return ((.75-value.r)*4.) 
 	}
 
-	glyphy_sdf_cache:(vec4 force){
+	glyphy_sdf_generate:(vec4 force){
 		vec4 glyph = glyph_vertex_transcode(glyphy_coords)
 		ivec2 nominal_size = (ivec2(mod(glyph.zw, 256.)) + 2) / 4
 		ivec2 atlas_pos = ivec2(glyph.zw) / 256
@@ -890,6 +843,48 @@ class Glyphy{
 		return glyphy_sdf_encode(glyphy_sdf(p, nominal_size, atlas_pos))
 	}
 
+	// draw subpixel antialiased using SDF texture
+	glyphy_sdf_draw_subpixel:(vec4 pos){
+
+		vec2 p = pos.zw
+		/* isotropic antialiasing */
+		vec2 dpdx = dFdx(p) // this should mark it pixel and redo the function with a new highmark
+		vec2 dpdy = dFdy(p)
+		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+		// screenspace length
+		u_scaling = 500.*m 
+
+		vec2 sub_delta = dpdx / 3.
+
+		vec3 gsdist(
+			glyphy_sdf_decode(sdf_texture.sample(pos.zw - sub_delta)),
+			glyphy_sdf_decode(sdf_texture.sample(pos.zw ))
+			glyphy_sdf_decode(sdf_texture.sample(pos.zw + sub_delta))
+		)
+		vec3 distance = gsdist * 0.003 // random scale factor
+
+		style() // per pixel styling callback
+
+		distance -= u_boldness / 300.
+		distance = distance / m * u_contrast
+
+		if(u_outline){
+			distance = abs(distance) - u_outline_thickness
+		}
+		vec3 col = u_background_color
+		if(distance.g > 1. )
+			discard
+
+		vec3 alpha = glyphy_antialias(-distance)
+		
+		if(u_gamma_adjust != 1.){
+			alpha = pow(alpha, vec3(1./u_gamma_adjust))
+		}
+		float max_alpha = max(max(alpha.r,alpha.g),alpha.b)
+		if(max_alpha >0.2) max_alpha = 1.
+		return vec4(mix(u_background_color, u_color, alpha), max_alpha)
+	}
+	// draw using SDF texture
 	glyphy_sdf_draw:(vec4 pos){
 
 		vec2 p = pos.zw
@@ -904,7 +899,7 @@ class Glyphy{
 
 		u_distance = gsdist * 0.003
 
-		style() // force this call in the pixelshader
+		style() // per pixel styling callback
 
 		u_distance -= u_boldness / 300.
 		u_distance = u_distance / m * u_contrast
@@ -921,11 +916,12 @@ class Glyphy{
 		
 		if(u_gamma_adjust != 1.)
 			alpha = pow(alpha, 1./u_gamma_adjust)
-	
-		return vec4(out_color.rgb, alpha)
+		
+		return vec4(out_color.rgb, alpha) 
 	}
 
-	glyphy_draw:(vec4 force){
+	// draw using atlas
+	glyphy_atlas_draw:(vec4 force){
 		vec4 glyph = glyph_vertex_transcode(glyphy_coords)
 		ivec2 nominal_size = (ivec2(mod(glyph.zw, 256.)) + 2) / 4
 		ivec2 atlas_pos = ivec2(glyph.zw) / 256
@@ -936,19 +932,21 @@ class Glyphy{
 		vec2 dpdy = dFdy(p)
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 
+		u_distance = glyphy_sdf(p, nominal_size, atlas_pos) 
+		u_scaling = m
+		
+		style()
+
 		vec3 out_color = u_color
 
-		float gsdist = glyphy_sdf(p, nominal_size, atlas_pos) 
+		u_distance -= u_boldness 
+		float sdist = u_distance / m * u_contrast
 
-		gsdist -= u_boldness 
-
-		float sdist = gsdist / m * u_contrast
-
-		if(!u_debug) {
+		//if(!u_debug) {
 			//sdist -= u_boldness * 10.
 			
 			if(u_outline)
-				sdist = abs(sdist) - (u_outline_thickness )
+				sdist = abs(sdist) - (u_outline_thickness)
 
 			if(sdist > 1.)
 				discard
@@ -961,7 +959,7 @@ class Glyphy{
 			//ivec2 item_geom = u_atlas_info.xy
 			//color = vec4(float(item_geom.x) / 2048.,0.,0,1.)		
 			return vec4(out_color.rgb, alpha)
-		} 
+		/*} 
 		else {
 			vec4 out_color = vec4(0,0,0,0)
 
@@ -985,6 +983,161 @@ class Glyphy{
 			out_color += vec4(0,0,1,.1) * float(arc_list.num_endpoints) * 32./255.
 
 			return out_color
+		}*/
+	}
+}
+
+class MarkedTextImpl extends TextImpl{
+
+	mark_pos: vec2(mod(marks[].w,256.), floor(marks[].w/256.))
+	
+	mark_x = 0
+	mark_y = 0
+
+	charMark(off){
+		return vec4[] alloc_marks[off * 6]
+	}
+	
+	charMark_z(off){
+		return vec4[] alloc_marks[off * 6].z
+	}
+
+	reserialize(){
+		var s = ''
+		vec4[] buf = alloc_marks
+		for(var i = 0;i<char_length;i++){
+			s += String.fromCharCode(buf[i*6].z)
 		}
+		return s
+	}
+
+	charBaseline(off){
+
+	}
+
+	markChar(off, length, x, y, z){
+		var o = off
+		vec4[] buf = alloc_marks
+		for(var i = 0; i < length; i++){
+			buf[o].x = x
+			buf[o].y = y
+			buf[o].z = z
+			buf[o].w = 0
+			o++
+			buf[o].x = x
+			buf[o].y = y
+			buf[o].z = z
+			buf[o].w = 1
+			o++
+			buf[o].x = x
+			buf[o].y = y
+			buf[o].z = z
+			buf[o].w = 256
+			o++
+			buf[o].x = x
+			buf[o].y = y
+			buf[o].z = z
+			buf[o].w = 256
+			o++
+			buf[o].x = x
+			buf[o].y = y
+			buf[o].z = z
+			buf[o].w = 1
+			o++
+			buf[o].x = x
+			buf[o].y = y
+			buf[o].z = z
+			buf[o].w = 257
+			o++
+		}
+	}
+	
+	reallocText(extra){
+
+		vec4[] old_marks = alloc_marks
+		var old_length = alloc_length
+
+		TextImpl::reallocText(extra)
+
+		alloc_marks = vec4[alloc_length]()
+		vec4[] nmarks = alloc_marks
+		for(var i = 0;i<old_length;i++){
+			nmarks[i].x = old_marks[i].x
+			nmarks[i].y = old_marks[i].y
+			nmarks[i].z = old_marks[i].z
+			nmarks[i].w = old_marks[i].w
+		}
+	}
+
+	allocText(length){
+		TextImpl::allocText(length)
+		alloc_marks = vec4[alloc_length]()
+	}
+
+	newline(t){
+		var off = alloc_off
+		var i = TextImpl::newline(t)
+		markChar(off, i, mark_x, mark_y, 10)
+		return i
+	}
+
+	tab(t){
+		var off = alloc_off
+		var i = TextImpl::tab(t)
+		markChar(off, i, mark_x, mark_y, 9)
+		return i
+	}
+
+	space(t){
+		var off = alloc_off
+		var i = TextImpl::space(t)
+		markChar(off, i, mark_x, mark_y, 32)
+		return i
+	}
+
+	string(text, x, y){
+		if(x !== undefined) add_px = x 
+		if(y !== undefined) add_py = y 
+		var length = text.length
+
+		if(alloc_off + length * 6 > alloc_length) reallocText(alloc_off / 6 + length)
+
+		// alright lets convert some text babeh!
+		for(var i = 0; i < length; i++){
+			var unicode = text.charCodeAt(i)
+
+			// parse inline marks
+			if(inline_marks && (unicode == 36||unicode==37)){
+				var t = i
+				var next
+				while((next = text.charCodeAt(t+1)) >= 48 && next <=57){
+					t++
+				}
+				if(i != t){
+					var out = parseInt(text.slice(i+1, i-t))
+					if(unicode == 36) mark_x = out
+					else mark_y = out
+					i = t
+					continue
+				}
+			}
+			if(unicode == 10){ // newline
+				newline()
+				continue
+			}
+			if(unicode == 9){ // tab
+				tab()
+			}
+			var glyph = glyphy_info.glyphs[unicode]
+			if(!glyph){
+				space()
+				continue
+			}
+			// lets add some vertices
+			var off = alloc_off
+			addChar(glyph)
+			markChar(off, 1, mark_x, mark_y, unicode)
+		}
+		if(add_py > text_h) text_h = add_py	
 	}
 }

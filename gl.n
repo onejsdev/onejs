@@ -41,24 +41,33 @@ class Draw extends WorkerProxy{
 	// support the { } syntax but store owner on parent
 	call( pthis, nest, parent ){
 		var obj = Object.create(this)
+
 		obj.parent = parent
 
-		if(!parent.children) parent.children = []
-		parent.children.push(obj)
-
-		obj.device = parent.device
-
 		if(obj._constructor) obj._constructor()
-		
+
+		if(!parent.children) parent.children = []
+		parent.children.push(this)
+		device = parent.device
+
 		if(nest) nest.call(obj, parent)
 
-		if(obj.constructor) obj.constructor()
+		obj.constructor()
+
+		if(!obj.device) out('no device on class ', obj)
 
 		if(obj.device.onAddChild) obj.device.onAddChild(obj)
-
 		if(parent.onAddChild) parent.onAddChild(obj)
 
 		return obj
+	}
+
+	constructor(){
+		if(!device){
+			if(!parent.children) parent.children = []
+			parent.children.push(this)
+			device = parent.device
+		}
 	}
 
 	// API available in draw
@@ -119,7 +128,14 @@ class Draw extends WorkerProxy{
 					return '(this.' + name + '=' + ret + ')'
 				}
 				//proxy_props[name] = dist
-				n.infer = prop._t_ || float
+				if(prop._t_) n.infer = prop._t_
+				else if (typeof prop == 'number'){
+					n.infer = float
+				}
+				else if(typeof prop == 'boolean'){
+					n.infer = bool
+				}
+				//n.infer = prop._t_ || float
 				return 'this.' + name
 			}
 		} 
@@ -1241,11 +1257,13 @@ class Device extends Draw{
 		device = this // buck stops here
 	}
 
+	// stop the constructor going up
+	constructor(){
+	}
+
 	fill = #black
 
 	frame = Texture.rgba_depth_stencil()
-
-
 	// placeholder framebuffer
 	
 	// settings flags
@@ -1406,7 +1424,6 @@ class Device extends Draw{
 			this.w = (frame.w = sw) / frame.ratio
 			this.h = (frame.h = sh) / frame.ratio
 			this.ratio = frame.ratio
-
 			redraw()
 			// todo, fire event?
 		}
