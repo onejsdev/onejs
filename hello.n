@@ -128,7 +128,7 @@ class CrazyCode extends CodeView{
 
 Deck{
 	antialias = true
-	selected = 1
+	selected = 0
 	anim_len = .5
 	ratio = 1
 	clampit:(vec2 p, t){
