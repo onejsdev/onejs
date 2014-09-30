@@ -45,14 +45,14 @@ class Edit extends Text{
 			lines ?= 1
 			var i = end
 			while(lines>0){
-				if(text_layer.charMark(i).z == 10) i--
+				if(text_layer.charMark_z(i) == 10) i--
 				while(i>0){
-					if( text_layer.charMark(i).z == 10) break
+					if( text_layer.charMark_z(i) == 10) break
 					i--
 				}
 				var first = i
 				while(i>0){
-					if(i != first && text_layer.charMark(i).z == 10) break
+					if(i != first && text_layer.charMark_z(i) == 10) break
 					if(text_layer.charBounds(i-1).x < max || text_layer.charBounds(i).x <= max){
 						break
 					}
@@ -60,6 +60,7 @@ class Edit extends Text{
 				}
 				lines--
 			}
+			//console.log(text_layer.alloc_off * 4 * 4 * 2)
 			start = end = i
 			update()
 		}
@@ -70,13 +71,13 @@ class Edit extends Text{
 			var i = end
 			while(lines>0){
 				while(i<text_layer.char_length){
-					if(text_layer.charMark(i).z == 10)break
+					if(text_layer.charMark_z(i) == 10)break
 					i++
 				}
 				i++
 				// alright so now we scan until we hit max or newline
 				while(i<text_layer.char_length){
-					if(text_layer.charMark(i).z == 10 || 
+					if(text_layer.charMark_z(i) == 10 || 
 						text_layer.charBounds(i).x >= max) break
 					i++
 				}

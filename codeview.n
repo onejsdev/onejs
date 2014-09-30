@@ -706,7 +706,6 @@ class CodeView extends Text{
 		__ast = v
 		// ok lets turn this AST into an actual codeview.
 		if(is_initialized){
-			//var dt = Date.now()
 			allocText(100000, true)
 			indent = 0
 			group = 0
@@ -714,11 +713,6 @@ class CodeView extends Text{
 			expand(v)
 			newline()
 			updateText()
-			//out(dt - Date.now())
-			//var dt = Date.now()
-			//var s = reserialize()
-			//out(dt - Date.now())
-
 		}
 	}
 
@@ -739,25 +733,17 @@ class CodeView extends Text{
 		
 		if(sub == _Paren || sub == _Brace || sub == _Bracket){
 			if(sub == _Paren){
-				//u_color = mix(#aero, #magenta, abs on sin on group)
 				u_color = #white
-				//u_boldness = 0.4 + 0.3*sin on group
 			}
 			else if(sub == _Bracket){
-				u_color = #ccc//mix(#red, #yellow, abs on sin on group)
-				//u_boldness =  .3*sin on group
+				u_color = #ccc
 			}
 			else{
-				u_color = #yellow//mix(#red, #yellow, abs on sin on group)
-				//u_boldness =  .3*sin on group
+				u_color = #white
 			}
-			//u_outline = true
-			//u_outline_thickness = (1.+.6*sin(group - 6.*pos.y + 4.*time.sec)) / u_scaling
 		}
 		else if(sub == _Operator){
-			u_color = #yellow
-			//u_color = mix(#red, #yellow, abs on sin(0.05*group + length(center) + time.sec))
-			//u_boldness = .5+0.7sin(8.*length(center)-4.*time.sec+group)
+			u_color = #ff9d00
 		}
 		else if(type == _Id){
 			u_color = #white
@@ -766,16 +752,24 @@ class CodeView extends Text{
 			}
 		}
 		else if(type == _Value){
-			u_color = #aero
+			if(sub == _String)
+				u_color = #0f0
+			else
+				u_color = #aero
 		}
 		else if(type == _TypeVar){
 			u_color = #00ff00
 		}
 		else if(type == _Comment){
-			u_color = mix(#777,#ccc,.5+.5*sin(pos.x+pos.y-0.5time.sec))
+			u_color = #777
 		}
-		else {
-			u_color = #orange
+		else if(type == _Class){
+			u_color = #ffee7f
+		}
+		else if(type == _This){
+			u_color = #ff7fe1
+		}else{
+			u_color = #ff9d00
 		}
 	}
 }
