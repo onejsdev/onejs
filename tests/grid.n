@@ -1,0 +1,19 @@
+import math
+import gl
+import glscene
+import codeview
+import input
+import edit
+
+Scene{
+	Layer{
+		w: device.w
+		h: device.h
+		grid:(){
+			var pos = vec2(pixel mesh[].x * device.w * device.ratio, pixel mesh[].y * device.h * device.ratio)
+			if(mod(pos.x,2.) >= 1. && mod(pos.y,2.) >= 1.) return #white
+			return #black
+		}
+		pixel: grid()
+	}
+}
