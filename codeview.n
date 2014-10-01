@@ -2,8 +2,7 @@ import math
 import gl
 import glscene
 
-class CodeView extends Text{
-
+class CodeViewTypes{
 
 	// Base node markers
 	_Id:1.
@@ -119,6 +118,10 @@ class CodeView extends Text{
 		_Tab:13.
 		_Keyword:14.
 		_Color:15.
+}
+
+// only load CodeViewImpl on something that has a text interface
+class CodeViewImpl{
 
 	DColon(type, group){
 		syntaxText('::', group, type, _DColon)
@@ -215,8 +218,8 @@ class CodeView extends Text{
 		if(l1 && l1._ast_)l1 = l1.value
 		if(l2 && l2._ast_)l2 = l2.value
 		if(l3 && l3._ast_)l3 = l3.value
-		mark_x = group
-		mark_y = 65536*(l1||0)+256*(l2||0)+(l3||0)
+		_mark_x = group
+		_mark_y = 65536*(l1||0)+256*(l2||0)+(l3||0)
 		string(text)
 	}
 
@@ -702,10 +705,11 @@ class CodeView extends Text{
 	get ast(v){
 		return __ast
 	}
+
 	set ast(v){
 		__ast = v
 		// ok lets turn this AST into an actual codeview.
-		if(is_initialized){
+		if(_text_initialized){
 			allocText(100000, true)
 			indent = 0
 			group = 0
@@ -717,7 +721,6 @@ class CodeView extends Text{
 	}
 
 	constructor(){
-		Text::constructor()
 		ast = __ast
 	}
 
@@ -771,5 +774,14 @@ class CodeView extends Text{
 		}else{
 			u_color = #ff9d00
 		}
+	}
+}
+
+class CodeView extends Text{
+	load(CodeViewImpl)
+	load(CodeViewTypes)
+	constructor(){
+		Text::constructor()
+		CodeViewImpl::constructor()
 	}
 }

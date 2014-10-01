@@ -1,0 +1,88 @@
+import math
+import glscene
+
+// chunked text behaves like text
+class ChunkedTextImpl{
+
+	default_alloc = 5000
+	chunk_lines = 100
+
+	constructor(){
+		_text_initialized = true
+		// create a new chunk to start growing
+		_chunks = [_chunk = Chunk.new(this)]
+		_chunk.allocText(default_alloc)
+		_add_y = 0
+		//_chunk.style = style
+	}
+
+	// we expose the Text api onto subchunks
+	charMark(off){
+		// we have to find the right character mark
+	}
+	
+	charMark_z(off){
+	}
+
+	reserialize(){
+	}
+
+	charBaseline(off){
+	}
+	
+	reallocText(extra){
+		//_chunk.reallocText(extra)
+	}
+
+	allocText(length){
+		//_chunk.allocText(length)
+	}
+
+	updateText(){
+		_chunk.updateText()
+	}
+
+	markChar(off, length, x, y, z){
+		_chunk.markChar(off, length, x, y, z)
+	}
+	/*
+	insertText(offset, length){
+		var from = alloc_off
+		var to = alloc_off + length * 6
+		for(var i = start64;i>=offset;i-=6){
+			var i1 = i+length
+			mesh[i1].x = mesh[i].x
+			mesh[i1].y = mesh[i].y
+			mesh[i1].z = mesh[i].z
+			mesh[i1].w = mesh[i].w
+		}
+	}*/
+
+	newline(t){
+		_chunk.newline(t)
+		if(_chunk._lines > chunk_lines){
+			var new_chunk = Chunk.new(this)
+			// complete chunk
+			_chunk.updateText()
+			_add_y += _chunk._add_y
+			new_chunk.y = _add_y
+			_chunks.push(_chunk = new_chunk)
+			_chunk.allocText(default_alloc)
+		}
+	}
+
+	tab(t){
+		_chunk.tab(t)
+	}
+
+	space(t){
+		_chunk.space(t)
+	}
+
+	string(text, x, y){
+		// lets add text to our last chunk
+		_chunk._mark_x = _mark_x
+		_chunk._mark_y = _mark_y
+		_chunk.string(text, x, y)
+	}
+}

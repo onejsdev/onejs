@@ -1,183 +1,514 @@
-
 import math
-import weird_color
+
+class WeirdColor{
+
+	swampFire:( pos , mesh  ){
+
+		u_outline = true
+		u_outline_thickness = pos.x
+		vec3 c = vec3( 0. )
+
+		vec2 v = mesh        
+		float pi2 = 3.1415926535 * 2.0;
+		float cx = -cos( .494 + sin( time.sec ) * (param_y) * .0001 );
+
+		float cy = -sin(.488)//@(param_y / device.h) );
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 50; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+		u_outline_thickness = length( v )
+		normalize( v )
+			
+		return abs(vec3( sin( v.x) , cos( v.y ) , 0. ))
+
+	}
+
+	galaxyPurple:( pos , mesh  ){
+
+		u_outline = true
+		vec3 c = vec3( 0. )
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+	//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+	//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+		u_outline_thickness = length( v )
+
+		normalize( v )
+			
+		return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
+	}
+
+	starryNight:( pos , mesh  ){
+
+		u_outline = true
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+		
+		u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return abs(vec3( sin( v.x * cos( v.y) ) ,  sin( v.x)  , sin( v.y )  ))
+
+	}
+
+	iceBlue:( pos , mesh  ){
+
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+		
+		u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return normalize( vec3( sin( v.x  ), cos( v.y ) , sin( v.x * cos( v.y ) ) )) 
+	}
+
+	 whiteDot:( pos , mesh  ){
+
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+	 
+		u_boldness = length( v )
+		//u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return vec3( 1. ) 
+	}
+
+	redNight:( pos , mesh  ){
+
+		u_outline = true
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+		u_boldness = length( v )
+		
+	 // u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return abs(vec3( 3. * abs( sin( v.x * cos( v.y) )) ,  sin( v.x)  , sin( v.y )  ))
+
+	}
+
+	redBludge:( pos , mesh  ){
+
+		u_outline = true
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 5.  * time.sec ) * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin(5.  *  time.sec ) * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+	 
+		u_boldness = length( v )
+		//u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return abs(vec3( sin( v.x ) , cos( v.x ) , sin( v.x * v.y )))
+
+	}
+
+	whiteLight:( pos , mesh  ){
+
+		u_outline = true
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 5.  * time.sec ) * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin(5.  *  time.sec ) * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+	 
+		u_boldness = length( v )
+		//u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return vec3( 1. )
+
+	}
+
+	sleepTime:( pos , mesh  ){
+
+		vec3 c = vec3( 0. )
+
+
+		vec2 v = mesh
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+		//  float cx = @(sin(sin( 20. * (param_y / device.h)   )))
+		//  float cy = @(sin( 10. * sin( (param_x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (param_y) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (param_x) )
+
+		float z = 0.0;
+		float m = 0.0;
+
+		for(int i = 0; i < 30; i ++){
+
+
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
+
+		}
+
+	 
+		u_boldness = length( v )
+		//u_outline_thickness = length( v )
+
+		normalize( v )
+
+			
+		return vec3( 1. , 0. , 0. ) 
+	}
+}
 
 class FontStyles{
 
-    load( SubFontStyles )
+	load( SubFontStyles )
 
-    class weirdColor extends Base{
-      load( WeirdColor )
-    }
+	class weirdColor extends Base{
+		load( WeirdColor )
+	}
 
+	weirdColor1:( pos  ){
 
+		u_outline = true
+		u_outline_thickness = pos.x
+		vec3 c = vec3( 0. )
 
-        weirdColor1:( pos  ){
 
-          u_outline = true
-          u_outline_thickness = pos.x
-          vec3 c = vec3( 0. )
+		vec2 v = mesh[].xy
+		
+		float pi2 = 3.1415926535 * 2.0;
+		float cx = -cos( .494 + sin( time.sec ) * (mouse.y / device.h) * .0001 );
 
+		float cy = -sin(.488)//@(mouse.y / device.h) );
+		float z = 0.0;
+		float m = 0.0;
 
-          vec2 v = mesh[].xy
-          
-          float pi2 = 3.1415926535 * 2.0;
-          float cx = -cos( .494 + sin( time.sec ) * (mouse.y / device.h) * .0001 );
+		for(int i = 0; i < 50; i ++){
 
-          float cy = -sin(.488)//@(mouse.y / device.h) );
-          float z = 0.0;
-          float m = 0.0;
 
-          for(int i = 0; i < 50; i ++){
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
 
+		}
 
-            v.x = abs(v.x) ;
-            v.y = abs(v.y);
-            m = v.x * v.x + v.y * v.y;
-            v.x = v.x / m + cx;
-            v.y = v.y / m + cy;
+		u_outline_thickness = length( v )
+		normalize( v )
+			
+		return abs(vec3( sin( v.x) , cos( v.y ) , 0. ))
 
-          }
+	}
 
-          u_outline_thickness = length( v )
-          normalize( v )
-            
-          return abs(vec3( sin( v.x) , cos( v.y ) , 0. ))
+	weirdColor2:( pos  ){
 
-        }
+		u_outline = true
+		vec3 c = vec3( 0. )
 
-        weirdColor2:( pos  ){
 
-          u_outline = true
-          vec3 c = vec3( 0. )
+		vec2 v = mesh[].xy
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+	//  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
+	//  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
+		float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
 
+		float z = 0.0;
+		float m = 0.0;
 
-          vec2 v = mesh[].xy
-          
-          float pi2 = 3.1415926535 * 2.0;
-          //0.7172701949860725
-        //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-        //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
-           
-          float cx = -0.8580193310201044 + .0002 * cos( 3. * (mouse.y / device.h) )
-          float cy = -0.8518743525832136 + .0005 * sin( 3. * (mouse.x / device.w) )
+		for(int i = 0; i < 30; i ++){
 
-          float z = 0.0;
-          float m = 0.0;
 
-          for(int i = 0; i < 30; i ++){
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
 
+		}
+		
+		u_outline_thickness = length( v )
 
-            v.x = abs(v.x) ;
-            v.y = abs(v.y);
-            m = v.x * v.x + v.y * v.y;
-            v.x = v.x / m + cx;
-            v.y = v.y / m + cy;
+		normalize( v )
+			
+		return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
+	}
 
-          }
+	weirdColor3:( pos  ){
 
-          
-         u_outline_thickness = length( v )
+		u_outline = true
+		vec3 c = vec3( 0. )
 
-          normalize( v )
+		vec2 v = mesh[].xy
+		
+		float pi2 = 3.1415926535 * 2.0;
+		//0.7172701949860725
+	//  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
+	//  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
+		 
+		float cx = -0.8580193310201044 + .0002 * cos( 4. * (mouse.y / device.h) )
+		float cy = -0.8118743525832136 + .0005 * sin( 10. * (mouse.x / device.w) )
 
-            
-          return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
+		float z = 0.0;
+		float m = 0.0;
 
-        }
+		for(int i = 0; i < 30; i ++){
 
-        weirdColor3:( pos  ){
 
-          u_outline = true
-          vec3 c = vec3( 0. )
+			v.x = abs(v.x) ;
+			v.y = abs(v.y);
+			m = v.x * v.x + v.y * v.y;
+			v.x = v.x / m + cx;
+			v.y = v.y / m + cy;
 
+		}
 
-          vec2 v = mesh[].xy
-          
-          float pi2 = 3.1415926535 * 2.0;
-          //0.7172701949860725
-        //  float cx = @(sin(sin( 20. * (mouse.y / device.h)   )))
-        //  float cy = @(sin( 10. * sin( (mouse.x / device.w)   )  ))
-           
-          float cx = -0.8580193310201044 + .0002 * cos( 4. * (mouse.y / device.h) )
-          float cy = -0.8118743525832136 + .0005 * sin( 10. * (mouse.x / device.w) )
+		u_outline_thickness = length( v )
 
-          float z = 0.0;
-          float m = 0.0;
+		normalize( v )
 
-          for(int i = 0; i < 30; i ++){
+		return abs(vec3( sin( u_distance * 10000.)))
 
+	}
 
-            v.x = abs(v.x) ;
-            v.y = abs(v.y);
-            m = v.x * v.x + v.y * v.y;
-            v.x = v.x / m + cx;
-            v.y = v.y / m + cy;
+	shade2:( pos ){
 
-          }
+	 // u_outline = true
+		vec3 c = vec3( 0. )
 
-          
-          u_outline_thickness = length( v )
 
-          normalize( v )
+		vec2 v = mesh[].xy
 
-            
-          return abs(vec3( sin( u_distance * 10000.)))
+		var dif = vec2( 
+				mesh[].x - mouse.x , 
+				mesh[].y - mouse.y 
+		)
+	 
+		
+		float x = dFdx( u_distance );  
+		float y = dFdy( u_distance );  
 
-        }
 
-        shade2:( pos ){
+		vec2 dir = vec2( x , y);
 
-         // u_outline = true
-          vec3 c = vec3( 0. )
+		float fr = dot( -dir  , dif );
 
+		//var c = ( 100. / length( dif ) ) * vec3( 1. , .7 , .7 )
 
-          vec2 v = mesh[].xy
+		vec3 raster = 10. / (fr*fr*fr) * vec3(1.);
 
-          var dif = vec2( 
-              mesh[].x - mouse.x , 
-              mesh[].y - mouse.y 
-          )
-         
-          
-          float x = dFdx( u_distance );  
-          float y = dFdy( u_distance );  
+		return raster
+			
+			//return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
 
+	}
 
-          vec2 dir = vec2( x , y);
+	shade:( pos ){
 
-          float fr = dot( -dir  , dif );
+		var dif = vec2( 
+				mesh[].x - mouse.x , 
+				mesh[].y - mouse.y 
+		)
 
-          //var c = ( 100. / length( dif ) ) * vec3( 1. , .7 , .7 )
+		var c = (100. / (length( dif ) ))  * vec3( 1. )
+		//vec3( abs( cos( 4. * sin( u_distance * 1000. )) ))
 
-          vec3 raster = 10. / (fr*fr*fr) * vec3(1.);
+		return c
 
-
-        
-          return raster
-            
-            //return abs(vec3( sin( v.x) , 0. , sin( v.y )  ))
-
-        }
-        shade:( pos ){
-
-          var dif = vec2( 
-              mesh[].x - mouse.x , 
-              mesh[].y - mouse.y 
-          )
-
-
-
-
-
-          var c = (100. / (length( dif ) ))  * vec3( 1. )
-          //vec3( abs( cos( 4. * sin( u_distance * 1000. )) ))
-
-          return c
-
-        }
-
-
-
-
+	}
 }

@@ -1,16 +1,18 @@
 import math
 import glscene
+import diff
+import chunked
 
-class Edit extends Text{
+class EditImpl{
 
 	// single cursor
 	class Cursor extends Layer{
 		constructor(text_layer){
 			parent = this.text_layer = text_layer
 			Layer::constructor()
-			start = 0
-			end = 0
-			max = 0
+			_start = 0
+			_end = 0
+			_max = 0
 			// denormalized positions
 			ax = 0
 			ay = 0
@@ -22,28 +24,28 @@ class Edit extends Text{
 		hideProperties()
 
 		update(){
-			// lets find our start and end coordinates
-			var b = text_layer.charBounds(start)
+			// lets find our _start and _end coordinates
+			var b = text_layer.charBounds(_start)
 			x = floor(b.x)
 			y = floor(b.y - text_layer.font_size)
 			h = text_layer.font_size
 		}
 
 		moveLeft(){
-			start = end = start - 1
+			_start = _end = _start - 1
 			update()
-			max = x
+			_max = x
 		}
 
 		moveRight(){
-			start = end = start + 1
+			_start = _end = _start + 1
 			update()
-			max = x
+			_max = x
 		}
 
 		moveUp(lines){
 			lines ?= 1
-			var i = end
+			var i = _end
 			while(lines>0){
 				if(text_layer.charMark_z(i) == 10) i--
 				while(i>0){
@@ -53,7 +55,7 @@ class Edit extends Text{
 				var first = i
 				while(i>0){
 					if(i != first && text_layer.charMark_z(i) == 10) break
-					if(text_layer.charBounds(i-1).x < max || text_layer.charBounds(i).x <= max){
+					if(text_layer.charBounds(i-1).x < _max || text_layer.charBounds(i).x <= _max){
 						break
 					}
 					i--
@@ -61,38 +63,38 @@ class Edit extends Text{
 				lines--
 			}
 			//console.log(text_layer.alloc_off * 4 * 4 * 2)
-			start = end = i
+			_start = _end = i
 			update()
 		}
 
 		moveDown(lines){
 			lines ?= 1
 			// alright so, now we have chars in our array. yay.
-			var i = end
+			var i = _end
 			while(lines>0){
 				while(i<text_layer.char_length){
 					if(text_layer.charMark_z(i) == 10)break
 					i++
 				}
 				i++
-				// alright so now we scan until we hit max or newline
+				// alright so now we scan until we hit _max or newline
 				while(i<text_layer.char_length){
 					if(text_layer.charMark_z(i) == 10 || 
-						text_layer.charBounds(i).x >= max) break
+						text_layer.charBounds(i).x >= _max) break
 					i++
 				}
 				lines--
 			}
-			start = end = i
+			_start = _end = i
 			update()
 		}
 
 		isSelection(){
-			return start !== end
+			return _start !== _end
 		}
 
 		isCursor(){
-			return start === end
+			return _start === _end
 		}
 	}
 
@@ -112,8 +114,7 @@ class Edit extends Text{
 	}
 
 	constructor(){
-		Text::constructor()
-		cursors = Cursors.new(this)
+		cursors = Cursors.new(text_layer || this)
 
 		key.press(v)=>{
 			out(v)
@@ -139,5 +140,13 @@ class Edit extends Text{
 
 	keyDownarrow(){
 		cursors.moveDown()
+	}
+}
+
+class Edit extends Text{
+	load(EditImpl)
+	constructor(){
+		Text::constructor()
+		EditImpl::constructor()
 	}
 }

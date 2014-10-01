@@ -112,7 +112,7 @@ ONE.base_ = function(){
 	}
 	
 	// load a property bag onto my object
-	this.load = function( irole ){
+	this.load = function( irole , dbg){
 		var role = irole
 		if(typeof irole == 'string'){// try to read it from scope
 			role = this.__modules__[irole]
@@ -131,7 +131,7 @@ ONE.base_ = function(){
 					// copy getter and setter
 					var get = role.__lookupGetter__(key)
 					Object.defineProperty(this, key, {
-						get:get, set:set, configurable:true
+						get:get, set:set, enumerable: true, configurable:true
 					})
 				}
 				else{

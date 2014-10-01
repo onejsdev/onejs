@@ -1298,7 +1298,6 @@ class Device extends Draw{
 			document.title = parseInt(1000/(now - last))
 			last = now
 		}
-
 		frame_id ++
 
 		anim_req = false

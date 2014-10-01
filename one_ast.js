@@ -189,7 +189,17 @@ ONE.ast_ = function(){
 		var local_types = module.local_types
 		for(var type_name in local_types){
 			var in_type = local_types[type_name]
-			blob.local_types[type_name] = 1//this.typeCopy(in_type)
+			var can_clear = false
+			var im = module.imports
+			for(var i = 0, l = im.length; i < l;i++){
+				var type
+				var types = im[i].types
+				if(types && (type = types[type_name])){
+					can_clear = true
+					break
+				}
+			}
+			blob.local_types[type_name] = can_clear?1:this.typeCopy(in_type)
 		}
 
 		// parser cache

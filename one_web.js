@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = false
+ONE.fake_worker = true
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
@@ -1000,6 +1000,7 @@ ONE.browser_boot_ = function(){
 
 			for(var i = 0, l = data.length;i < l;i++){
 				var msg = data[i]
+				//console.log(msg)
 				if(msg._type == 'setref'){
 					var on_obj = this.proxy_obj[msg._uid]
 					if(!on_obj) throw new Error('Ref set on nonexistant object ' + msg._uid)

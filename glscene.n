@@ -140,9 +140,14 @@ class Layer extends Draw{
 	d = 0
 }
 
+class TextLayerImpl{
+	vertex: mesh[].xy * (m_world * device.m_camera)
+}
+
 class Text extends Layer{
 	load(MarkedTextImpl)
-	
+	load(TextLayerImpl)
+
 	constructor(){
 		Layer::constructor()
 		MarkedTextImpl::constructor()
@@ -151,5 +156,4 @@ class Text extends Layer{
 	font_size = 20
 	u_boldness= 0.8
 	color: #white
-	vertex: mesh[].xy * (m_world * device.m_camera)
 }

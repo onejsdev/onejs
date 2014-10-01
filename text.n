@@ -48,10 +48,10 @@ class TextImpl{
 	u_contrast = 1.
 	u_outline_thickness = 1//:device.ratio
 	u_color = #white
-
+	u_subpixel_off = 0.0115
 	// the text extents
-	text_w = 0
-	text_h = 0
+	_text_w = 0
+	_text_h = 0
 
 	// fundamental rendering modes
 	mode_sdf = true // turn sdf mode on or off
@@ -62,7 +62,7 @@ class TextImpl{
 	
 	font_size = 10
 	line_height = 1.2
-
+	dump_sdf = false
 	//mes
 	mesh = vec4[]()
 
@@ -87,7 +87,7 @@ class TextImpl{
 		if(v && v._ast_) v = v.value
 		if(typeof v !== 'string') v = '<invalid type>'
 		__text = v
-		if(is_initialized){
+		if(_text_initialized){
 			allocText(__text.length)
 			string(__text)
 			updateText()
@@ -95,9 +95,10 @@ class TextImpl{
 	}
 
 	constructor(){
+
 		var font_name = font && font.name
-		var info = glyphy_font_cache[font_name] || 
-			(glyphy_font_cache[font_name] = parseFont(font))
+		var info = _glyphy_font_cache[font_name] || 
+			(_glyphy_font_cache[font_name] = parseFont(font))
 
 		// we cant do glyphy mode with baked textures
 		if(info.baked) mode_sdf = true
@@ -122,7 +123,7 @@ class TextImpl{
 		glyphy_info = info
 		
 		// updates geometry
-		is_initialized = true
+		_text_initialized = true
 		text = __text
 	}
 
@@ -130,7 +131,7 @@ class TextImpl{
 	glyphy_atlas = Atlas
 
 	// global font cache
-	glyphy_font_cache = {}
+	_glyphy_font_cache = {}
 
 	parseFont(blob){
 		// lets parse the font
@@ -184,7 +185,7 @@ class TextImpl{
 			if(length>10000) throw new Error('Font seems incorrect')
 			var off = 4
 
-			var glyphs = info.glyphs = {}
+			var glyphs = info.glyphs = Object.create(null)
 			for(var i = 0;i<length;i++){
 				var unicode = vuint32[off++]
 				var glyph = glyphs[unicode] = {
@@ -206,6 +207,7 @@ class TextImpl{
 		}
 		else throw new Error('Error in font file')
 		// we need to add a space, newline and tab character.
+		if(!(32 in info.glyphs)) info.count++
 		info.glyphs[32] = {
 			min_x: 0
 			min_y: 0
@@ -215,6 +217,7 @@ class TextImpl{
 			width: 0
 			height: 0
 		}
+		if(!(10 in info.glyphs)) info.count++
 		info.glyphs[10] = {
 			min_x: 0
 			min_y: 0
@@ -223,7 +226,8 @@ class TextImpl{
 			advance:0
 			width: 0
 			height: 0
-		}		
+		}
+		if(!(9 in info.glyphs)) info.count++
 		info.glyphs[9] = {
 			min_x: 0
 			min_y: 0
@@ -233,28 +237,32 @@ class TextImpl{
 			width: 0
 			height: 0
 		}
+
 		return info
 	}
 
 	allocText(len){
-		add_px = 0
-		text_w = 0
-		text_h = 0
-		add_py = 0
-		alloc_off = 0
-		alloc_length = len * 6
-		char_length = 0
-		alloc_mesh = vec4[alloc_length]()
+		_text_w = 0
+		_text_h = 0
+
+		_add_x = 0
+		_add_y = 0
+		_alloc_off = 0
+		_alloc_length = len * 6
+		_char_length = 0
+		_lines = 0
+		_line_ybase = [_add_y]
+		_alloc_mesh = vec4[_alloc_length]()
 	}
 
 	reallocText(extra){
-		vec4[] old_mesh = alloc_mesh
-
-		alloc_length += extra * 6
-		alloc_mesh = vec4[alloc_length]()
+		vec4[] old_mesh = _alloc_mesh
+		var old_length = _alloc_length
+		_alloc_length += extra * 6
+		_alloc_mesh = vec4[_alloc_length]()
 
 		// lets copy it
-		vec4[] nmesh = alloc_mesh
+		vec4[] nmesh = _alloc_mesh
 
 		for(var i = 0;i<old_length;i++){
 			nmesh[i].x = old_mesh[i].x
@@ -267,7 +275,7 @@ class TextImpl{
 	charBounds(off){
 		// lets find the bounds rectangle for a char
 		var idx = off*6
-		vec4[] mesh = alloc_mesh
+		vec4[] mesh = _alloc_mesh
 		vec4 m0 = mesh[idx]
 		vec4 m1 = mesh[idx + 1]
 		vec4 m2 = mesh[idx + 2]
@@ -286,7 +294,7 @@ class TextImpl{
 			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[32])
 		}
 		else{
-			add_px += glyphy_info.glyphs[32].advance * font_size * t
+			_add_x += glyphy_info.glyphs[32].advance * font_size * t
 		}
 		return t
 	}
@@ -296,8 +304,9 @@ class TextImpl{
 		if(mode_whitespace){
 			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[10])
 		}
-		add_px = 0
-		add_py += font_size * line_height * t
+		_add_x = 0
+		_add_y += font_size * line_height * t
+		_line_ybase[++_lines] = _add_y
 		return t
 	}
 
@@ -310,34 +319,34 @@ class TextImpl{
 			if(mode_whitespace){
 				for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[9])
 			}
-			else add_px += glyphy_info.glyphs[9].advance * font_size
+			else _add_x += glyphy_info.glyphs[9].advance * font_size
 		}
 		return t
 	}
 
 	addChar(info){
-		vec4[] buf = alloc_mesh
-		var o = alloc_off
-		//add_px = Math.round(add_px)
-		//add_py = Math.round(add_py)
+		vec4[] buf = _alloc_mesh
+		var o = _alloc_off
+		//_add_x = Math.round(_add_x)
+		//_add_y = Math.round(_add_y)
 		if(mode_sdf){
-			buf[o].x = add_px + font_size * info.min_x
-			buf[o].y = add_py - font_size * info.min_y
+			buf[o].x = _add_x + font_size * info.min_x
+			buf[o].y = _add_y - font_size * info.min_y
 			buf[o].z = info.tmin_x
 			buf[o].w = info.tmin_y
 			o++
-			buf[o+3].x = buf[o].x = add_px + font_size * info.max_x
-			buf[o+3].y = buf[o].y = add_py - font_size * info.min_y
+			buf[o+3].x = buf[o].x = _add_x + font_size * info.max_x
+			buf[o+3].y = buf[o].y = _add_y - font_size * info.min_y
 			buf[o+3].z = buf[o].z = info.tmax_x
 			buf[o+3].w = buf[o].w = info.tmin_y
 			o++
-			buf[o+1].x = buf[o].x = add_px + font_size * info.min_x
-			buf[o+1].y = buf[o].y = add_py - font_size * info.max_y
+			buf[o+1].x = buf[o].x = _add_x + font_size * info.min_x
+			buf[o+1].y = buf[o].y = _add_y - font_size * info.max_y
 			buf[o+1].z = buf[o].z = info.tmin_x
 			buf[o+1].w = buf[o].w = info.tmax_y
 			o+=3
-			buf[o].x = add_px + font_size * info.max_x
-			buf[o].y = add_py - font_size * info.max_y
+			buf[o].x = _add_x + font_size * info.max_x
+			buf[o].y = _add_y - font_size * info.max_y
 			buf[o].z = info.tmax_x
 			buf[o].w = info.tmax_y
 			o++
@@ -345,39 +354,39 @@ class TextImpl{
 		else{
 			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1
 			var gy = ((info.atlas_y<<6) | info.nominal_h)<<1
-			buf[o].x = add_px + font_size * info.min_x
-			buf[o].y = add_py - font_size * info.min_y
+			buf[o].x = _add_x + font_size * info.min_x
+			buf[o].y = _add_y - font_size * info.min_y
 			buf[o].z = gx
 			buf[o].w = gy
 			o++
-			buf[o+3].x = buf[o].x = add_px + font_size * info.max_x
-			buf[o+3].y = buf[o].y = add_py - font_size * info.min_y
+			buf[o+3].x = buf[o].x = _add_x + font_size * info.max_x
+			buf[o+3].y = buf[o].y = _add_y - font_size * info.min_y
 			buf[o+3].z = buf[o].z = gx | 1
 			buf[o+3].w = buf[o].w = gy
 			o++
-			buf[o+1].x = buf[o].x = add_px + font_size * info.min_x
-			buf[o+1].y = buf[o].y = add_py - font_size * info.max_y
+			buf[o+1].x = buf[o].x = _add_x + font_size * info.min_x
+			buf[o+1].y = buf[o].y = _add_y - font_size * info.max_y
 			buf[o+1].z = buf[o].z = gx
 			buf[o+1].w = buf[o].w = gy | 1
 			o+=3
-			buf[o].x = add_px + font_size * info.max_x
-			buf[o].y = add_py - font_size * info.max_y
+			buf[o].x = _add_x + font_size * info.max_x
+			buf[o].y = _add_y - font_size * info.max_y
 			buf[o].z = gx | 1
 			buf[o].w = gy | 1
 			o++
 		}
-		char_length++
-		add_px += info.advance * font_size
-		if(add_px > text_w)text_w = add_px
-		alloc_off = o
+		_char_length++
+		_add_x += info.advance * font_size
+		if(_add_x > _text_w)_text_w = _add_x
+		_alloc_off = o
 	}
 
 	string(text, x, y){
-		if(x !== undefined) add_px = x 
-		if(y !== undefined) add_py = y 
+		if(x !== undefined) _add_x = x 
+		if(y !== undefined) _add_y = y 
 		var length = text.length
 
-		if(alloc_off + length *6 > alloc_length) reallocText(alloc_off / 6 + length)
+		if(_alloc_off + length *6 > _alloc_length) reallocText(_alloc_off / 6 + length)
 
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
@@ -399,18 +408,19 @@ class TextImpl{
 			addGlyph(info)
 			//console.log(o)
 		}
-		if(add_py > text_h) text_h = add_py	
+		if(_add_y > _text_h) _text_h = _add_y	
 	}
 
 	updateText(){
-		mesh = alloc_mesh
-		marks = alloc_marks
+		mesh = _alloc_mesh
+		text_w = _text_w
+		text_h = _text_h
 	}
 
 	// we build up an sdf texture that we draw to in once:(){}
-	generateSDFCache(info){
-
-		vec4[] buf = vec4[info.count * 6]()
+	generateSDFCache(font){
+		var len = font.count * 6
+		vec4[] buf = vec4[len]()
 
 		// we have to allocate actual texture positions
 		var font_size = .2
@@ -418,17 +428,19 @@ class TextImpl{
 		// 
 		var width = 1024
 		var height = 1024
-		var margin = 4./width
+		var margin = 8./width
 
-		var glyphs = info.glyphs
+		var glyphs = font.glyphs
 		var left = -1  + 0.03
 		var top = -1 + font_size
 		var px = left
 		var py = 1
 		var o = 0
 		var maxh = 0
+		var ct = 0
 		for(var k in glyphs){
 			var info = glyphs[k]
+
 			// 0___14 
 			// |   /|
 			// |  / |
@@ -475,7 +487,7 @@ class TextImpl{
 
 		sdf_mesh = buf
 
-		info.sdf_texture = sdf_texture
+		font.sdf_texture = sdf_texture
 		
 		if(dump_sdf){
 			mymesh = vec2Rect(0,0,1,1)
@@ -876,7 +888,9 @@ class TextImpl{
 			discard
 
 		vec3 alpha = glyphy_antialias(-distance)
-		
+		if(m>u_subpixel_off){ // turn off subpixel at a certain size
+			alpha.r = alpha.b = alpha.g
+		}
 		if(u_gamma_adjust != 1.){
 			alpha = pow(alpha, vec3(1./u_gamma_adjust))
 		}
@@ -991,21 +1005,21 @@ class MarkedTextImpl extends TextImpl{
 
 	mark_pos: vec2(mod(marks[].w,256.), floor(marks[].w/256.))
 	
-	mark_x = 0
-	mark_y = 0
+	_mark_x = 0
+	_mark_y = 0
 
 	charMark(off){
-		return vec4[] alloc_marks[off * 6]
+		return vec4[] _alloc_marks[off * 6]
 	}
 	
 	charMark_z(off){
-		return vec4[] alloc_marks[off * 6].z
+		return vec4[] _alloc_marks[off * 6].z
 	}
 
 	reserialize(){
 		var s = ''
-		vec4[] buf = alloc_marks
-		for(var i = 0;i<char_length;i++){
+		vec4[] buf = _alloc_marks
+		for(var i = 0;i<_char_length;i++){
 			s += String.fromCharCode(buf[i*6].z)
 		}
 		return s
@@ -1017,7 +1031,7 @@ class MarkedTextImpl extends TextImpl{
 
 	markChar(off, length, x, y, z){
 		var o = off
-		vec4[] buf = alloc_marks
+		vec4[] buf = _alloc_marks
 		for(var i = 0; i < length; i++){
 			buf[o].x = x
 			buf[o].y = y
@@ -1051,16 +1065,16 @@ class MarkedTextImpl extends TextImpl{
 			o++
 		}
 	}
-	
+
 	reallocText(extra){
 
-		vec4[] old_marks = alloc_marks
-		var old_length = alloc_length
+		vec4[] old_marks = _alloc_marks
+		var old_length = _alloc_length
 
 		TextImpl::reallocText(extra)
 
-		alloc_marks = vec4[alloc_length]()
-		vec4[] nmarks = alloc_marks
+		_alloc_marks = vec4[_alloc_length]()
+		vec4[] nmarks = _alloc_marks
 		for(var i = 0;i<old_length;i++){
 			nmarks[i].x = old_marks[i].x
 			nmarks[i].y = old_marks[i].y
@@ -1071,36 +1085,53 @@ class MarkedTextImpl extends TextImpl{
 
 	allocText(length){
 		TextImpl::allocText(length)
-		alloc_marks = vec4[alloc_length]()
+		_alloc_marks = vec4[_alloc_length]()
 	}
 
+	updateText(){
+		TextImpl::updateText()
+		marks = _alloc_marks
+	}
+	/*
+	insertText(offset, length){
+		var from = _alloc_off
+		var to = _alloc_off + length * 6
+		for(var i = start64;i>=offset;i-=6){
+			var i1 = i+length
+			mesh[i1].x = mesh[i].x
+			mesh[i1].y = mesh[i].y
+			mesh[i1].z = mesh[i].z
+			mesh[i1].w = mesh[i].w
+		}
+	}*/
+
 	newline(t){
-		var off = alloc_off
+		var off = _alloc_off
 		var i = TextImpl::newline(t)
-		markChar(off, i, mark_x, mark_y, 10)
+		markChar(off, i, _mark_x, _mark_y, 10)
 		return i
 	}
 
 	tab(t){
-		var off = alloc_off
+		var off = _alloc_off
 		var i = TextImpl::tab(t)
-		markChar(off, i, mark_x, mark_y, 9)
+		markChar(off, i, _mark_x, _mark_y, 9)
 		return i
 	}
 
 	space(t){
-		var off = alloc_off
+		var off = _alloc_off
 		var i = TextImpl::space(t)
-		markChar(off, i, mark_x, mark_y, 32)
+		markChar(off, i, _mark_x, _mark_y, 32)
 		return i
 	}
 
 	string(text, x, y){
-		if(x !== undefined) add_px = x 
-		if(y !== undefined) add_py = y 
+		if(x !== undefined) _add_x = x 
+		if(y !== undefined) _add_y = y 
 		var length = text.length
 
-		if(alloc_off + length * 6 > alloc_length) reallocText(alloc_off / 6 + length)
+		if(_alloc_off + length * 6 > _alloc_length) reallocText(_alloc_off / 6 + length)
 
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
@@ -1115,8 +1146,8 @@ class MarkedTextImpl extends TextImpl{
 				}
 				if(i != t){
 					var out = parseInt(text.slice(i+1, i-t))
-					if(unicode == 36) mark_x = out
-					else mark_y = out
+					if(unicode == 36) _mark_x = out
+					else _mark_y = out
 					i = t
 					continue
 				}
@@ -1134,10 +1165,10 @@ class MarkedTextImpl extends TextImpl{
 				continue
 			}
 			// lets add some vertices
-			var off = alloc_off
+			var off = _alloc_off
 			addChar(glyph)
-			markChar(off, 1, mark_x, mark_y, unicode)
+			markChar(off, 1, _mark_x, _mark_y, unicode)
 		}
-		if(add_py > text_h) text_h = add_py	
+		if(_add_y > _text_h) _text_h = _add_y	
 	}
 }

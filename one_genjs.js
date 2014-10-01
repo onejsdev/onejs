@@ -730,16 +730,6 @@ ONE.genjs_ = function(){
 			return object + '.' + n.key.name
 		}
 		
-		this.ThisCall = function( n ){
-			var obj = n.object
-			var object_t = obj.type
-			var object = this.expand(obj, n)
-			if(object_t !== 'Index' && object_t !== 'Id' && object_t !== 'Key' && object_t !== 'Call'&& object_t !== 'This' && object_t !== 'ThisCall')
-				object = '(' + object + ')'
-			
-			return  object + '.' + n.key.name
-		}
-		
 		this.Array = function( n ){
 			//!TODO x = [\n[1]\n[2]] barfs up with comments
 			
@@ -2251,7 +2241,17 @@ ONE.genjs_ = function(){
 			return '(('+arg+') || '+body+')'
 		}
 		
-		this.Call = function( n ){//, extra, pre, isnew ){
+		this.ThisCall = function( n ){
+			var obj = n.object
+			var object_t = obj.type
+			var object = this.expand(obj, n)
+			if(object_t !== 'Index' && object_t !== 'Id' && object_t !== 'Key' && object_t !== 'Call'&& object_t !== 'This' && object_t !== 'ThisCall')
+				object = '(' + object + ')'
+			
+			return  object + '.' + n.key.name
+		}
+
+		this.Call = function( n ){
 			var fn  = n.fn
 			fn.parent = n
 			// assert macro
@@ -2269,32 +2269,50 @@ ONE.genjs_ = function(){
 			
 			var arglen = args.length
 			
-			if(fn.type == 'Id' || (fn.type == 'Index' && fn.object.type == 'Id')){
+			if(fn.type == 'Id' || (fn.type == 'Index' && fn.object.type == 'Id') || fn.type == 'ThisCall'){
 				
 				var name
 				var dims
-				if(fn.type == 'Index'){
+				var old_context
+				if(fn.type == 'Id'){
+					name = fn.name
+										
+					if(name == 'super'){
+						if(args){
+							args = args.slice(0)
+							args.unshift('arguments')
+						}
+						else args = ['arguments']
+						arglen = args.length
+						name = undefined
+					}
+				}
+				else if(fn.type == 'Index'){
 					name = fn.object.name
 					// dims might be dynamic
 					dims = fn.index
 				}
-				else name = fn.name
-				// we support auto-super also for roles.
-				// lets check if we are a type constructor
-				var type = this.find_type(name)
-				if(type) return this.struct_constructor(n, dims, args, type)
-				
-				// check if its a macro
-				var macro_call = this.macro_call(n, name, args)
-				if(macro_call !== undefined) return macro_call
-				
-				if(name == 'super'){
-					if(args){
-						args = args.slice(0)
-						args.unshift('arguments')
+				else if(fn.type == 'ThisCall'){ // support for calling macros on other objects
+					// check if our object is in locals or context, ifso switch context and find macro
+					if(fn.object.type == 'Id'){
+						var new_context = 
+							this.locals && this.locals[fn.object.name] || 
+							this.context && this.context[fn.object.name]
+						if(new_context){
+							name = fn.key.name
+							old_context = this.context
+							this.context = new_context
+						}
 					}
-					else args = ['arguments']
-					arglen = args.length
+				}
+				if(name !== undefined){
+					var type = this.find_type(name)
+					if(type) return this.struct_constructor(n, dims, args, type)
+
+					// check if its a macro
+					var macro_call = this.macro_call(n, name, args)
+					if(old_context) this.context = old_context
+					if(macro_call !== undefined) return macro_call
 				}
 			}
 			

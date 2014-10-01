@@ -39,7 +39,10 @@ Scene{
 				o+='\n'
 			}
 			text = o
-		},10)
+			//string = (){}
+			//updateText = (){}
+			//console.log(alloc_length*4*4)
+		},100)
 		text = 'hi'
 		font_size = 12
 		u_outline = false

@@ -149,6 +149,7 @@ Language(){
 	struct rect_t{
 		vec_t[2] p
 	}
+
 	rect_t[] rt = rect_t[2](0,1,2,3,4,5,6,7)
 	assert(rt[1].p[1].y == 7)
 

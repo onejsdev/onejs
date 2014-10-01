@@ -51,9 +51,9 @@ Scene{
 	CodeEdit{
 		ax = 0
 		ay = 0
-		y = 0//: -60*(mod(time.sec,200.))
+		y: -60*(mod(time.sec,200.))
 		sx = 
-		sy = :1.1 + 0.5cos(0.2*time.sec)
+		sy = 1//:1.1 + 0.5cos(0.2*time.sec)
 		font_size = 13
 		u_background_color = vec3(0,32/255,65/255)
 		u_boldness = 0.9
