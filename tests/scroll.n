@@ -40,7 +40,7 @@ class CodeEdit extends Layer{
 }
 
 Scene{
-	antialias = true
+	antialias = false
 	//fill = vec3(65/256,0,0)
 	Layer{
 		w: device.w
