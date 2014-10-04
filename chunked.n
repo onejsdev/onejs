@@ -28,8 +28,8 @@ class ChunkedTextImpl{
 		u_background_color: parent.u_background_color
 	}
 
-	default_alloc = 500
-	chunk_lines = 10
+	default_alloc = 5000
+	chunk_lines = 100
 	
 	get line_height(){
 		return last_chunk? last_chunk.line_height: 0
