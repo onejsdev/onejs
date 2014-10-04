@@ -10,7 +10,6 @@ class ChunkedTextImpl{
 
 	// text chunk class
 	class Chunk extends Text{
-	dump = 1		
 		constructor(parent){
 			this.parent = parent
 			Text::constructor()
