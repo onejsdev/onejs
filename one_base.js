@@ -102,6 +102,12 @@ ONE.base_ = function(){
 		return !this.hasOwnProperty('__class__')
 	}
 
+	this.dontProxy = function(){
+		for(var i = 0;i<arguments.length;i++){
+			this['_dontproxy_'+arguments[i]] = 1
+		}
+	}
+
 	this.prototypeOf = function( other ){
 		return this.isPrototypeOf( other )
 	}
@@ -126,10 +132,9 @@ ONE.base_ = function(){
 
 		if(typeof role == 'object'){
 			for(var key in role){
-				var set 
-				if(set = role.__lookupSetter__(key)){
-					// copy getter and setter
-					var get = role.__lookupGetter__(key)
+				var set = role.__lookupSetter__(key)
+				var get = role.__lookupGetter__(key)
+				if(get || set){
 					Object.defineProperty(this, key, {
 						get:get, set:set, enumerable: true, configurable:true
 					})
@@ -622,7 +627,6 @@ ONE.base_ = function(){
 	}
 
 	this.Signal.removeListener = function( cb, set ){
-
 		set = set || 'set_list'
 		var arr = this[set]
 		if(arr === cb){
@@ -728,7 +732,7 @@ ONE.base_ = function(){
 	// listen to set
 	this.Signal.bind = 
 	this.Signal.onSet = function( set_cb ){
-		if(!this.hasOwnProperty('set_list')) this.set_list = set_cb
+		if(!this.hasOwnProperty('set_list') || !this.set_list) this.set_list = set_cb
 		else if(!Array.isArray(this.set_list)) this.set_list = [this.set_list, set_cb]
 		else this.set_list.push(set_cb)
 
@@ -771,7 +775,7 @@ ONE.base_ = function(){
 
 	// listen to the end signal
 	this.Signal.onEnd = function(end_cb){
-		if(!this.hasOwnProperty('end_list')) this.end_list = end_cb
+		if(!this.hasOwnProperty('end_list') || !this.end_list) this.end_list = end_cb
 		else if(!Array.isArray(this.end_list)) this.end_list = [this.end_list, end_cb]
 		else this.end_list.push(end_cb)
 
@@ -818,7 +822,7 @@ ONE.base_ = function(){
 	}
 
 	this.Signal.onError = function(error_cb){
-		if(!this.hasOwnProperty('error_list')) this.error_list = error_cb
+		if(!this.hasOwnProperty('error_list') || !this.error_list) this.error_list = error_cb
 		else if(!Array.isArray(this.onThrow)) this.error_list = [this.error_list, error_cb]
 		else this.error_list.push( error_cb )
 

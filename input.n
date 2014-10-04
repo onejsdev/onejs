@@ -3,7 +3,7 @@ import math
 class Mouse extends WorkerProxy{
 
 	// mouse signals
-	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor, leftdown, leftup, rightdown, rightup
+	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor, leftdown, leftup, rightdown, rightup, cancapture
 
 	enum cursors{
 		'default'
@@ -55,6 +55,21 @@ class Mouse extends WorkerProxy{
 		document.body.style.cursor = value
 	}
 
+	capture(onmove, onend){
+		if(cancapture){
+			var sub1, sub2
+			if(onmove) sub1 = on_move.bind(onmove)
+			function end(){
+				if(sub1) sub1.cancel()
+				sub2.cancel()
+				if(onend) onend()
+			}
+			if(cancapture == 1) sub2 = on_leftup.bind(end)
+			if(cancapture == 2) sub2 = on_middleup.bind(end)
+			if(cancapture == 3) sub2 = on_rightup.bind(end)
+		}
+	}
+
 	$constructor:(){
 		x = 0
 		y = 0
@@ -73,6 +88,7 @@ class Mouse extends WorkerProxy{
 		window.addEventListener('mousedown') do(e) => {
 			x = e.pageX * window.devicePixelRatio
 			y = e.pageY * window.devicePixelRatio
+			cancapture = e.button+1
 			if(e.button === 0 ) left = 1, leftdown = 1
 			if(e.button === 1 ) middle = 1
 			if(e.button === 2 ) right = 1, rightdown = 1
@@ -82,6 +98,7 @@ class Mouse extends WorkerProxy{
 		window.addEventListener('mouseup') do(e) => {
 			x = e.pageX * window.devicePixelRatio
 			y = e.pageY * window.devicePixelRatio
+			cancapture = 0
 			if(e.button === 0 ) left = 0, leftup = 1
 			if(e.button === 1 ) middle = 0
 			if(e.button === 2 ) right = 0, rightup = 1

@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = false
+ONE.fake_worker = true
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
@@ -339,7 +339,7 @@ ONE.proxy_ = function(){
 						//cache += base + '=' + prop.source + '\n'
 					}
 				}
-				else if(ch != 95){ // doesnt start with _
+				else if(ch != 95 && !this['_dontproxy_'+name]){ // doesnt start with _
 					if(this['on_' + name]){ // we haz signal
 						if(!msg._sigs) msg._sigs = []
 						msg._sigs.push(name)

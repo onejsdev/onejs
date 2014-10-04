@@ -60,8 +60,12 @@ class Scene extends Device{
 
 		//h = frame.w * 0.5 
 		//h = frame.h
-		m_proj = mat4.ortho(0, frame.w / frame.ratio, 0, frame.h / frame.ratio, -1000, 1000)
-
+		if(perspective){
+			m_proj = mat4.perspective(perspective, frame.w/frame.h, -1, 1)			
+		}
+		else{
+			m_proj = mat4.ortho(0, frame.w / frame.ratio, 0, frame.h / frame.ratio, -1000, 1000)
+		}
 		//m_proj = mat4.perspective(-90deg, -1, -1000, 1000) * mat4.S(0.01,0.01,0.01)
 		// silently assign camera matrix
 		__m_camera = mat4 m_view * mat4 m_proj 
@@ -145,12 +149,12 @@ class TextLayerImpl{
 }
 
 class Text extends Layer{
-	load(MarkedTextImpl)
+	load(MarkedTaggedTextImpl)
 	load(TextLayerImpl)
 
 	constructor(){
 		Layer::constructor()
-		MarkedTextImpl::constructor()
+		MarkedTaggedTextImpl::constructor()
 	}
 
 	font_size = 20

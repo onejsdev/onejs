@@ -191,6 +191,7 @@ class DepTraceGLSL extends AST.Walk{
 		}
 
 		if(prop === undefined){
+			console.log(context)
 			throw new Error('Cannot resolve ' + name + ' on ' + context.__class__)
 		}
 		
@@ -1159,8 +1160,15 @@ class GenGLSL extends AST.ToCode{
 			return n.infer.name + ' ' + name + dim +' = ' + expand(n.init, n)
 		}
 		else if(n.parent.type === 'TypeVar'){
-
-			if(n.init) return name + dim + ' = ' + expand(n.init, n)
+			if(n.init){
+				if(n.init.infer.name == 'float' && n.infer.name == 'int'){
+					return name + dim + ' = int(floor(' + expand(n.init, n) + '+.5))'
+				}
+				else if(n.init.infer.name == 'int' && n.infer.name == 'float'){
+					return name + dim + ' = float(' + expand(n.init, n) + ')'
+				}
+				return name + dim + ' = ' + expand(n.init, n)
+			}
 			return name + dim
 		}
 		else throw new Error('Unsupported Def encountered')

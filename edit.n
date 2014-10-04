@@ -1,3 +1,4 @@
+#js
 import math
 import glscene
 import diff
@@ -7,12 +8,14 @@ class EditImpl{
 
 	// single cursor
 	class Cursor extends Layer{
+
 		constructor(text_layer){
 			parent = this.text_layer = text_layer
 			Layer::constructor()
-			_start = 0
-			_end = 0
-			_max = 0
+			dontProxy('start','end','max')
+			start = 0
+			end = 0
+			max = 0
 			// denormalized positions
 			ax = 0
 			ay = 0
@@ -24,77 +27,58 @@ class EditImpl{
 		hideProperties()
 
 		update(){
-			// lets find our _start and _end coordinates
-			var b = text_layer.charBounds(_start)
-			x = floor(b.x)
-			y = floor(b.y - text_layer.font_size)
-			h = text_layer.font_size
+			// figure out where the cursor is going
+			var rect = text_layer.cursorRect(end)
+			x = rect.x
+			y = rect.y
+			h = rect.h
 		}
 
-		moveLeft(){
-			_start = _end = _start - 1
+		moveLeft(only_end){
+			end = end - 1
+			if(!only_end) start = end
 			update()
-			_max = x
+			max = x
 		}
 
-		moveRight(){
-			_start = _end = _start + 1
+		moveRight(only_end){
+			end = end + 1
+			if(!only_end) start = end
 			update()
-			_max = x
+			max = x
 		}
 
-		moveUp(lines){
-			lines ?= 1
-			var i = _end
-			while(lines>0){
-				if(text_layer.charMark_z(i) == 10) i--
-				while(i>0){
-					if( text_layer.charMark_z(i) == 10) break
-					i--
-				}
-				var first = i
-				while(i>0){
-					if(i != first && text_layer.charMark_z(i) == 10) break
-					if(text_layer.charBounds(i-1).x < _max || text_layer.charBounds(i).x <= _max){
-						break
-					}
-					i--
-				}
-				lines--
-			}
-			//console.log(text_layer.alloc_off * 4 * 4 * 2)
-			_start = _end = i
+		moveUp(only_end, lines = 1){
+			var rect = text_layer.cursorRect(end)
+			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * text_layer.line_height)
+			if(!only_end) start = end
 			update()
 		}
 
-		moveDown(lines){
-			lines ?= 1
-			// alright so, now we have chars in our array. yay.
-			var i = _end
-			while(lines>0){
-				while(i<text_layer.char_length){
-					if(text_layer.charMark_z(i) == 10)break
-					i++
-				}
-				i++
-				// alright so now we scan until we hit _max or newline
-				while(i<text_layer.char_length){
-					if(text_layer.charMark_z(i) == 10 || 
-						text_layer.charBounds(i).x >= _max) break
-					i++
-				}
-				lines--
-			}
-			_start = _end = i
+		moveDown(only_end, lines = 1){
+			var rect = text_layer.cursorRect(end)
+			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * text_layer.line_height)
+			if(!only_end) start = end
+			update()
+			parse(text_layer.serialize())
+
+		}
+
+		moveTo(x, y, only_end){
+			var off = text_layer.offsetFromPos(x, y)
+			end = off
+			if(!only_end) start = end
+			var r = text_layer.cursorRect(off)
+			max = r.x
 			update()
 		}
 
 		isSelection(){
-			return _start !== _end
+			return start !== end
 		}
 
 		isCursor(){
-			return _start === _end
+			return start === end
 		}
 	}
 
@@ -123,6 +107,15 @@ class EditImpl{
 		key.down(v)=>{
 			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
 			if(this[name]) this[name](v)
+		}
+
+		mouse.leftdown(v)=>{
+			// set cursor start
+			cursors.moveTo(mouse.x, mouse.y)
+			mouse.capture(=>{
+				// move
+				cursors.moveTo(mouse.x, mouse.y, true)
+			})
 		}
 	}
 

@@ -1,6 +1,6 @@
 /*
- * Parts copyright 2012 Google, Inc. All Rights Reserved.
  * Parts copyright 2014 OneJS
+ * Parts copyright 2012 Google, Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ class TextImpl{
 	u_outline_thickness = 1//:device.ratio
 	u_color = #white
 	u_subpixel_off = 0.0115
+	u_subpixel_distance = 3.
 	// the text extents
 	_text_w = 0
 	_text_h = 0
@@ -58,10 +59,15 @@ class TextImpl{
 	mode_whitespace = true // wether whitespace generates triangles
 	mode_tabs_are_spaces = false
 	// our font blob
-	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
 	
 	font_size = 10
-	line_height = 1.2
+	line_spacing = 1.2
+	italic_ness = 0
+	// defines the line 
+	cursor_spacing = 1.3
+	cursor_sink = 0.32
+
 	dump_sdf = false
 	//mes
 	mesh = vec4[]()
@@ -77,6 +83,19 @@ class TextImpl{
 
 	style:(){
 	}
+	paint:(p, dpx, dpy){
+		return vec4(-1.)
+	}
+	customDistance:(){}
+	sampleDistance:(){}
+
+	get line_height(){
+		return font_size * line_spacing
+	}
+
+	set line_height(){
+		throw new Error('read only property')
+	}
 
 	// define a getter and setter
 	get text(v){
@@ -87,7 +106,7 @@ class TextImpl{
 		if(v && v._ast_) v = v.value
 		if(typeof v !== 'string') v = '<invalid type>'
 		__text = v
-		if(_text_initialized){
+		if(text_initialized){
 			allocText(__text.length)
 			string(__text)
 			updateText()
@@ -123,15 +142,61 @@ class TextImpl{
 		glyphy_info = info
 		
 		// updates geometry
-		_text_initialized = true
+		text_initialized = true
 		text = __text
 	}
 
-	// just for the compiler
+	// just for the compiler you can 
 	glyphy_atlas = Atlas
 
 	// global font cache
 	_glyphy_font_cache = {}
+
+	genDefaults(info){
+		// we need to add a space, newline and tab character.
+		if(!(32 in info.glyphs)) info.count++
+		info.glyphs[32] = {
+			min_x: 0
+			min_y: 0
+			max_x: 0.5
+			max_y: 0
+			tmin_x:0
+			tmin_y:0
+			tmax_x:1
+			tmax_y:1
+			advance:0.5
+			width: 0
+			height: 0
+		}
+		if(!(10 in info.glyphs)) info.count++
+		info.glyphs[10] = {
+			min_x: 0
+			min_y: 0
+			max_x: 0
+			max_y: 0
+			tmin_x:0
+			tmin_y:0
+			tmax_x:1
+			tmax_y:1
+			advance:0
+			width: 0
+			height: 0
+		}
+		if(!(9 in info.glyphs)) info.count++
+		info.glyphs[9] = {
+			min_x: 0
+			min_y: -0.3
+			max_x: 2
+			max_y: 1.
+			tmin_x:0
+			tmin_y:0
+			tmax_x:1
+			tmax_y:1
+			advance:2
+			width: 2
+			height: 1
+		}
+	}
 
 	parseFont(blob){
 		// lets parse the font
@@ -206,63 +271,33 @@ class TextImpl{
 			info.atlas = Atlas.array(blob.slice(off * 4), info.tex_w, info.tex_h)
 		}
 		else throw new Error('Error in font file')
-		// we need to add a space, newline and tab character.
-		if(!(32 in info.glyphs)) info.count++
-		info.glyphs[32] = {
-			min_x: 0
-			min_y: 0
-			max_x: 0
-			max_y: 0
-			advance:0.5
-			width: 0
-			height: 0
-		}
-		if(!(10 in info.glyphs)) info.count++
-		info.glyphs[10] = {
-			min_x: 0
-			min_y: 0
-			max_x: 0
-			max_y: 0
-			advance:0
-			width: 0
-			height: 0
-		}
-		if(!(9 in info.glyphs)) info.count++
-		info.glyphs[9] = {
-			min_x: 0
-			min_y: 0
-			max_x: 0
-			max_y: 0
-			advance:1.5
-			width: 0
-			height: 0
-		}
-
+		genDefaults(info)
 		return info
 	}
+
+	dontProxy('add_x','add_y','alloc_off','alloc_length','char_off','lines','alloc_mesh','text_initialized')
 
 	allocText(len){
 		_text_w = 0
 		_text_h = 0
 
-		_add_x = 0
-		_add_y = 0
-		_alloc_off = 0
-		_alloc_length = len * 6
-		_char_length = 0
-		_lines = 0
-		_line_ybase = [_add_y]
-		_alloc_mesh = vec4[_alloc_length]()
+		add_x = 0
+		add_y = 0
+		alloc_off = 0
+		char_off = 0
+		alloc_length = len * 6
+		lines = 0
+		alloc_mesh = vec4[alloc_length]()
 	}
 
 	reallocText(extra){
-		vec4[] old_mesh = _alloc_mesh
-		var old_length = _alloc_length
-		_alloc_length += extra * 6
-		_alloc_mesh = vec4[_alloc_length]()
+		vec4[] old_mesh = alloc_mesh
+		var old_length = alloc_length
+		alloc_length += extra * 6
+		alloc_mesh = vec4[alloc_length]()
 
 		// lets copy it
-		vec4[] nmesh = _alloc_mesh
+		vec4[] nmesh = alloc_mesh
 
 		for(var i = 0;i<old_length;i++){
 			nmesh[i].x = old_mesh[i].x
@@ -272,10 +307,11 @@ class TextImpl{
 		}
 	}
 
+	
 	charBounds(off){
 		// lets find the bounds rectangle for a char
 		var idx = off*6
-		vec4[] mesh = _alloc_mesh
+		vec4[] mesh = alloc_mesh
 		vec4 m0 = mesh[idx]
 		vec4 m1 = mesh[idx + 1]
 		vec4 m2 = mesh[idx + 2]
@@ -285,6 +321,13 @@ class TextImpl{
 			w:m1.x - m0.x
 			h:m2.y - m0.y
 		}
+		// lets find the baseline
+		// how do we find it? 2 options.
+		// we can store the baseline in the vertexbuffer in the
+		// newline character, so we scan back till we hit a newline
+		// and then add font_size * line_height
+		// thats pretty cheap
+		// we scan for it in the lines 
 	}
 	
 	// white space
@@ -294,7 +337,7 @@ class TextImpl{
 			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[32])
 		}
 		else{
-			_add_x += glyphy_info.glyphs[32].advance * font_size * t
+			add_x += glyphy_info.glyphs[32].advance * font_size * t
 		}
 		return t
 	}
@@ -304,9 +347,9 @@ class TextImpl{
 		if(mode_whitespace){
 			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[10])
 		}
-		_add_x = 0
-		_add_y += font_size * line_height * t
-		_line_ybase[++_lines] = _add_y
+		add_x = 0
+		add_y += font_size * line_spacing * t
+		lines++
 		return t
 	}
 
@@ -319,34 +362,34 @@ class TextImpl{
 			if(mode_whitespace){
 				for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[9])
 			}
-			else _add_x += glyphy_info.glyphs[9].advance * font_size
+			else add_x += glyphy_info.glyphs[9].advance * font_size
 		}
 		return t
 	}
 
 	addChar(info){
-		vec4[] buf = _alloc_mesh
-		var o = _alloc_off
-		//_add_x = Math.round(_add_x)
-		//_add_y = Math.round(_add_y)
+		vec4[] buf = alloc_mesh
+		var o = alloc_off
+		//add_x = Math.round(add_x)
+		//add_y = Math.round(add_y)
 		if(mode_sdf){
-			buf[o].x = _add_x + font_size * info.min_x
-			buf[o].y = _add_y - font_size * info.min_y
+			buf[o].x = add_x + font_size * info.min_x
+			buf[o].y = add_y - font_size * info.min_y
 			buf[o].z = info.tmin_x
 			buf[o].w = info.tmin_y
 			o++
-			buf[o+3].x = buf[o].x = _add_x + font_size * info.max_x
-			buf[o+3].y = buf[o].y = _add_y - font_size * info.min_y
+			buf[o+3].x = buf[o].x = add_x + font_size * info.max_x
+			buf[o+3].y = buf[o].y = add_y - font_size * info.min_y
 			buf[o+3].z = buf[o].z = info.tmax_x
 			buf[o+3].w = buf[o].w = info.tmin_y
 			o++
-			buf[o+1].x = buf[o].x = _add_x + font_size * info.min_x
-			buf[o+1].y = buf[o].y = _add_y - font_size * info.max_y
+			buf[o+1].x = buf[o].x = add_x + font_size * info.min_x + italic_ness * info.height * font_size
+			buf[o+1].y = buf[o].y = add_y - font_size * info.max_y
 			buf[o+1].z = buf[o].z = info.tmin_x
 			buf[o+1].w = buf[o].w = info.tmax_y
 			o+=3
-			buf[o].x = _add_x + font_size * info.max_x
-			buf[o].y = _add_y - font_size * info.max_y
+			buf[o].x = add_x + font_size * info.max_x + italic_ness * info.height * font_size
+			buf[o].y = add_y - font_size * info.max_y
 			buf[o].z = info.tmax_x
 			buf[o].w = info.tmax_y
 			o++
@@ -354,65 +397,67 @@ class TextImpl{
 		else{
 			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1
 			var gy = ((info.atlas_y<<6) | info.nominal_h)<<1
-			buf[o].x = _add_x + font_size * info.min_x
-			buf[o].y = _add_y - font_size * info.min_y
+			buf[o].x = add_x + font_size * info.min_x
+			buf[o].y = add_y - font_size * info.min_y
 			buf[o].z = gx
 			buf[o].w = gy
 			o++
-			buf[o+3].x = buf[o].x = _add_x + font_size * info.max_x
-			buf[o+3].y = buf[o].y = _add_y - font_size * info.min_y
+			buf[o+3].x = buf[o].x = add_x + font_size * info.max_x
+			buf[o+3].y = buf[o].y = add_y - font_size * info.min_y
 			buf[o+3].z = buf[o].z = gx | 1
 			buf[o+3].w = buf[o].w = gy
 			o++
-			buf[o+1].x = buf[o].x = _add_x + font_size * info.min_x
-			buf[o+1].y = buf[o].y = _add_y - font_size * info.max_y
+			buf[o+1].x = buf[o].x = add_x + font_size * info.min_x
+			buf[o+1].y = buf[o].y = add_y - font_size * info.max_y
 			buf[o+1].z = buf[o].z = gx
 			buf[o+1].w = buf[o].w = gy | 1
 			o+=3
-			buf[o].x = _add_x + font_size * info.max_x
-			buf[o].y = _add_y - font_size * info.max_y
+			buf[o].x = add_x + font_size * info.max_x
+			buf[o].y = add_y - font_size * info.max_y
 			buf[o].z = gx | 1
 			buf[o].w = gy | 1
 			o++
 		}
-		_char_length++
-		_add_x += info.advance * font_size
-		if(_add_x > _text_w)_text_w = _add_x
-		_alloc_off = o
+		char_off++
+		add_x += info.advance * font_size
+		if(add_x > _text_w)_text_w = add_x
+		alloc_off = o
 	}
 
 	string(text, x, y){
-		if(x !== undefined) _add_x = x 
-		if(y !== undefined) _add_y = y 
+		if(x !== undefined) add_x = x 
+		if(y !== undefined) add_y = y 
 		var length = text.length
 
-		if(_alloc_off + length *6 > _alloc_length) reallocText(_alloc_off / 6 + length)
-
+		if(alloc_off + length *6 > alloc_length) reallocText(alloc_off / 6 + length)
+		var chars = 0
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
 			var unicode = text.charCodeAt(i)
 
 			if(unicode == 10){ // newline
-				newline()
+				chars += newline()
 				continue
 			}
 			if(unicode == 9){ // tab
-				tab()
+				chars += tab()
 			}
 			var info = glyphy_info.glyphs[unicode]
 			if(!info){
-				space()
+				chars += space()
 				continue
 			}
 			// lets add some vertices
+			chars ++
 			addGlyph(info)
 			//console.log(o)
 		}
-		if(_add_y > _text_h) _text_h = _add_y	
+		if(add_y > _text_h) _text_h = add_y	
+		return chars
 	}
 
 	updateText(){
-		mesh = _alloc_mesh
+		mesh = alloc_mesh
 		text_w = _text_w
 		text_h = _text_h
 	}
@@ -425,7 +470,7 @@ class TextImpl{
 		// we have to allocate actual texture positions
 		var font_size = .2
 		// if we render to a font we go -1,-1 bottom left to 1,1 top right
-		// 
+
 		var width = 1024
 		var height = 1024
 		var margin = 8./width
@@ -438,6 +483,7 @@ class TextImpl{
 		var o = 0
 		var maxh = 0
 		var ct = 0
+
 		for(var k in glyphs){
 			var info = glyphs[k]
 
@@ -482,6 +528,8 @@ class TextImpl{
 
 			if(px + font_size > 1) px = left, py -= maxh, maxh = 0
 		}
+
+		genDefaults(font)
 		// lets do a font scaling, and then just stack em horizontally
 		sdf_texture = Texture.rgba(width, height)
 
@@ -865,17 +913,30 @@ class TextImpl{
 		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
 		// screenspace length
 		u_scaling = 500.*m 
-
-		vec2 sub_delta = dpdx / 3.
-
-		vec3 gsdist(
+		float fin_alpha = 1.
+		vec2 sub_delta = dpdx / u_subpixel_distance
+		vec3 distance
+		vec4 exit = paint(p, dpdx.x, dpdy.y, m)
+		if(exit.a>=0.){
+			return exit
+		}
+		/*
+		if(customDistance()){
+			//m *= 0.01
+			vec2 sam = sampleDistance(pos.zw)
+			distance = sam.xxx
+			fin_alpha = sam.y
+		}
+		else{
+		*/
+		distance = vec3(
 			glyphy_sdf_decode(sdf_texture.sample(pos.zw - sub_delta)),
 			glyphy_sdf_decode(sdf_texture.sample(pos.zw ))
 			glyphy_sdf_decode(sdf_texture.sample(pos.zw + sub_delta))
-		)
-		vec3 distance = gsdist * 0.003 // random scale factor
+		)*0.003
+		//}
 
-		style() // per pixel styling callback
+		style(pos) // per pixel styling callback
 
 		distance -= u_boldness / 300.
 		distance = distance / m * u_contrast
@@ -894,7 +955,7 @@ class TextImpl{
 		if(u_gamma_adjust != 1.){
 			alpha = pow(alpha, vec3(1./u_gamma_adjust))
 		}
-		float max_alpha = max(max(alpha.r,alpha.g),alpha.b)
+		float max_alpha = max(max(alpha.r,alpha.g),alpha.b) * fin_alpha
 		if(max_alpha >0.2) max_alpha = 1.
 		return vec4(mix(u_background_color, u_color, alpha), max_alpha)
 	}
@@ -912,8 +973,14 @@ class TextImpl{
 		float gsdist = glyphy_sdf_decode(dist_sample)
 
 		u_distance = gsdist * 0.003
+		
+		vec4 exit = paint(pos)
+		if(exit.a >= 0.){
+			return exit
+			return vec4(#red,1.)
+		}
 
-		style() // per pixel styling callback
+		style(pos) // per pixel styling callback
 
 		u_distance -= u_boldness / 300.
 		u_distance = u_distance / m * u_contrast
@@ -1001,37 +1068,102 @@ class TextImpl{
 	}
 }
 
-class MarkedTextImpl extends TextImpl{
+class TaggedTextImpl extends TextImpl{
 
-	mark_pos: vec2(mod(marks[].w,256.), floor(marks[].w/256.))
+	tag_pos: vec2(mod(tags[].w,256.), floor(tags[].w/256.))
 	
-	_mark_x = 0
-	_mark_y = 0
+	dontProxy('tag_x','tag_y','alloc_tags')
 
-	charMark(off){
-		return vec4[] _alloc_marks[off * 6]
+	tag_x = 0
+	tag_y = 0
+
+	charTag(off){
+		return vec4[] alloc_tags[off * 6]
 	}
 	
-	charMark_z(off){
-		return vec4[] _alloc_marks[off * 6].z
+	charTag_z(off){
+		return vec4[] alloc_tags[off * 6].z
 	}
 
 	reserialize(){
 		var s = ''
-		vec4[] buf = _alloc_marks
-		for(var i = 0;i<_char_length;i++){
+		vec4[] buf = alloc_tags
+		for(var i = 0;i<char_off;i++){
 			s += String.fromCharCode(buf[i*6].z)
 		}
 		return s
 	}
-
-	charBaseline(off){
-
+	
+	// turn a baseline into a an approximate top
+	baseToTop(y){
+		return y + font_size * cursor_sink - line_height 
 	}
 
-	markChar(off, length, x, y, z){
+	// fetch the baseline of a character by offset
+	charBaseline(off){
+		// scan backwards to newline and add a line.
+		// if 0 return 0
+		var o = off * 6
+		vec4[] tags = alloc_tags
+		vec4[] mesh = alloc_mesh
+		while(o >= 0){
+			if(tags[o].z == 10){
+				var base = mesh[o].y
+				if(off*6 != o) base += line_height
+				return base
+			} // newline
+			o--
+		}
+		return 0
+	}
+
+	// return the cursor rectangle based on an offset
+	cursorRect(off){
+		var bounds = charBounds(off)
+		var base = charBaseline(off)
+		var height = font_size * cursor_spacing
+		base += font_size * cursor_sink
+		return {
+			x:floor(bounds.x)
+			y:floor(base - height)
+			w:floor(bounds.w)
+			h:height
+		}
+	}
+
+	// calculate the cursor offset from mouse position
+	offsetFromPos(x, y){
+		vec4[] tags = alloc_tags
+		vec4[] mesh = alloc_mesh
+		var height = line_height
+		for(var o = alloc_off - 6; o >= 0; o -= 6){
+			if(o == 0 || tags[o].z == 10){
+				// the baseline
+				var base = o==0 ? 0: mesh[o].y
+				base += font_size * cursor_sink
+				//console.log(base-height, y, base)
+				if(y < base && y >= base - height){
+					while(o >= 0){
+						var hx = (mesh[o].x + mesh[o+1].x)/2
+						if(x >= mesh[o].x && x < hx){
+							return o/6
+						}
+						if(x > hx){
+							if(tags[o].z == 10) return o / 6
+							return o / 6 + 1
+						}
+						o -=6
+					}
+					return -1
+				}
+			}
+		}
+		return -1
+	}
+
+	tagChar(off, length, x, y, z){
 		var o = off
-		vec4[] buf = _alloc_marks
+		vec4[] buf = alloc_tags
 		for(var i = 0; i < length; i++){
 			buf[o].x = x
 			buf[o].y = y
@@ -1068,34 +1200,34 @@ class MarkedTextImpl extends TextImpl{
 
 	reallocText(extra){
 
-		vec4[] old_marks = _alloc_marks
-		var old_length = _alloc_length
+		vec4[] old_tags = alloc_tags
+		var old_length = alloc_length
 
 		TextImpl::reallocText(extra)
 
-		_alloc_marks = vec4[_alloc_length]()
-		vec4[] nmarks = _alloc_marks
+		alloc_tags = vec4[alloc_length]()
+		vec4[] ntags = alloc_tags
 		for(var i = 0;i<old_length;i++){
-			nmarks[i].x = old_marks[i].x
-			nmarks[i].y = old_marks[i].y
-			nmarks[i].z = old_marks[i].z
-			nmarks[i].w = old_marks[i].w
+			ntags[i].x = old_tags[i].x
+			ntags[i].y = old_tags[i].y
+			ntags[i].z = old_tags[i].z
+			ntags[i].w = old_tags[i].w
 		}
 	}
 
 	allocText(length){
 		TextImpl::allocText(length)
-		_alloc_marks = vec4[_alloc_length]()
+		alloc_tags = vec4[alloc_length]()
 	}
 
 	updateText(){
 		TextImpl::updateText()
-		marks = _alloc_marks
+		tags = alloc_tags
 	}
 	/*
 	insertText(offset, length){
-		var from = _alloc_off
-		var to = _alloc_off + length * 6
+		var from = alloc_off
+		var to = alloc_off + length * 6
 		for(var i = start64;i>=offset;i-=6){
 			var i1 = i+length
 			mesh[i1].x = mesh[i].x
@@ -1106,39 +1238,39 @@ class MarkedTextImpl extends TextImpl{
 	}*/
 
 	newline(t){
-		var off = _alloc_off
+		var off = alloc_off
 		var i = TextImpl::newline(t)
-		markChar(off, i, _mark_x, _mark_y, 10)
+		tagChar(off, i, tag_x, tag_y, 10)
 		return i
 	}
 
 	tab(t){
-		var off = _alloc_off
+		var off = alloc_off
 		var i = TextImpl::tab(t)
-		markChar(off, i, _mark_x, _mark_y, 9)
+		tagChar(off, i, tag_x, tag_y, 9)
 		return i
 	}
 
 	space(t){
-		var off = _alloc_off
+		var off = alloc_off
 		var i = TextImpl::space(t)
-		markChar(off, i, _mark_x, _mark_y, 32)
+		tagChar(off, i, tag_x, tag_y, 32)
 		return i
 	}
 
 	string(text, x, y){
-		if(x !== undefined) _add_x = x 
-		if(y !== undefined) _add_y = y 
+		if(x !== undefined) add_x = x 
+		if(y !== undefined) add_y = y 
 		var length = text.length
-
-		if(_alloc_off + length * 6 > _alloc_length) reallocText(_alloc_off / 6 + length)
+		var chars = 0
+		if(alloc_off + length * 6 > alloc_length) reallocText(alloc_off / 6 + length)
 
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
 			var unicode = text.charCodeAt(i)
 
-			// parse inline marks
-			if(inline_marks && (unicode == 36||unicode==37)){
+			// parse inline tags
+			if(inline_tags && (unicode == 36||unicode==37)){
 				var t = i
 				var next
 				while((next = text.charCodeAt(t+1)) >= 48 && next <=57){
@@ -1146,29 +1278,48 @@ class MarkedTextImpl extends TextImpl{
 				}
 				if(i != t){
 					var out = parseInt(text.slice(i+1, i-t))
-					if(unicode == 36) _mark_x = out
-					else _mark_y = out
+					if(unicode == 36) tag_x = out
+					else tag_y = out
 					i = t
 					continue
 				}
 			}
 			if(unicode == 10){ // newline
-				newline()
+				chars += newline()
 				continue
 			}
 			if(unicode == 9){ // tab
-				tab()
+				chars += tab()
 			}
 			var glyph = glyphy_info.glyphs[unicode]
 			if(!glyph){
-				space()
+				chars += space()
 				continue
 			}
 			// lets add some vertices
-			var off = _alloc_off
+			var off = alloc_off
 			addChar(glyph)
-			markChar(off, 1, _mark_x, _mark_y, unicode)
+			chars++
+			tagChar(off, 1, tag_x, tag_y, unicode)
 		}
-		if(_add_y > _text_h) _text_h = _add_y	
+		if(add_y > _text_h) _text_h = add_y	
+		return chars
 	}
+}
+
+class MarkedTaggedTextImpl extends TaggedTextImpl{
+	// we add markers
+	// markers are rects that sit behind our text 
+	// they have x, y, rect+corner, userdata
+	// soo. how do we do this.
+	// we can mark from start to end
+	// and we will look up start, and end
+	// and generate a set of rectangles?
+	// the thing is when spanning chunks
+	// we will need to pass on last-length
+	// to the next one
+	// but we can also have multiple
+	// we should probably have a clear
+	// we can also turn off subpixelness for certain selection colors
+	// 
 }

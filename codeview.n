@@ -5,119 +5,119 @@ import glscene
 class CodeViewTypes{
 
 	// Base node markers
-	_Id:1.
-	_Value:2.
-	_This:3.
-	_Array:4.
-	_Object:5.
-	_Index:6.
-	_Key:7.
-	_ThisCall: 8.
+	_Id:1
+	_Value:2
+	_This:3
+	_Array:4
+	_Object:5
+	_Index:6
+	_Key:7
+	_ThisCall: 8
 
-	_Block:9.
-	_List: 10.
-	_Comprehension:11.
-	_Template: 12.
-	_Break:13.
-	_Continue:14.
-	_Label:15.
+	_Block:9
+	_List: 10
+	_Comprehension:11
+	_Template: 12
+	_Break:13
+	_Continue:14
+	_Label:15
 
-	_If:16.
-	_Switch:17.
-	_Case:18.
+	_If:16
+	_Switch:17
+	_Case:18
 
-	_Throw:19.
-	_Try:20.
+	_Throw:19
+	_Try:20
 
-	_While:21.
-	_DoWhile:22.
-	_For:23.
-	_ForIn:24.
-	_ForOf:25.
-	_ForFrom:26.
-	_ForTo:27.
+	_While:21
+	_DoWhile:22
+	_For:23
+	_ForIn:24
+	_ForOf:25
+	_ForFrom:26
+	_ForTo:27
 
-	_Var:28.
-	_TypeVar:29.
-	_Struct:30.
-	_Define:31.
-	_Enum:32.
+	_Var:28
+	_TypeVar:29
+	_Struct:30
+	_Define:31
+	_Enum:32
 
-	_Def:33.
+	_Def:33
 
-	_Function:34.
-	_Return:35.
-	_Yield:36.
-	_Await:37.
+	_Function:34
+	_Return:35
+	_Yield:36
+	_Await:37
 
-	_Unary:38.
-	_Binary:39.
-	_Logic:40.
-	_Assign:41.
-	_Update:42.
-	_Condition:43.
+	_Unary:38
+	_Binary:39
+	_Logic:40
+	_Assign:41
+	_Update:42
+	_Condition:43
 
-	_New:44.
-	_Call:45.
-	_Nest:46.
+	_New:44
+	_Call:45
+	_Nest:46
 
-	_Class:47.
-	_Signal:48.
-	_Quote:49.
-	_AssignQuote:50.
-	_Rest:51.
-	_Then:52.
-	_Comment:53.
+	_Class:47
+	_Signal:48
+	_Quote:49
+	_AssignQuote:50
+	_Rest:51
+	_Then:52
+	_Comment:53
 
 	// second level markers
-		_Id:1.
-		_Paren:2.
-			_ParenL:1.
-			_ParenR:2.
-		_Brace:3.
-			_BraceL:1.
-			_BraceR:2.
-		_Bracket:4.
-			_BracketL:1.
-			_BracketR:2.
+		_Id:1
+		_Paren:2
+			_ParenL:1
+			_ParenR:2
+		_Brace:3
+			_BraceL:1
+			_BraceR:2
+		_Bracket:4
+			_BracketL:1
+			_BracketR:2
 
-		_Comma:5.
-		_Colon:6.
-		_DColon:7.
-		_Dot:8.
-		_SemiColon:9.
+		_Comma:5
+		_Colon:6
+		_DColon:7
+		_Dot:8
+		_SemiColon:9
 
-		_Operator:10.
-			_Plus:1.
-			_Min:2.
-			_Div:3.
-			_Mul:4.
-			_Pow:5.
+		_Operator:10
+			_Plus:1
+			_Min:2
+			_Div:3
+			_Mul:4
+			_Pow:5
 			_Shl:6
 			_Shr:7
-			_EQ:8.
-			_NEQ:9.
-			_GT:10.
-			_LT:11.
-			_GTE:12.
-			_LTE:13.
-			_Plusplus:14.
-			_Minmin:15.
-			_Assign:16.
-			_PlusAssign:17.
-			_MinAssign:18.
-			_MulAssign:19.
-			_DivAssign:20.
-			_ShlAssign:21.
-			_ShrAssign:22.
-			_TerniaryQ:23.
-			_TerniaryC:24.
-			_Signal:25.
-		_String:11.
-		_Number:12.
-		_Tab:13.
-		_Keyword:14.
-		_Color:15.
+			_EQ:8
+			_NEQ:9
+			_GT:10
+			_LT:11
+			_GTE:12
+			_LTE:13
+			_Plusplus:14
+			_Minmin:15
+			_Assign:16
+			_PlusAssign:17
+			_MinAssign:18
+			_MulAssign:19
+			_DivAssign:20
+			_ShlAssign:21
+			_ShrAssign:22
+			_TerniaryQ:23
+			_TerniaryC:24
+			_Signal:25
+		_String:11
+		_Number:12
+		_Tab:13
+		_Keyword:14
+		_Color:15
 }
 
 // only load CodeViewImpl on something that has a text interface
@@ -218,8 +218,8 @@ class CodeViewImpl{
 		if(l1 && l1._ast_)l1 = l1.value
 		if(l2 && l2._ast_)l2 = l2.value
 		if(l3 && l3._ast_)l3 = l3.value
-		_mark_x = group
-		_mark_y = 65536*(l1||0)+256*(l2||0)+(l3||0)
+		tag_x = group
+		tag_y = 65536*(l1||0)+256*(l2||0)+(l3||0)
 		string(text)
 	}
 
@@ -709,7 +709,7 @@ class CodeViewImpl{
 	set ast(v){
 		__ast = v
 		// ok lets turn this AST into an actual codeview.
-		if(_text_initialized){
+		if(text_initialized){
 			allocText(100000, true)
 			indent = 0
 			group = 0
@@ -724,16 +724,57 @@ class CodeViewImpl{
 		ast = __ast
 	}
 
-	style:(){
-		vec4 m = marks[] // magical comments!
-		vec2 pos = mark_pos 
-		vec2 center = pos - .5
+	toInt:(float v){
+		int t = floor(v)
+		return t
+	}
 
-		var group = m.x
-		var type = floor(m.y / 65536.)
-		var sub = mod(floor(m.y/256.), 256.)
-		var part  = mod(m.y, 256.)
-		
+	paint:(vec2 p, dpx, dpy, md){
+		int m = tags[].z
+		if(m == 9){ // the screen aligned tab dots
+			float py = pixel vertex.y * floor(device.h * .5)
+			if(p.x > 1.*abs(dpx) && p.x <= 2.*abs(dpx) && mod(py,2.)>1.) return vec4(#445,1.)
+			//if(p.x > 3.*dpx && p.y > .5 - .5*dpy && p.y < .5 + .5*dpy)
+			//	return vec4(#445,1.)
+			return vec4(0)
+		}
+		return vec4(-1.)
+	}
+/*
+	customDistance:(){
+		vec4 m = pixel tags[]
+		if(m.z == 9.){
+			u_outline = true
+			return true
+		}
+		return false
+	}
+
+	sampleDistance:(vec2 mypos){
+		vec4 m = tags[]
+		if(m.z == 9.){
+			return vec2(
+				abs(mypos.x-.1)*2.,
+				.15+.5*sin(1.5*pixel mesh[].y + y)
+			)
+		}
+	}
+*/
+
+	style:(vec4 pos){
+		//vec4 dtags = vec4(tags[].x, floor(tags[].y / 65536.), mod(floor(tags[].y/256.), 256.), mod(tags[].y, 256.))
+		vec4 m = tags[] // magical comments!
+		vec2 mp = tag_pos
+
+		//var group = dtags.x
+		//var type = dtags.y
+		//var sub = dtags.z
+		//var part = dtags.w
+		int group = m.x
+		int type = m.y / 65536.
+		int sub = mod(m.y/256., 256.)
+		int part = mod(m.y, 256.)
+
 		if(sub == _Paren || sub == _Brace || sub == _Bracket){
 			if(sub == _Paren){
 				u_color = #white

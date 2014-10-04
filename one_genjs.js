@@ -1316,6 +1316,9 @@ ONE.genjs_ = function(){
 			var base = n.base? this.expand(n.base, n): 'ONE.__Base__'
 			var name = n.id.name
 			
+			// allow same-name class overloads
+			if(n.base && n.base.type == 'Id' && n.base.name == name) base = 'this.'+base
+
 			var fn = this.find_function(n)
 			if(fn.root){
 				// export the class

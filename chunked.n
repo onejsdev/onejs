@@ -4,85 +4,158 @@ import glscene
 // chunked text behaves like text
 class ChunkedTextImpl{
 
-	default_alloc = 5000
-	chunk_lines = 100
+	dontProxy('default_alloc', 'chunk_lines',
+		'text_initialized','chunk_list','line_height',
+		'cache_chunk','last_chunk','add_y','char_off')
+
+	// text chunk class
+	class Chunk extends Text{
+	dump = 1		
+		constructor(parent){
+			this.parent = parent
+			Text::constructor()
+			font_size = parent.font_size
+			style = parent.style
+			paint = parent.paint || paint
+			toInt = parent.toInt
+			//customDistance = parent.customDistance
+			//sampleDistance = parent.sampleDistance
+			line_spacing = parent.line_spacing
+		}
+		u_contrast: parent.u_contrast
+		u_boldness: parent.u_boldness
+		u_subpixel_distance: parent.u_subpixel_distance
+
+		u_background_color: parent.u_background_color
+	}
+
+	default_alloc = 500
+	chunk_lines = 10
+	
+	get line_height(){
+		return last_chunk? last_chunk.line_height: 0
+	}
 
 	constructor(){
-		_text_initialized = true
-		// create a new chunk to start growing
-		_chunks = [_chunk = Chunk.new(this)]
-		_chunk.allocText(default_alloc)
-		_add_y = 0
-		//_chunk.style = style
+		text_initialized = true
+		// create a new last_chunk to start growing
+		chunk_list = [last_chunk = this.Chunk.new(this)]
+		last_chunk.chunk_id = 0
+		last_chunk.allocText(default_alloc)
+		last_chunk.accum_off = 0
+		char_off = 0
+		add_y = 0
+		//last_chunk.style = style
+	}
+	
+	offsetFromPos(x, y){
+		// scan the chunks by y pos
+		if(!cache_chunk) cache_chunk = last_chunk
+		// we have to correct for y being at the font baseline.
+		while(cache_chunk && y < cache_chunk.baseToTop(cache_chunk.y)){
+			cache_chunk = chunk_list[cache_chunk.chunk_id -1]
+		}
+		while(cache_chunk && y >= cache_chunk.baseToTop(cache_chunk.y) + cache_chunk.add_y){
+			cache_chunk = chunk_list[cache_chunk.chunk_id + 1]
+		}
+		if(!cache_chunk) cache_chunk = last_chunk
+		// lets find the closest character
+		return cache_chunk.offsetFromPos(x, y - cache_chunk.y) + cache_chunk.accum_off
+	}
+
+	cursorRect(off){
+		var chunk = findChunk(off)
+		var rect = chunk.cursorRect(off - chunk.accum_off)		
+		rect.y += chunk.y
+		return rect
+	}
+
+	charBounds(off){
+		var chunk = findChunk(off)
+		var b = chunk.charBounds(off - chunk.accum_off)
+		// we need to find the actual baseline for this 
+
+		b.y += chunk.y
+		return b
 	}
 
 	// we expose the Text api onto subchunks
-	charMark(off){
-		// we have to find the right character mark
+	charTag(off){
+		// we have to find the right character tag
+		var chunk = findChunk(off)
+		return chunk.charTag_z(off - chunk.accum_off)
 	}
 	
-	charMark_z(off){
+	findChunk(off){
+		// otherwise we scan up or down from cache_chunk
+		if(!cache_chunk) cache_chunk = last_chunk
+		while(cache_chunk && off < cache_chunk.accum_off){
+			cache_chunk = chunk_list[cache_chunk.chunk_id -1]
+		}
+		while(cache_chunk && off >= cache_chunk.accum_off + cache_chunk.char_off){
+			cache_chunk = chunk_list[cache_chunk.chunk_id + 1]
+		}
+		if(!cache_chunk) cache_chunk = last_chunk
+		return cache_chunk
+	}
+
+	charTag_z(off){
+		var chunk = findChunk(off)
+		return chunk.charTag_z(off - chunk.accum_off)
 	}
 
 	reserialize(){
 	}
 
 	charBaseline(off){
+		var chunk = findChunk(off)
+		return chunk.charBaseline(off - chunk.accum_off) + chunk.y
 	}
 	
 	reallocText(extra){
-		//_chunk.reallocText(extra)
+		//last_chunk.reallocText(extra)
 	}
 
 	allocText(length){
-		//_chunk.allocText(length)
+		//last_chunk.allocText(length)
 	}
 
 	updateText(){
-		_chunk.updateText()
+		last_chunk.updateText()
 	}
 
-	markChar(off, length, x, y, z){
-		_chunk.markChar(off, length, x, y, z)
+	tagChar(off, length, x, y, z){
+		last_chunk.tagChar(off, length, x, y, z)
 	}
-	/*
-	insertText(offset, length){
-		var from = alloc_off
-		var to = alloc_off + length * 6
-		for(var i = start64;i>=offset;i-=6){
-			var i1 = i+length
-			mesh[i1].x = mesh[i].x
-			mesh[i1].y = mesh[i].y
-			mesh[i1].z = mesh[i].z
-			mesh[i1].w = mesh[i].w
-		}
-	}*/
 
 	newline(t){
-		_chunk.newline(t)
-		if(_chunk._lines > chunk_lines){
-			var new_chunk = Chunk.new(this)
-			// complete chunk
-			_chunk.updateText()
-			_add_y += _chunk._add_y
-			new_chunk.y = _add_y
-			_chunks.push(_chunk = new_chunk)
-			_chunk.allocText(default_alloc)
+		char_off += last_chunk.newline(t)
+		if(last_chunk.lines > chunk_lines){
+			var new_chunk = this.Chunk.new(this)
+			// complete last_chunk
+			last_chunk.updateText()
+			add_y += last_chunk.add_y
+			new_chunk.accum_off = last_chunk.char_off + last_chunk.accum_off
+			new_chunk.chunk_id = chunk_list.length
+			new_chunk.y = add_y 
+
+			chunk_list.push(last_chunk = new_chunk)
+			last_chunk.allocText(default_alloc)
 		}
 	}
 
 	tab(t){
-		_chunk.tab(t)
+		char_off += last_chunk.tab(t)
 	}
 
 	space(t){
-		_chunk.space(t)
+		char_off += last_chunk.space(t)
 	}
 
 	string(text, x, y){
-		// lets add text to our last chunk
-		_chunk._mark_x = _mark_x
-		_chunk._mark_y = _mark_y
-		_chunk.string(text, x, y)
+		// lets add text to our last last_chunk
+		last_chunk.tag_x = tag_x
+		last_chunk.tag_y = tag_y
+		char_off += last_chunk.string(text, x, y)
 	}
 }
