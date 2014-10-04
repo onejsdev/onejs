@@ -1,63 +1,59 @@
 import math
 import gl
 import glscene
-import codeview
+
 import input
-import edit
 import diff
-import text
+
+import codeview
+import edit
 import chunked
 
 class CodeEdit extends Layer{
-	// text chunk class
-	class Chunk extends Text{
-		load(CodeViewTypes)
-		constructor(parent){
-			this.parent = parent
-			Text::constructor()
-			font_size = parent.font_size
-			style = parent.style
-		}
-		u_boldness: parent.u_boldness
-		u_background_color: parent.u_background_color
-	}
-
-	draw:(parent, time){
-		Layer::draw(parent, time)
-	}
 
 	load(ChunkedTextImpl)
-	load(EditImpl)
 	load(CodeViewTypes)
 	load(CodeViewImpl)
+	load(EditImpl)
+
+	class Chunk extends Chunk{
+		load(CodeViewTypes)
+	}
 
 	constructor(){
 		Layer::constructor()
 		ChunkedTextImpl::constructor()
-		EditImpl::constructor()
 		CodeViewImpl::constructor()
+		EditImpl::constructor()
 	}
 }
 
 Scene{
 	antialias = false
 	//fill = vec3(65/256,0,0)
-	Layer{
-		w: device.w
-		h: device.h
-		pixel: vec3(0, 32./255., 65./255.)
-		//pixel:#red
-	}
+	fill = vec3(0, 32./255., 65./255.)
+	//perspective = 70deg
+	//m_view = mat4.ST(1,-1,1,-300,400,300)//180deg,0,0,-200,300,300)
 	CodeEdit{
-		ax = 0
-		ay = 0
-		y: -60*(mod(time.sec,200.))
+		ax = 3
+		//ry: PI-sin(0.25*time.sec)*PI
+		ay = 5
+		y = : -60*(mod(time.sec,200.))
 		sx = 
 		sy = 1//:1.1 + 0.5cos(0.2*time.sec)
+		//rz:-abs on sin on .1time.sec
 		font_size = 13
 		u_background_color = vec3(0,32/255,65/255)
-		u_boldness = 0.9
-		line_height = 1.3
+
+		//u_contrast = 1.2
+		//u_boldness = 0.8
+		//u_subpixel_distance = 6.
+
+		u_contrast = 1.
+		u_subpixel_distance = 3.
+		u_boldness = 1.
+
+		line_spacing = 1.3
 		source = import('constraint.n','string')
 		ast = parse(source)
 	}
