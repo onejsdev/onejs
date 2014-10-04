@@ -11,15 +11,15 @@ import font_styles
 class CrazyCode extends CodeView{
     load( FontStyles )
 
-	style:(){
-		vec4 m = marks[] // magical comments!
-		vec2 pos = mark_pos 
+	style:(vec4 pos2){
+		vec4 m = tags[] // magical comments!
+		vec2 pos = tag_pos 
 		vec2 center = pos - .5
 
-		var group = m.x
-		var type = floor(m.y / 65536.)
-		var sub = mod(floor(m.y/256.), 256.)
-		var part  = mod(m.y, 256.)
+		float group = m.x
+		int type = m.y / 65536.
+		int sub = mod(m.y/256., 256.)
+		int part  = mod(m.y, 256.)
 		
 		if(sub == _Paren || sub == _Brace || sub == _Bracket){
 			if(sub == _Paren){
@@ -61,17 +61,17 @@ class CrazyCode extends CodeView{
 		}
 	}
 	// needlessly animating default style
-	style2:(){
+	style2:(vec4 pos2){
         
         vec4 c//COMEABS
-		vec4 m = marks[] // maal comments!
-		vec2 pos = mark_pos
+		vec4 m = tags[] // maal comments!
+		vec2 pos = tag_pos
 		vec2 center = pos - .5
 
-		var group = m.x
-		var type = floor(m.y / 65536.)
-		var sub = mod(floor(m.y/256.), 256.)
-		var part  = mod(m.y, 256.)
+		float group = m.x
+		int type = m.y / 65536.
+		int sub = mod(m.y/256., 256.)
+		int part  = mod(m.y, 256.)
 		
 		if( sub == _Paren  ){
 				
@@ -188,18 +188,18 @@ Deck{
 			Bullet{
 				x = 20
 				y = 40
-				inline_marks = true
+				inline_tags = true
 				text = "$0The $1Creative $0Power\n    of the $2GPU"
-				style:(){
-					var pos = mark_pos
-					var mark = marks[].x
-					if(mark == 0.){
+				style:(vec4 pos2){
+					var pos = tag_pos
+					int tag = tags[].x
+					if(tag == 0){
 						u_color = #white
 					}
-					else if(mark == 1.){
+					else if(tag == 1){
 						u_color = mix(#white,#red,abs on sin on length(pos-.5)*8. - 3.time.sec)
 					}
-					else if(mark == 2.){
+					else if(tag == 2){
 						u_outline = true
 						u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
 						u_color = mix(#orange,#aero,abs on sin(14.pos.x*sin(time.sec)) * sin(14.pos.y*sin(time.sec) + time.sec))
@@ -351,29 +351,29 @@ Deck{
 				ay = 0
 				sx: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
 				sy: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
-				inline_marks = true
-				style:(){
-					var pos = mark_pos
-					var markxy = marks[].xy * vec2(1.,0.12) - vec2(8.,8.)
+				inline_tags = true
+				style:(vec4 pos2){
+					var pos = tag_pos
+					var tagxy = tags[].xy * vec2(1.,0.12) - vec2(8.,8.)
 
-					var mark = floor(mod(length(markxy)-2.time.sec,6.))
-					if(mark == 0.){
+					int tag = mod(length(tagxy)-2.time.sec,6.)
+					if(tag == 0){
 						u_color = #white
 					}
-					else if(mark == 1.){
+					else if(tag == 1){
 						u_color = #orange
 					}
-					else if(mark == 2.){
+					else if(tag == 2){
 						u_outline = true
 						u_outline_thickness = 1. + .4sin(8.pos.x+8.*time.sec)
 						u_color = #aero
 					}
-					else if(mark == 4.){
+					else if(tag == 4){
 						u_outline = false
 						//u_outline_thickness = 1. + .8sin(8.pos.x+8.*time.sec)
 						u_color = #red
 					}
-					else if(mark == 5.){
+					else if(tag == 5){
 						u_outline = true
 						u_outline_thickness = 1. + .4sin(9.pos.y+2.*time.sec)
 						u_color = #green
@@ -395,19 +395,19 @@ Deck{
 		}
 		
 		Center{
-			inline_marks = true
-			style:(){
-				var pos = mark_pos
-				var mark = marks[].x
-				if(mark == 0.){
+			inline_tags = true
+			style:(vec4 pos2){
+				var pos = tag_pos
+				int tag = tags[].x
+				if(tag == 0){
 					u_color = #white
 					u_outline_thickness = 2.+sin(length(pos - .5)*18. + 8.*time.sec)
 				}
-				else if(mark == 1.){
+				else if(tag == 1){
 					u_outline = false
 					u_color = #orange
 				}
-				else if(mark == 2.){
+				else if(tag == 2){
 					u_outline = false
 					u_color = #aero
 				}
@@ -424,20 +424,20 @@ Deck{
 		
 		Center{
 			u_outline = false
-			inline_marks = true
-			style:(){
-				var pos = mark_pos
-				var mark = marks[].x
-				if(mark == 0.){
+			inline_tags = true
+			style:(vec4 pos2){
+				var pos = tag_pos
+				int tag = tags[].x
+				if(tag == 0){
 					u_color = #white
 					
 				}
-				else if(mark == 1.){
+				else if(tag == 1){
 					u_outline = false
 					u_outline = mod(pos.y+time.sec*0.2,0.1) > 0.05
 					u_color = #orange
 				}
-				else if(mark == 2.){
+				else if(tag == 2){
 					u_outline = false
 					u_color = #aero
 				}
@@ -453,19 +453,19 @@ Deck{
 		}
 		Center{
 			u_outline = false
-			inline_marks = true
-			style:(){
-				var pos = mark_pos
-				var mark = marks[].x
-				if(mark == 0.){
+			inline_tags = true
+			style:(vec4 pos2){
+				var pos = tag_pos
+				int tag = tags[].x
+				if(tag == 0){
 					u_color = #white
 				}
-				else if(mark == 1.){
+				else if(tag == 1){
 					u_outline = false
 					u_outline = mod(pos.y+time.sec*0.2,0.1) > 0.05
 					u_color = #aero
 				}
-				else if(mark == 2.){
+				else if(tag == 2){
 					u_outline = false
 					u_color = #aero
 				}
@@ -480,20 +480,20 @@ Deck{
 		}
 		
 		Center{
-			inline_marks = true
-			style:(){
-				var pos = mark_pos
-				var mark = marks[].x
-				if(mark == 0.){
+			inline_tags = true
+			style:(vec4 pos2){
+				var pos = tag_pos
+				int tag = tags[].x
+				if(tag == 0){
 					u_color = #white
 					u_outline = false
 					//u_outline_thickness = 2.+sin(length(pos - .5)*18. + 8.*time.sec)
 				}
-				else if(mark == 1.){
+				else if(tag == 1){
 					u_outline = false
 					u_color = #orange
 				}
-				else if(mark == 2.){
+				else if(tag == 2){
 					u_outline = false
 					u_color = #aero
 				}

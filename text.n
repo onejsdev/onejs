@@ -978,7 +978,7 @@ class TextImpl{
 
 		u_distance = gsdist * 0.003
 		
-		vec4 exit = paint(pos, dpdx.x, dpdx.y, m)
+		vec4 exit = paint(p, dpdx.x, dpdx.y, m)
 		if(exit.a >= 0.){
 			return exit
 			return vec4(#red,1.)
