@@ -2169,7 +2169,8 @@ ONE.genjs_ = function(){
 						var old_arg = this.macro_args
 						var old_generics = this.generics
 						var old_module = this.module
-
+						var old_locals = this.locals
+						this.locals = undefined
 						this.macro_args = undefined
 						this.scope = Object.create(null)
 						this.depth = ''
@@ -2177,7 +2178,7 @@ ONE.genjs_ = function(){
 						if(macro.module && macro.module != old_module) this.module = macro.module
 
 						this.type_methods[gen] = this.Function(macro, gen, undefined, true)
-
+						this.locals = old_locals
 						this.module = old_module
 						this.depth = old_depth
 						this.scope = old_scope

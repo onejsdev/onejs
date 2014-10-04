@@ -1,4 +1,3 @@
-#js
 import math
 import glscene
 import diff

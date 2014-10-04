@@ -59,7 +59,7 @@ class TextImpl{
 	mode_whitespace = true // wether whitespace generates triangles
 	mode_tabs_are_spaces = false
 	// our font blob
-	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
 	
 	font_size = 10
 	line_spacing = 1.2
@@ -69,6 +69,7 @@ class TextImpl{
 	cursor_sink = 0.32
 
 	dump_sdf = false
+	sdf_bake = false
 	//mes
 	mesh = vec4[]()
 
@@ -81,9 +82,9 @@ class TextImpl{
 
 	__text = ''
 
-	style:(){
+	style:(vec4 pos){
 	}
-	paint:(p, dpx, dpy){
+	paint:(p, dpx, dpy, m){
 		return vec4(-1.)
 	}
 	customDistance:(){}
@@ -547,9 +548,8 @@ class TextImpl{
 
 		if(sdf_bake){
 			// lets re-encode our glyph table
-			var header = 12 + info.count * 10 * 4 
+			var header = 12 + font.count * 10 * 4 
 			var body = sdf_texture.w_ * sdf_texture.h_ * 4
-
 			var data = new Uint8Array(header + body)
 			var vuint32 = new Uint32Array(data.buffer)
 			var vfloat32 = new Float32Array(data.buffer)
@@ -560,10 +560,12 @@ class TextImpl{
 			vuint16[2] = sdf_texture.w_
 			vuint16[3] = sdf_texture.h_
 			off++
-			vuint32[off++] = info.count
-			var glyphs = info.glyphs
+			vuint32[off++] = font.count
+			var glyphs = font.glyphs
+			var check = 0
 			for(var unicode in glyphs){
 				var info = glyphs[unicode]
+				check++
 				vuint32[off++] = unicode
 				vfloat32[off++] = info.min_x
 				vfloat32[off++] = info.min_y
@@ -590,7 +592,9 @@ class TextImpl{
 						pixel: glyphy_sdf_generate(pixel sdf_mesh[])
 					}
 					var data = sdf_header.subarray(sdf_header_offset)
-					gl.readPixels(0,0,sdf_texture.w, sdf_texture.h, gl.RGBA, gl.UNSIGNED_BYTE, data)
+					this.gl.readPixels(0,0,sdf_texture.w, sdf_texture.h, this.gl.RGBA, this.gl.UNSIGNED_BYTE, data)
+					console.log(sdf_texture.w, sdf_texture.h)
+				
 					// ok lets dump the header and the data to disk
 					var xhr = new XMLHttpRequest()
 					xhr.open("POST", "/bake", false)
@@ -974,7 +978,7 @@ class TextImpl{
 
 		u_distance = gsdist * 0.003
 		
-		vec4 exit = paint(pos)
+		vec4 exit = paint(pos, dpdx.x, dpdx.y, m)
 		if(exit.a >= 0.){
 			return exit
 			return vec4(#red,1.)
@@ -1016,7 +1020,7 @@ class TextImpl{
 		u_distance = glyphy_sdf(p, nominal_size, atlas_pos) 
 		u_scaling = m
 		
-		style()
+		style(glyph)
 
 		vec3 out_color = u_color
 
