@@ -162,7 +162,8 @@ ONE.worker_boot_ = function(host){
 						name:url,
 						instance:req.response || req.responseText
 					}
-					mod.instance.name = url
+					if(typeof mod.instance == 'object')
+						mod.instance.name = url
 				}
 				if(!--ONE.import_queue && ONE.import_complete) ONE.import_complete()
 			}
