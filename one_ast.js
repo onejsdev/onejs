@@ -139,7 +139,7 @@ ONE.ast_ = function(){
             
 			try{
 				if( typeof process !== 'undefined'){
-					var fn = Function.call(null, '__module__', 'require', '__dirname', code)(js.module, require, __dirname)
+					var fn = Function.call(null, '__module__', 'process', 'require', '__dirname', code)(js.module, process, require, __dirname)
 				}
 				else{
 					var prof = flags && flags.indexOf('profile') != -1 && Date.now()

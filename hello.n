@@ -20,6 +20,8 @@ class CrazyCode extends CodeView{
 		int type = m.y / 65536.
 		int sub = mod(m.y/256., 256.)
 		int part  = mod(m.y, 256.)
+		int unicode = m.z
+		if(unicode == 10 || unicode == 32 || unicode == 9) discard
 		
 		if(sub == _Paren || sub == _Brace || sub == _Bracket){
 			if(sub == _Paren){
@@ -72,6 +74,8 @@ class CrazyCode extends CodeView{
 		int type = m.y / 65536.
 		int sub = mod(m.y/256., 256.)
 		int part  = mod(m.y, 256.)
+		int unicode = m.z
+		if(unicode == 10 || unicode == 32 || unicode == 9) discard
 		
 		if( sub == _Paren  ){
 				

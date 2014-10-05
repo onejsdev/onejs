@@ -35,19 +35,20 @@ class CodeEdit extends Layer{
 Scene{
 	antialias = false
 	//fill = vec3(65/256,0,0)
-	fill = vec3(0, 32./255., 65./255.)
+	fill = #002041
 	perspective = 70deg
-	m_view = mat4.ST(1,-1,1,-300,400,300)//180deg,0,0,-200,300,300)
+	m_view = mat4.ST(1,-1,-1,-300,400,300)//180deg,0,0,-200,300,300)
 	CodeEdit{
 		ax = 3
 		ry: PI-sin(0.25*time.sec)*PI
 		ay = 5
-		y = : -60*(mod(time.sec,200.))
+		y = 0//: -10*(mod(time.sec,200.))
 		sx = 
 		sy = 1//:1.1 + 0.5cos(0.2*time.sec)
 		//rz:-abs on sin on .1time.sec
 		font_size = 8
-		u_background_color = vec3(0,32/255,65/255)
+		u_bgcolor = #002041
+		u_markcolor = #86543a
 
 		//u_contrast = 1.2
 		//u_boldness = 0.8

@@ -1062,16 +1062,7 @@ class Texture extends WorkerProxy{
 			WRAP_T:CLAMP_TO_EDGE
 		})
 	}
-
-	index:(int i){
-		return texture2D(this, v, {
-			MIN_FILTER:LINEAR
-			MAG_FILTER:LINEAR
-			WRAP_S:CLAMP_TO_EDGE
-			WRAP_T:CLAMP_TO_EDGE
-		})
-	}
-
+	
 	point:(vec2 v){
 		return texture2D(this, vec2(v.x, v.y), {
 			MIN_FILTER:NEAREST

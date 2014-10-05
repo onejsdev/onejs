@@ -97,6 +97,10 @@ class Layer extends Draw{
     beforeMatrix:(){
     }
 
+    drawSelf:(sec){
+    	this{}
+    }
+
 	draw:(parent, sec){
 		drawn = true
 		mat4 m_parent = parent.m_childworld
@@ -113,7 +117,7 @@ class Layer extends Draw{
 		//if(__proxy__ == 72)console.log(m_local)
 
 		// draw ourselves
-		this{}
+		drawSelf(sec)
 
 		// now lets make these things work
 		if(children){
@@ -149,12 +153,12 @@ class TextLayerImpl{
 }
 
 class Text extends Layer{
-	load(MarkedTaggedTextImpl)
+	load(MarkedTextImpl)
 	load(TextLayerImpl)
 
 	constructor(){
 		Layer::constructor()
-		MarkedTaggedTextImpl::constructor()
+		MarkedTextImpl::constructor()
 	}
 
 	font_size = 20

@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = false
+ONE.fake_worker = true
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
@@ -257,8 +257,13 @@ ONE.proxy_ = function(){
 						else if(old && old._ast_) recompile = true
 
 						if(!recompile){
-							if(typeof value !== 'object' || v._t_)
+							if(typeof v !== 'object'){
 								return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
+							}
+							else if(v._t_){
+								if(v.buffer) v.buffer.clean = false
+								return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
+							}
 						}
 						// line us up for reproxification
 						if(!this._proxify_flag){

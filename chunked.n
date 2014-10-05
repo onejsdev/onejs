@@ -17,6 +17,8 @@ class ChunkedTextImpl{
 			style = parent.style
 			paint = parent.paint || paint
 			toInt = parent.toInt
+			u_bgcolor = parent.u_bgcolor
+			u_markcolor = parent.u_markcolor
 			//customDistance = parent.customDistance
 			//sampleDistance = parent.sampleDistance
 			line_spacing = parent.line_spacing
@@ -24,8 +26,6 @@ class ChunkedTextImpl{
 		u_contrast: parent.u_contrast
 		u_boldness: parent.u_boldness
 		u_subpixel_distance: parent.u_subpixel_distance
-
-		u_background_color: parent.u_background_color
 	}
 
 	default_alloc = 5000
@@ -104,6 +104,11 @@ class ChunkedTextImpl{
 	}
 
 	reserialize(){
+		var str
+		for(var chunk from chunk_list){
+			str += chunk.reserialize()
+		}
+		return str
 	}
 
 	charBaseline(off){
@@ -156,5 +161,18 @@ class ChunkedTextImpl{
 		last_chunk.tag_x = tag_x
 		last_chunk.tag_y = tag_y
 		char_off += last_chunk.string(text, x, y)
+	}
+
+	addMarkers(start, end){
+		chunk_list[0].allocMarkers(100)
+		chunk_list[0].addMarkers(start, end)
+	}
+
+	clearMarkers(){
+		chunk_list[0].clearMarkers()
+	}
+
+	updateText(){
+		chunk_list[0].updateText()
 	}
 }

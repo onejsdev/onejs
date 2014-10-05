@@ -247,6 +247,7 @@ ONE.genjs_ = function(){
 		globals.navigator = 1
 		globals.Buffer = 1
 		globals.require = 1
+		globals.process = 1
 		globals.__dirname = 1
 		globals.ONE = 1
 		globals.self = 1

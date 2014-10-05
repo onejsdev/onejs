@@ -31,6 +31,13 @@ class EditImpl{
 			x = rect.x
 			y = rect.y
 			h = rect.h
+			// we have to generate some marker rects
+
+			text_layer.clearMarkers()
+			if(start != end){
+				text_layer.addMarkers(start, end)
+			}
+			text_layer.updateText()
 		}
 
 		moveLeft(only_end){
@@ -59,17 +66,16 @@ class EditImpl{
 			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * text_layer.line_height)
 			if(!only_end) start = end
 			update()
-			parse(text_layer.serialize())
-
 		}
 
 		moveTo(x, y, only_end){
 			var off = text_layer.offsetFromPos(x, y)
+			var change = end != off 
 			end = off
-			if(!only_end) start = end
+			if(!only_end) change = start != end || change, start = end
 			var r = text_layer.cursorRect(off)
 			max = r.x
-			update()
+			if(change) update()
 		}
 
 		isSelection(){
@@ -111,10 +117,11 @@ class EditImpl{
 		mouse.leftdown(v)=>{
 			// set cursor start
 			cursors.moveTo(mouse.x, mouse.y)
-			mouse.capture(=>{
+			mouse.capture() do =>{
 				// move
 				cursors.moveTo(mouse.x, mouse.y, true)
-			})
+
+			}
 		}
 	}
 

@@ -1,4 +1,4 @@
-/*
+ /*
  * Parts copyright 2014 OneJS
  * Parts copyright 2012 Google, Inc. All Rights Reserved.
  *
@@ -48,6 +48,7 @@ class TextImpl{
 	u_contrast = 1.
 	u_outline_thickness = 1//:device.ratio
 	u_color = #white
+	u_bgcolor = #black
 	u_subpixel_off = 0.0115
 	u_subpixel_distance = 3.
 	// the text extents
@@ -56,7 +57,7 @@ class TextImpl{
 
 	// fundamental rendering modes
 	mode_sdf = true // turn sdf mode on or off
-	mode_whitespace = true // wether whitespace generates triangles
+	mode_whitespace = false // wether whitespace generates triangles
 	mode_tabs_are_spaces = false
 	// our font blob
 	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
@@ -126,7 +127,7 @@ class TextImpl{
 		if(mode_sdf){
 			if(!info.sdf_texture) generateSDFCache(info)
 			else sdf_texture = info.sdf_texture
-			if(u_background_color)
+			if(u_bgcolor)
 				glyphy_pixel: glyphy_sdf_draw_subpixel(pixel mesh[])
 			else
 				glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
@@ -156,7 +157,21 @@ class TextImpl{
 	genDefaults(info){
 		// we need to add a space, newline and tab character.
 		if(!(32 in info.glyphs)) info.count++
-		info.glyphs[32] = {
+		info.glyphs[32] = { // space
+			min_x: 0
+			min_y: -0.3
+			max_x: 0.5
+			max_y: 1.
+			tmin_x:0
+			tmin_y:0
+			tmax_x:1
+			tmax_y:1
+			advance:0.5
+			width: 0
+			height: 0
+		}
+		if(!(10 in info.glyphs)) info.count++
+		info.glyphs[10] = { // newline
 			min_x: 0
 			min_y: 0
 			max_x: 0.5
@@ -169,22 +184,8 @@ class TextImpl{
 			width: 0
 			height: 0
 		}
-		if(!(10 in info.glyphs)) info.count++
-		info.glyphs[10] = {
-			min_x: 0
-			min_y: 0
-			max_x: 0
-			max_y: 0
-			tmin_x:0
-			tmin_y:0
-			tmax_x:1
-			tmax_y:1
-			advance:0
-			width: 0
-			height: 0
-		}
 		if(!(9 in info.glyphs)) info.count++
-		info.glyphs[9] = {
+		info.glyphs[9] = { // tab
 			min_x: 0
 			min_y: -0.3
 			max_x: 2
@@ -363,7 +364,7 @@ class TextImpl{
 			if(mode_whitespace){
 				for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[9])
 			}
-			else add_x += glyphy_info.glyphs[9].advance * font_size
+			else add_x += glyphy_info.glyphs[9].advance * font_size * t
 		}
 		return t
 	}
@@ -435,7 +436,10 @@ class TextImpl{
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
 			var unicode = text.charCodeAt(i)
-
+			if(unicode == 32){
+				chars += space()
+				continue
+			}
 			if(unicode == 10){ // newline
 				chars += newline()
 				continue
@@ -948,7 +952,7 @@ class TextImpl{
 		if(u_outline){
 			distance = abs(distance) - u_outline_thickness
 		}
-		vec3 col = u_background_color
+		vec3 col = u_bgcolor
 		if(distance.g > 1. )
 			discard
 
@@ -961,7 +965,7 @@ class TextImpl{
 		}
 		float max_alpha = max(max(alpha.r,alpha.g),alpha.b) * fin_alpha
 		if(max_alpha >0.2) max_alpha = 1.
-		return vec4(mix(u_background_color, u_color, alpha), max_alpha)
+		return vec4(mix(u_bgcolor, u_color, alpha), max_alpha)
 	}
 	// draw using SDF texture
 	glyphy_sdf_draw:(vec4 pos){
@@ -1074,7 +1078,6 @@ class TextImpl{
 
 class TaggedTextImpl extends TextImpl{
 
-	tag_pos: vec2(mod(tags[].w,256.), floor(tags[].w/256.))
 	
 	dontProxy('tag_x','tag_y','alloc_tags')
 
@@ -1165,6 +1168,8 @@ class TaggedTextImpl extends TextImpl{
 		return -1
 	}
 
+	tag_pos: vec2(floor(mod(abs(tags[].w),256.)), floor(abs(tags[].w)/256.))
+	
 	tagChar(off, length, x, y, z){
 		var o = off
 		vec4[] buf = alloc_tags
@@ -1172,7 +1177,7 @@ class TaggedTextImpl extends TextImpl{
 			buf[o].x = x
 			buf[o].y = y
 			buf[o].z = z
-			buf[o].w = 0
+			buf[o].w = 0.1
 			o++
 			buf[o].x = x
 			buf[o].y = y
@@ -1288,6 +1293,10 @@ class TaggedTextImpl extends TextImpl{
 					continue
 				}
 			}
+			if(unicode == 32){
+				chars += space()
+				continue
+			}
 			if(unicode == 10){ // newline
 				chars += newline()
 				continue
@@ -1311,19 +1320,115 @@ class TaggedTextImpl extends TextImpl{
 	}
 }
 
-class MarkedTaggedTextImpl extends TaggedTextImpl{
-	// we add markers
-	// markers are rects that sit behind our text 
-	// they have x, y, rect+corner, userdata
-	// soo. how do we do this.
-	// we can mark from start to end
-	// and we will look up start, and end
-	// and generate a set of rectangles?
-	// the thing is when spanning chunks
-	// we will need to pass on last-length
-	// to the next one
-	// but we can also have multiple
-	// we should probably have a clear
-	// we can also turn off subpixelness for certain selection colors
-	// 
+class MarkedTextImpl extends TaggedTextImpl{
+	// decision time. how are we going to do selection.
+	// lets just do it 'some way'.
+	// its actually pretty solid to have the textchunks be chunks
+	// so we can add to them rect drawing too.
+	u_markcolor = #red
+	markers = vec4[]()
+	marker_paint:(){
+		return u_markcolor
+	}
+	mark_pixel:marker_paint()
+	mark_vertex: vec3(markers[].xy,-2.) * (m_world * device.m_camera)
+
+	clearMarkers(){
+		vec4 tags = alloc_tags
+		for(var m = 0; m < alloc_off *6; m++){
+			var tag = tags[m].w
+			if(tag<0) tags[m].w = -tag
+		}
+		alloc_markers = vec4[]()
+	}
+
+	allocMarkers(length){
+		alloc_markoff = 0
+		alloc_marklen = length * 6
+		alloc_markers = vec4[alloc_marklen]()
+	}
+
+	updateText(){
+		if(alloc_markers) markers = alloc_markers
+		TaggedTextImpl::updateText()
+	}
+
+	reallocMarkers(count){
+
+	}
+	
+	// add a marker that resides on a single line
+	addMarker(start, end, laststart, lastend, data){
+		vec4[] mesh = alloc_mesh
+		vec4[] tags = alloc_tags
+		vec4[] markers = alloc_markers
+		// lets fetch the rect of our mesh
+		var r1 = cursorRect(start)
+		var x2 = mesh[end*6+1].x
+
+		var o = alloc_markoff
+		vec4[] buf = alloc_markers
+		// 0___14
+		// |   /|
+		// |  / |
+		// | /  |
+		// |/   |
+		// 23---5
+		buf[o].x = r1.x
+		buf[o].y = r1.y
+		buf[o].z = 0 // edge flags and rect
+		buf[o].w = data
+		o++
+		buf[o+3].x = buf[o].x = x2
+		buf[o+3].y = buf[o].y = r1.y
+		buf[o+3].z = buf[o].z = 0
+		buf[o+3].w = buf[o].w = data
+		o++
+		buf[o+1].x = buf[o].x = r1.x
+		buf[o+1].y = buf[o].y = r1.y + r1.h
+		buf[o+1].z = buf[o].z = 0
+		buf[o+1].w = buf[o].w = data
+		o+=3
+		buf[o].x = x2
+		buf[o].y = r1.y + r1.h
+		buf[o].z = 0
+		buf[o].w = data
+		o++
+		alloc_markoff = o
+
+		// lets also signal the text renderer of our selection
+		for(var m = start*6; m < (end+1)*6; m++){
+			var tag = tags[m].w 
+			if(tag>0) tags[m].w = -tag
+		}
+	}
+
+	addMarkers(start, end, laststart, lastend, data){
+		if(end < start){
+			var t = start
+			start = end
+			end = t
+		}
+		vec4[] mesh = alloc_mesh
+		vec4[] tags = alloc_tags
+		for(var o = start, last = o; o <= end - 1; o++){
+ 			if(o == end - 1){
+ 				addMarker(last, o)
+ 				last = o+1
+ 			}
+ 			else if(tags[o*6].z == 10){
+ 				addMarker(last, o)
+ 				last = o+1
+ 			}
+ 		}
+	}
+
+	drawSelf:(sec){
+		// lets draw our rects, and self
+		this{
+			pixel:mark_pixel
+			vertex:mark_vertex
+		}
+		this{}
+	}
 }
