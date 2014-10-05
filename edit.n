@@ -126,19 +126,19 @@ class EditImpl{
 	}
 
 	keyLeftarrow(){
-		cursors.moveLeft()
+		cursors.moveLeft(key.shift)
 	}
 
 	keyRightarrow(){
-		cursors.moveRight()
+		cursors.moveRight(key.shift)
 	}
 
 	keyUparrow(){
-		cursors.moveUp()
+		cursors.moveUp(key.shift)
 	}
 
 	keyDownarrow(){
-		cursors.moveDown()
+		cursors.moveDown(key.shift)
 	}
 }
 
