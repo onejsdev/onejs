@@ -744,7 +744,7 @@ class CodeViewImpl{
 			return vec4(0)
 		}
 		if(m == 9){ // the screen aligned tab dots
-			float py = pixel vertex.y * floor(device.h * .5)
+			float py = .5*device.h - pixel vertex.y * floor(device.h * .5) 
 			if(p.x > 1.*abs(dpx) && p.x <= 2.*abs(dpx) && mod(py,2.)>1.) return vec4(#445,1.)
 			
 			if(selected < 0. && p.x > 3.*dpx && p.y > .5 - .5*dpy && p.y < .5 + .5*dpy)
@@ -778,7 +778,10 @@ class CodeViewImpl{
 		//vec4 dtags = vec4(tags[].x, floor(tags[].y / 65536.), mod(floor(tags[].y/256.), 256.), mod(tags[].y, 256.))
 		vec4 m = tags[] // magical comments!
 		vec2 mp = tag_pos
-		if(m.w < 0.) u_bgcolor = u_markcolor
+		if(m.w < 0.){ // selected
+			u_bgcolor = u_markcolor
+			//u_subpixel_off = 0.
+		}// u_bgcolor = u_markcolor
 		//var group = dtags.x
 		//var type = dtags.y
 		//var sub = dtags.z

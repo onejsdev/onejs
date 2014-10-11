@@ -42,14 +42,14 @@ class TextImpl{
 	u_boldness = 0
 	u_scaling = 0
 	u_distance = 0
-	u_gamma_adjust = 0.75
+	u_gamma_adjust = vec3(1.4,1.6,1.4)
 	u_outline = false
 	u_debug = false
-	u_contrast = 1.
+	u_contrast = 1.4
 	u_outline_thickness = 1//:device.ratio
 	u_color = #white
 	u_bgcolor = #black
-	u_subpixel_off = 0.0115
+	u_subpixel_off = 1.0115
 	u_subpixel_distance = 3.
 	// the text extents
 	_text_w = 0
@@ -88,8 +88,6 @@ class TextImpl{
 	paint:(p, dpx, dpy, m){
 		return vec4(-1.)
 	}
-	customDistance:(){}
-	sampleDistance:(){}
 
 	get line_height(){
 		return font_size * line_spacing
@@ -127,10 +125,12 @@ class TextImpl{
 		if(mode_sdf){
 			if(!info.sdf_texture) generateSDFCache(info)
 			else sdf_texture = info.sdf_texture
-			if(u_bgcolor)
-				glyphy_pixel: glyphy_sdf_draw_subpixel(pixel mesh[])
-			else
+			if(u_bgcolor){
+				glyphy_pixel: glyphy_sdf_draw_subpixel_5tap(pixel mesh[])
+			}
+			else{
 				glyphy_pixel: glyphy_sdf_draw(pixel mesh[])
+			}
 		}
 		else{
 			glyphy_pixel: glyphy_atlas_draw(pixel mesh[])
@@ -910,9 +910,8 @@ class TextImpl{
 		vec2 p = glyph.xy
 		return glyphy_sdf_encode(glyphy_sdf(p, nominal_size, atlas_pos))
 	}
-
-	// draw subpixel antialiased using SDF texture
-	glyphy_sdf_draw_subpixel:(vec4 pos){
+// draw subpixel antialiased using SDF texture
+	glyphy_sdf_draw_subpixel_3tap:(vec4 pos){
 
 		vec2 p = pos.zw
 		/* isotropic antialiasing */
@@ -958,11 +957,67 @@ class TextImpl{
 
 		vec3 alpha = glyphy_antialias(-distance)
 		if(m>u_subpixel_off){ // turn off subpixel at a certain size
-			alpha.r = alpha.b = alpha.g
+			//alpha.r = alpha.b = alpha.g
+			return vec4(u_color, alpha.g)
 		}
-		if(u_gamma_adjust != 1.){
-			alpha = pow(alpha, vec3(1./u_gamma_adjust))
+		//if(u_gamma_adjust != 1.){
+		alpha = pow(alpha, u_gamma_adjust)
+		//}
+		float max_alpha = max(max(alpha.r,alpha.g),alpha.b) * fin_alpha
+		if(max_alpha >0.2) max_alpha = 1.
+		return vec4(mix(u_bgcolor, u_color, alpha), max_alpha)
+	}
+	// draw subpixel antialiased using SDF texture
+	glyphy_sdf_draw_subpixel_5tap:(vec4 pos){
+
+		vec2 p = pos.zw
+		/* isotropic antialiasing */
+		vec2 dpdx = dFdx(p) // this should mark it pixel and redo the function with a new highmark
+		vec2 dpdy = dFdy(p)
+		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+		// screenspace length
+		u_scaling = 500.*m 
+		float fin_alpha = 1.
+		vec2 sub_delta = dpdx / u_subpixel_distance
+		vec3 distance
+		vec4 exit = paint(p, dpdx.x, dpdy.y, m)
+		if(exit.a>=0.){
+			return exit
 		}
+
+		float v1 = glyphy_sdf_decode(sdf_texture.sample(pos.zw - sub_delta*2.))
+		float v2 = glyphy_sdf_decode(sdf_texture.sample(pos.zw - sub_delta))
+		float v3 = glyphy_sdf_decode(sdf_texture.sample(pos.zw))
+		float v4 = glyphy_sdf_decode(sdf_texture.sample(pos.zw + sub_delta))
+		float v5 = glyphy_sdf_decode(sdf_texture.sample(pos.zw + sub_delta*2.))
+
+		distance = vec3(
+			v1+v2+v3,
+			v2+v3+v4,
+			v3+v4+v5
+		)*0.001
+
+		style(pos) // per pixel styling callback
+
+		distance -= u_boldness / 300.
+		distance = distance / m * u_contrast
+
+		if(u_outline){
+			distance = abs(distance) - u_outline_thickness
+		}
+
+		vec3 col = u_bgcolor
+		if(distance.g > 1. )
+			discard
+
+		vec3 alpha = glyphy_antialias(-distance)
+		if(m>u_subpixel_off){ // turn off subpixel at a certain size
+			//alpha.r = alpha.b = alpha.g
+			return vec4(u_color, alpha.g)
+		}
+		//if(u_gamma_adjust != 1.){
+		alpha = pow(alpha, u_gamma_adjust)
+		//}
 		float max_alpha = max(max(alpha.r,alpha.g),alpha.b) * fin_alpha
 		if(max_alpha >0.2) max_alpha = 1.
 		return vec4(mix(u_bgcolor, u_color, alpha), max_alpha)
@@ -1003,10 +1058,10 @@ class TextImpl{
 
 		float alpha = glyphy_antialias(-u_distance)
 		
-		if(u_gamma_adjust != 1.)
-			alpha = pow(alpha, 1./u_gamma_adjust)
+		//if(u_gamma_adjust != 1.)
+		vec3 alpha3 = pow(vec3(alpha), u_gamma_adjust)
 		
-		return vec4(out_color.rgb, alpha) 
+		return vec4(out_color.rgb, alpha3) 
 	}
 
 	// draw using atlas
@@ -1246,22 +1301,25 @@ class TaggedTextImpl extends TextImpl{
 		}
 	}*/
 
-	newline(t){
+	newline(t = 1){
 		var off = alloc_off
+		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
 		var i = TextImpl::newline(t)
 		tagChar(off, i, tag_x, tag_y, 10)
 		return i
 	}
 
-	tab(t){
+	tab(t = 1){
 		var off = alloc_off
+		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
 		var i = TextImpl::tab(t)
 		tagChar(off, i, tag_x, tag_y, 9)
 		return i
 	}
 
-	space(t){
+	space(t = 1){
 		var off = alloc_off
+		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
 		var i = TextImpl::space(t)
 		tagChar(off, i, tag_x, tag_y, 32)
 		return i
@@ -1326,12 +1384,91 @@ class MarkedTextImpl extends TaggedTextImpl{
 	// its actually pretty solid to have the textchunks be chunks
 	// so we can add to them rect drawing too.
 	u_markcolor = #red
-	markers = vec4[]()
+	
+	struct marker_t{
+		vec2 pos 
+		vec4 rect
+		float data
+		float corner
+	}
+	u_border_radius = 4.
+	markers = marker_t[]()
+
+	marker_alpha:(where,edge, dist){
+		return smoothstep(where + edge, where - edge, dist)
+	}
+
+	// corner flags. hollow or round
+	corner_tl_h = 4.
+	corner_tl_r = 8.
+	corner_bl_h = 16.
+	corner_bl_r = 32.
+	corner_tr_h = 64.
+	corner_tr_r = 128.
+	corner_br_h = 256.
+	corner_br_r = 512.
+
+	marker_mask:(flag){
+		return floor(mod(pixel markers[].corner, 2.*flag) / flag) > 0.
+	}
+
 	marker_paint:(){
-		return u_markcolor
+		var pos = mark_pos
+
+		var rel = markers[].pos - pixel markers[].rect.xy
+		// do pixel antialias calc
+		vec2 dpdx = dFdx(rel)
+		vec2 dpdy = dFdy(rel)
+		float edge = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+		var wh = markers[].rect.zw
+		var alpha = 1.
+		if(rel.x <= u_border_radius && rel.y <= u_border_radius){
+			// lets check corner type
+			if(marker_mask(corner_tl_h)){
+				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
+					distance(vec2(u_border_radius, u_border_radius*.5), vec2(u_border_radius - rel.x - 1.,rel.y))
+			}
+			else if(marker_mask(corner_tl_r)){
+				alpha = marker_alpha(u_border_radius, edge) do
+					distance(vec2(u_border_radius, u_border_radius), rel)
+			}
+		}
+		if(rel.x >= wh.x - u_border_radius && rel.y <= u_border_radius){
+			if(marker_mask(corner_tr_h)){
+				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
+					distance(vec2(wh.x - u_border_radius, u_border_radius*.5), vec2(wh.x - u_border_radius + wh.x-rel.x + 1.,rel.y))
+			}
+			if(marker_mask(corner_tr_r)){
+				alpha = marker_alpha(u_border_radius, edge) do 
+					distance(vec2(wh.x - u_border_radius, u_border_radius), rel)
+			}
+		}
+		if(rel.x <= u_border_radius && rel.y>=wh.y - u_border_radius){
+			if(marker_mask(corner_bl_h)){
+				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
+					distance(vec2(u_border_radius, wh.y - u_border_radius*.5), vec2(u_border_radius - rel.x - 1.,rel.y))
+			}
+			else if(marker_mask(corner_bl_r)){
+				alpha = marker_alpha(u_border_radius, edge) do 
+					distance(vec2(u_border_radius, wh.y - u_border_radius), rel)
+			}
+		}
+		if(rel.x>=wh.x - u_border_radius && rel.y>=wh.y - u_border_radius){
+			if(marker_mask(corner_br_h)){
+				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
+					distance(vec2(wh.x - u_border_radius, wh.y - u_border_radius*.5+.5), vec2(wh.x - u_border_radius + wh.x-rel.x + 1.,rel.y))
+			}
+			else if(marker_mask(corner_br_r)){
+				alpha = marker_alpha(u_border_radius, edge) do 
+					distance(vec2(wh.x - u_border_radius, wh.y - u_border_radius), rel)
+			}
+		}
+		return vec4(u_markcolor, alpha)
 	}
 	mark_pixel:marker_paint()
-	mark_vertex: vec3(markers[].xy,-2.) * (m_world * device.m_camera)
+	mark_vertex: vec3(markers[].pos,-2.) * (m_world * device.m_camera)
+
+	mark_pos: vec2(floor(mod(markers[].corner,2.)), floor(abs(mod(markers[].corner,4.)/2.)))
 
 	clearMarkers(){
 		vec4 tags = alloc_tags
@@ -1339,13 +1476,13 @@ class MarkedTextImpl extends TaggedTextImpl{
 			var tag = tags[m].w
 			if(tag<0) tags[m].w = -tag
 		}
-		alloc_markers = vec4[]()
+		alloc_markers = marker_t[]()
 	}
 
 	allocMarkers(length){
 		alloc_markoff = 0
 		alloc_marklen = length * 6
-		alloc_markers = vec4[alloc_marklen]()
+		alloc_markers = marker_t[alloc_marklen]()
 	}
 
 	updateText(){
@@ -1357,47 +1494,71 @@ class MarkedTextImpl extends TaggedTextImpl{
 
 	}
 	
-	// add a marker that resides on a single line
-	addMarker(start, end, laststart, lastend, data){
+	addMarker(prev, self, next){
 		vec4[] mesh = alloc_mesh
 		vec4[] tags = alloc_tags
-		vec4[] markers = alloc_markers
+		marker_t[] markers = alloc_markers
 		// lets fetch the rect of our mesh
-		var r1 = cursorRect(start)
-		var x2 = mesh[end*6+1].x
-
 		var o = alloc_markoff
-		vec4[] buf = alloc_markers
+		marker_t[] buf = alloc_markers
 		// 0___14
 		// |   /|
 		// |  / |
 		// | /  |
 		// |/   |
 		// 23---5
-		buf[o].x = r1.x
-		buf[o].y = r1.y
-		buf[o].z = 0 // edge flags and rect
-		buf[o].w = data
+		var mask = 0
+		// ok the top flags. 
+		if(!prev) mask += corner_tl_r + corner_tr_r
+		else{
+			if(prev.x2 > self.x2) mask += corner_tr_h
+			else if(prev.x2 < self.x2) mask += corner_tr_r
+			if(prev.x < self.x) mask += corner_tl_h
+			else if(prev.x > self.x) mask += corner_tl_r
+		}
+		if(!next) mask += corner_bl_r + corner_br_r
+		else{
+			if(next.x2 > self.x2) mask += corner_br_h
+			else if(next.x2 < self.x2) mask += corner_br_r
+			if(next.x < self.x) mask += corner_bl_h
+			else if(next.x > self.x) mask += corner_bl_r
+		}
+		// round edges
+		//if(laststart === undefined || start < laststart) edge += 1
+
+		// allright how are we going to encode edgeflags, and a rectangle hm?
+		// well first we need to take a flag, 1,2,4,8 for the corner
+		// and we need flags for the corner itself
+		for(var i = 0;i<6;i++){
+			buf[o+i].rect.x = self.x
+			buf[o+i].rect.y = self.y
+			buf[o+i].rect.z = self.w
+			buf[o+i].rect.w = self.h
+		}
+		buf[o].pos.x = self.x
+		buf[o].pos.y = self.y
+		buf[o].data = data // edge flags and rect
+		buf[o].corner = 0 + mask
 		o++
-		buf[o+3].x = buf[o].x = x2
-		buf[o+3].y = buf[o].y = r1.y
-		buf[o+3].z = buf[o].z = 0
-		buf[o+3].w = buf[o].w = data
+		buf[o+3].pos.x = buf[o].pos.x = self.x2
+		buf[o+3].pos.y = buf[o].pos.y = self.y
+		buf[o+3].data = buf[o].data = data
+		buf[o+3].corner = buf[o].corner = 1 + mask
 		o++
-		buf[o+1].x = buf[o].x = r1.x
-		buf[o+1].y = buf[o].y = r1.y + r1.h
-		buf[o+1].z = buf[o].z = 0
-		buf[o+1].w = buf[o].w = data
+		buf[o+1].pos.x = buf[o].pos.x = self.x
+		buf[o+1].pos.y = buf[o].pos.y = self.y2
+		buf[o+1].data = buf[o].data = data
+		buf[o+1].corner = buf[o].corner = 2 + mask
 		o+=3
-		buf[o].x = x2
-		buf[o].y = r1.y + r1.h
-		buf[o].z = 0
-		buf[o].w = data
+		buf[o].pos.x = self.x2
+		buf[o].pos.y = self.y2
+		buf[o].data = data
+		buf[o].corner = 3 + mask
 		o++
 		alloc_markoff = o
 
 		// lets also signal the text renderer of our selection
-		for(var m = start*6; m < (end+1)*6; m++){
+		for(var m = self.start*6; m < (self.end+1)*6; m++){
 			var tag = tags[m].w 
 			if(tag>0) tags[m].w = -tag
 		}
@@ -1411,15 +1572,23 @@ class MarkedTextImpl extends TaggedTextImpl{
 		}
 		vec4[] mesh = alloc_mesh
 		vec4[] tags = alloc_tags
-		for(var o = start, last = o; o <= end - 1; o++){
- 			if(o == end - 1){
- 				addMarker(last, o)
+		var m = []
+
+		for(var o = start, last = o; o < end; o++){
+ 			if(o == end - 1 || tags[o*6].z == 10){
+ 				var r = cursorRect(last)
+				var x = mesh[o*6+1].x
+				r.start = last
+				r.end = o
+				r.w = x - r.x
+				r.x2 = r.x + r.w
+				r.y2 = r.y + r.h
+ 				m.push(r)
  				last = o+1
  			}
- 			else if(tags[o*6].z == 10){
- 				addMarker(last, o)
- 				last = o+1
- 			}
+ 		}
+ 		for(var i = 0;i<m.length;i++){
+ 			addMarker(m[i-1], m[i], m[i+1])
  		}
 	}
 

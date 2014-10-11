@@ -39,14 +39,16 @@ Scene{
 		ax = 3
 		ay = 5
 		sx = 
-		sy = 1//:1.1 + 0.5cos(0.2*time.sec)
-		font_size = 13
-		u_bgcolor = vec3(0,32/255,65/255)
+		sy = 1
+		//sy = :1.1 + 0.5cos(0.2*time.sec)
+		font_size = 13.0
+		u_bgcolor = #002041
+		//u_bgcolor = undefined
 		u_markcolor = #86543a
 
-		u_contrast = 1.
+		u_contrast = 1.0
 		u_subpixel_distance = 3.
-		u_boldness = 1.
+		u_boldness =0.9//0.5
 
 		line_spacing = 1.3
 		source = import('constraint.n','string')

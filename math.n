@@ -706,13 +706,13 @@ struct vec2 extends vec{
 	}
 
 	vec2_add_vec2( vec2 a, vec2 b ){
-		x = a[0] * b[0]
-		y = a[1] * b[1]
+		x = a[0] + b[0]
+		y = a[1] + b[1]
 	}
 
 	vec2_div_vec2( vec2 a, vec2 b ){
-		x = a[0] - b[0]
-		y = a[1] - b[1]
+		x = a[0] / b[0]
+		y = a[1] / b[1]
 	}
 
 	vec2_mul_vec2( vec2 a, vec2 b ){
@@ -778,6 +778,30 @@ struct vec3 extends vec{
 		x = cos(r) * zs
 		y = sin(r) * zs
 		z = z * scale
+	}
+
+	vec3_min_vec3( vec3 a, vec3 b ){
+		x = a[0] - b[0]
+		y = a[1] - b[1]
+		z = a[2] - b[2]
+	}
+
+	vec3_add_vec3( vec3 a, vec3 b ){
+		x = a[0] + b[0]
+		y = a[1] + b[1]
+		z = a[2] + b[2]
+	}
+
+	vec3_div_vec3( vec3 a, vec3 b ){
+		x = a[0] / b[0]
+		y = a[1] / b[1]
+		z = a[2] / b[2]
+	}
+
+	vec3_mul_vec3( vec3 a, vec3 b ){
+		x = a[0] * b[0]
+		y = a[1] * b[1]
+		z = a[2] * b[2]
 	}
 
 	vec3_mul_mat3( mat3 m, vec3 v ){

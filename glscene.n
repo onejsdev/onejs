@@ -163,5 +163,5 @@ class Text extends Layer{
 
 	font_size = 20
 	u_boldness= 0.8
-	color: #white
+	u_color = #white
 }

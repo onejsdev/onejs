@@ -627,7 +627,7 @@ ONE.genjs_ = function(){
 									// check for swizzling.
 									var swiz = this.check_swizzle( fname, field.slots )
 									if(swiz) break
-									throw new Error('Invalid field '+ fname + ' ' +n)
+									throw new Error('Invalid field '+ fname + ' ' +outer.AST.toString(n))
 								}
 								field = next_field
 								off += field.off

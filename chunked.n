@@ -12,7 +12,6 @@ class ChunkedTextImpl{
 	class Chunk extends Text{
 		constructor(parent){
 			this.parent = parent
-			Text::constructor()
 			font_size = parent.font_size
 			style = parent.style
 			paint = parent.paint || paint
@@ -22,6 +21,7 @@ class ChunkedTextImpl{
 			//customDistance = parent.customDistance
 			//sampleDistance = parent.sampleDistance
 			line_spacing = parent.line_spacing
+			Text::constructor()
 		}
 		u_contrast: parent.u_contrast
 		u_boldness: parent.u_boldness
@@ -30,7 +30,7 @@ class ChunkedTextImpl{
 
 	default_alloc = 5000
 	chunk_lines = 100
-	
+
 	get line_height(){
 		return last_chunk? last_chunk.line_height: 0
 	}
@@ -46,7 +46,7 @@ class ChunkedTextImpl{
 		add_y = 0
 		//last_chunk.style = style
 	}
-	
+
 	offsetFromPos(x, y){
 		// scan the chunks by y pos
 		if(!cache_chunk) cache_chunk = last_chunk

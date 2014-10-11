@@ -4,7 +4,7 @@ class Mouse extends WorkerProxy{
 
 	// mouse signals
 	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor, leftdown, leftup, rightdown, rightup, cancapture
-
+	ratio = 1
 	enum cursors{
 		'default'
 		'none'
@@ -86,8 +86,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mousedown') do(e) => {
-			x = e.pageX * window.devicePixelRatio
-			y = e.pageY * window.devicePixelRatio
+			x = e.pageX * ratio//* window.devicePixelRatio
+			y = e.pageY * ratio//* window.devicePixelRatio
 			cancapture = e.button+1
 			if(e.button === 0 ) left = 1, leftdown = 1
 			if(e.button === 1 ) middle = 1
@@ -96,8 +96,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mouseup') do(e) => {
-			x = e.pageX * window.devicePixelRatio
-			y = e.pageY * window.devicePixelRatio
+			x = e.pageX * ratio//* window.devicePixelRatio
+			y = e.pageY * ratio //* window.devicePixelRatio
 			cancapture = 0
 			if(e.button === 0 ) left = 0, leftup = 1
 			if(e.button === 1 ) middle = 0
@@ -106,8 +106,8 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mousemove') do(e) => {
-			x = e.pageX * window.devicePixelRatio
-			y = e.pageY * window.devicePixelRatio
+			x = e.pageX * ratio//* window.devicePixelRatio
+			y = e.pageY * ratio//* window.devicePixelRatio
 			move = 1
 		}
 	}

@@ -941,7 +941,7 @@ class GenGLSL extends AST.ToCode{
 		if(renamed_uniforms[name]){
 			return renamed_uniforms[name].name
 		}
-		console.log(n, renamed_uniforms)
+		debugger
 		throw new Error('Dont know what to do with '+name)
 		
 		return ''
@@ -1317,7 +1317,7 @@ class GenGLSL extends AST.ToCode{
 				var ret = name + '(' 
 				for(var i, arg from n.args){
 					if(i) ret += ','
-					ret += this[arg.type](arg, n)
+					ret += this.expand(arg, n)//[arg.type](arg, n)
 				}
 				ret += ')'
 				return ret

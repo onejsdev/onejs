@@ -123,6 +123,8 @@ class EditImpl{
 
 			}
 		}
+
+		cursors.moveDown(1, 100)
 	}
 
 	keyLeftarrow(){

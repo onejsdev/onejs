@@ -119,7 +119,18 @@ Language(){
 
 	assert(macro_test(vec3(0,0,0)) == 2)
 
-	// structs and types
+	// check nested struct access
+	struct nest_t{
+		vec2 pos
+	}
+
+	nest_t[10] nest()
+	nest_t[] nest2 = nest
+	nest2[2].pos.x = 10
+
+	assert(nest[2].pos.x == 10)
+
+	// struct access
 	struct vec_t{
 		float x
 		float y
