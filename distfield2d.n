@@ -1,0 +1,42 @@
+import math
+
+class DistField2D{
+	union:(d1, d2){
+		return min(d1, d2)
+	}
+
+	intersect:(d1, d2){
+		return max(d1,d2)
+	}
+
+	subtract:(d1, d2){
+		return max(-d1,d2)
+	}
+
+	circle:(p, x, y, radius){
+		return distance(p,vec2(x,y)) - radius
+	}
+
+	box:(p, left, top, width, height){
+		vec2 xy(left, top)
+		vec2 hwh(.5*width, .5*height)
+		var d = abs(p - xy-hwh) - hwh
+		return min(max(d.x,d.y),0.) + length(max(d,0.))
+	}
+
+	roundbox:(p, left, top, width, height, radius){
+		vec2 rad2(radius,radius)
+		vec2 hwh(.5*width, .5*height)
+		vec2 xy(left, top)
+		return length(max(abs(p - xy - hwh) - (hwh - 2.rad2), 0.)) - 2. * radius
+	}
+
+	line:(p, left, top, right, bottom, radius){
+		vec2 a(left, top)
+		vec2 b(right, bottom)
+		var pa = p - a, ba = b - a
+		float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.)
+		return length(pa - ba*h) - radius
+	}
+
+}

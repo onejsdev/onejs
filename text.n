@@ -19,6 +19,7 @@
 import math
 import gl
 import network
+import distfield2d
 
 class TextImpl{
 
@@ -923,7 +924,7 @@ class TextImpl{
 		float fin_alpha = 1.
 		vec2 sub_delta = dpdx / u_subpixel_distance
 		vec3 distance
-		vec4 exit = paint(p, dpdx.x, dpdy.y, m)
+		vec4 exit = paint(p, dpdx, dpdy, m)
 		if(exit.a>=0.){
 			return exit
 		}
@@ -974,13 +975,13 @@ class TextImpl{
 		/* isotropic antialiasing */
 		vec2 dpdx = dFdx(p) // this should mark it pixel and redo the function with a new highmark
 		vec2 dpdy = dFdy(p)
-		float m = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+		float m = min(length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2,0.03)
 		// screenspace length
 		u_scaling = 500.*m 
 		float fin_alpha = 1.
 		vec2 sub_delta = dpdx / u_subpixel_distance
 		vec3 distance
-		vec4 exit = paint(p, dpdx.x, dpdy.y, m)
+		vec4 exit = paint(p, dpdx, dpdy, m)
 		if(exit.a>=0.){
 			return exit
 		}
@@ -1183,12 +1184,12 @@ class TaggedTextImpl extends TextImpl{
 	cursorRect(off){
 		var bounds = charBounds(off)
 		var base = charBaseline(off)
-		var height = font_size * cursor_spacing
+		var height = line_height//font_size * cursor_spacing
 		base += font_size * cursor_sink
 		return {
-			x:floor(bounds.x)
-			y:floor(base - height)
-			w:floor(bounds.w)
+			x:bounds.x
+			y:base - height
+			w:bounds.w
 			h:height
 		}
 	}
@@ -1380,7 +1381,9 @@ class TaggedTextImpl extends TextImpl{
 
 class MarkedTextImpl extends TaggedTextImpl{
 	u_markcolor = #red
-	
+
+	load(DistField2D)
+
 	struct marker_t{
 		vec2 pos 
 		vec4 rect
@@ -1392,45 +1395,8 @@ class MarkedTextImpl extends TaggedTextImpl{
 	markers = marker_t[]()
 
 	// what i want is a super basic drawing api. how do we do it.
-	union:(d1, d2){
-		return min(d1, d2)
-	}
-
-	intersect:(d1, d2){
-		return max(d1,d2)
-	}
-
-	substract:(d1, d2){
-		return max(-d1,d2)
-	}
-
-	circle:(p, x, y, radius){
-		return distance(p,vec2(x,y)) - radius
-	}
-
-	box:(p, left, top, width, height){
-		vec2 xy(left, top)
-		vec2 hwh(.5*width, .5*height)
-		var d = abs(p - xy-hwh) - hwh
-		return min(max(d.x,d.y),0.) + length(max(d,0.))
-	}
-
-	roundbox:(p, left, top, width, height, radius){
-		vec2 rad2(radius,radius)
-		vec2 hwh(.5*width, .5*height)
-		vec2 xy(left, top)
-		return length(max(abs(p - xy - hwh) - (hwh - 2.rad2), 0.)) - 2. * radius
-	}
-
-	line:(p, left, top, right, bottom, radius){
-		vec2 a(left, top)
-		vec2 b(right, bottom)
-		var pa = p - a, ba = b - a
-		float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.)
-		return length(pa - ba*h) - radius
-	}
-
-	marker_warp:(field, pos){
+	
+	marker_style:(field, pos){
 		return field
 	}
 
@@ -1439,9 +1405,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 		var rect = pixel markers[].rect
 		var rel = pos - rect.xy
 		// do pixel antialias calc
-		vec2 dpdx = dFdx(rel)
-		vec2 dpdy = dFdy(rel)
-		float edge = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+		float edge = min(length(vec2(length(dFdx(rel)), length(dFdy(rel)))) * SQRT_1_2,1.)
 
 		vec4 other = pixel markers[].other
 		var px1 = other.x
@@ -1450,7 +1414,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 		var nx2 = other.w
 
 		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
-		// we have to shift the non-edge block to meet the hollow border radius of the next selection
+		// we have to shift the edge box to meet the hollow border radius of the next selection
 		var correction = u_border_radius*1.5
 		if(px1 != px2){
 			// we have to know wether we need to extend our border radius
@@ -1460,12 +1424,13 @@ class MarkedTextImpl extends TaggedTextImpl{
 			if(px1 > rect.x) leftc = correction
 			if(px2 < rect.x + rect.z) rightc = correction
 			var corner = 
-				substract(
+				subtract(
 					union(
 						roundbox(rel, rect.z, -.5*edge, 100.,rect.w, u_border_radius),
 						roundbox(rel, -100., -.5*edge, 100.,rect.w, u_border_radius)),
-					box(rel, base - leftc, -1., (px2-px1) + (leftc+rightc), rect.w*.5)
+					box(rel, base - leftc, -.5*rect.w, (px2-px1) + (leftc+rightc), rect.w)
 				)
+			// straight corner
 			if(px1>rect.x+rect.z) field = union(field,box(rel,rect.z - u_border_radius*2.,0.,u_border_radius*2.,rect.w*.5))
 			field = union(field, corner)
 		}
@@ -1476,17 +1441,18 @@ class MarkedTextImpl extends TaggedTextImpl{
 			if(nx1 > rect.x) leftc = correction
 			if(nx2 < rect.x + rect.z) rightc = correction			
 			var corner = 
-				substract(
+				subtract(
 					union(
 						roundbox(rel, rect.z, .5*edge, 100.,rect.w, u_border_radius),
 						roundbox(rel, -100., .5*edge, 100.,rect.w, u_border_radius)),
-					box(rel, base - leftc, rect.w*.5, (nx2-nx1) + (leftc + rightc), rect.w*.5+1.)
+					box(rel, base - leftc, rect.w*.5, (nx2-nx1) + (leftc + rightc), rect.w)
 				)
+			// straight corner
 			if(nx2<rect.x) field = union(field,box(rel,0.,rect.w*.5,u_border_radius*2.,rect.w*.5))
 
 			field = union(field, corner)
 		}
-		field = marker_warp(field, pos)
+		field = marker_style(field, pos)
 
 		return vec4(u_markcolor, smoothstep(edge,-edge,field))
 	}
@@ -1520,7 +1486,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 
 	}
 	
-	addMarker(prev, self, next){
+	addMarker(prev, self, next, data){
 		vec4[] mesh = alloc_mesh
 		vec4[] tags = alloc_tags
 		marker_t[] markers = alloc_markers
@@ -1610,7 +1576,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 		}
 	}
 
-	addMarkers(start, end, laststart, lastend, data){
+	addMarkers(start, end, prev, data){
 		if(end < start){
 			var t = start
 			start = end
@@ -1634,8 +1600,10 @@ class MarkedTextImpl extends TaggedTextImpl{
  			}
  		}
  		for(var i = 0;i<m.length;i++){
- 			addMarker(m[i-1], m[i], m[i+1])
+ 			addMarker(m[i-1] || prev, m[i], m[i+1], data)
  		}
+ 		// return the last marker
+ 		return m[m.length - 1]
 	}
 
 	drawSelf:(sec){

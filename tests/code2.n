@@ -36,10 +36,10 @@ Scene{
 	antialias = false
 	fill = #002041
 	CodeEdit{
-		ax = 3
-		ay = 5
+		ax = 0
+		ay = 0
 		sx = 
-		sy = 1//: 1.1 + 0.5cos(0.2*time.sec)
+		sy = :6.1 + 5.5cos(0.5*time.sec)
 		font_size = 13.0
 		u_bgcolor = #002041
 		//u_bgcolor = undefined
