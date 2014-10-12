@@ -41,7 +41,7 @@ Scene{
 	CodeEdit{
 		ax = 3
 		ry: PI-sin(0.25*time.sec)*PI
-		ry = 1.5 
+		//ry = 1.5 
 		ay = 5
 		y = 0//: -10*(mod(time.sec,200.))
 		sx = 
