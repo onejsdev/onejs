@@ -1388,83 +1388,72 @@ class MarkedTextImpl extends TaggedTextImpl{
 	struct marker_t{
 		vec2 pos 
 		vec4 rect
+		vec4 other
 		float data
 		float corner
 	}
-	u_border_radius = 4.
+	u_border_radius = 2.
 	markers = marker_t[]()
 
-	marker_alpha:(where,edge, dist){
-		return smoothstep(where + edge, where - edge, dist)
+	// what i want is a super basic drawing api. how do we do it.
+	union:(d1, d2){
+		return min(d1, d2)
 	}
 
-	// corner flags. hollow or round
-	corner_tl_h = 4.
-	corner_tl_r = 8.
-	corner_bl_h = 16.
-	corner_bl_r = 32.
-	corner_tr_h = 64.
-	corner_tr_r = 128.
-	corner_br_h = 256.
-	corner_br_r = 512.
-
-	marker_mask:(flag){
-		return floor(mod(pixel markers[].corner, 2.*flag) / flag) > 0.
+	intersect:(d1, d2){
+		return max(d1,d2)
 	}
+
+	substract:(d1, d2){
+		return max(-d1,d2)
+	}
+
+	circle:(p, x, y, radius){
+		return distance(p,vec2(x,y)) - radius
+	}
+
+	box:(p, left, top, width, height){
+		vec2 xy(top, left)
+		vec2 hwh(.5*width, .5*height)
+		var d = abs(p - xy-hwh) - hwh
+		return min(max(d.x,d.y),0.) + length(max(d,0.))
+	}
+
+	roundbox:(p, left, top, width, height, radius){
+		vec2 rad2(radius,radius)
+		vec2 hwh(.5*width, .5*height)
+		vec2 xy(left, top)
+		return length(max(abs(p - xy - hwh) - (hwh - 2.rad2), 0.)) - 2. * radius
+	}
+
+	line:(p, left, top, right, bottom, radius){
+		vec2 a(left, top)
+		vec2 b(right, bottom)
+		var pa = p - a, ba = b - a
+		float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.)
+		return length(pa - ba*h) - radius
+	}
+
 
 	marker_paint:(){
 		var pos = mark_pos
-
 		var rel = markers[].pos - pixel markers[].rect.xy
 		// do pixel antialias calc
 		vec2 dpdx = dFdx(rel)
 		vec2 dpdy = dFdy(rel)
 		float edge = length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2
+
 		var wh = markers[].rect.zw
-		var alpha = 1.
-		if(rel.x <= u_border_radius && rel.y <= u_border_radius){
-			// lets check corner type
-			if(marker_mask(corner_tl_h)){
-				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
-					distance(vec2(u_border_radius, u_border_radius*.5), vec2(u_border_radius - rel.x - 1.,rel.y))
-			}
-			else if(marker_mask(corner_tl_r)){
-				alpha = marker_alpha(u_border_radius, edge) do
-					distance(vec2(u_border_radius, u_border_radius), rel)
-			}
-		}
-		if(rel.x >= wh.x - u_border_radius && rel.y <= u_border_radius){
-			if(marker_mask(corner_tr_h)){
-				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
-					distance(vec2(wh.x - u_border_radius, u_border_radius*.5), vec2(wh.x - u_border_radius + wh.x-rel.x + 1.,rel.y))
-			}
-			if(marker_mask(corner_tr_r)){
-				alpha = marker_alpha(u_border_radius, edge) do 
-					distance(vec2(wh.x - u_border_radius, u_border_radius), rel)
-			}
-		}
-		if(rel.x <= u_border_radius && rel.y>=wh.y - u_border_radius){
-			if(marker_mask(corner_bl_h)){
-				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
-					distance(vec2(u_border_radius, wh.y - u_border_radius*.5), vec2(u_border_radius - rel.x - 1.,rel.y))
-			}
-			else if(marker_mask(corner_bl_r)){
-				alpha = marker_alpha(u_border_radius, edge) do 
-					distance(vec2(u_border_radius, wh.y - u_border_radius), rel)
-			}
-		}
-		if(rel.x>=wh.x - u_border_radius && rel.y>=wh.y - u_border_radius){
-			if(marker_mask(corner_br_h)){
-				alpha = 1.-marker_alpha(.5*u_border_radius, edge) do
-					distance(vec2(wh.x - u_border_radius, wh.y - u_border_radius*.5+.5), vec2(wh.x - u_border_radius + wh.x-rel.x + 1.,rel.y))
-			}
-			else if(marker_mask(corner_br_r)){
-				alpha = marker_alpha(u_border_radius, edge) do 
-					distance(vec2(wh.x - u_border_radius, wh.y - u_border_radius), rel)
-			}
-		}
-		return vec4(u_markcolor, alpha)
+		vec4 other = markers[].other
+
+		var field = roundbox(rel, 0,0, wh.x, wh.y, u_border_radius)
+		if(field < 0.)
+		field = sin(0.5field-3.time.sec)
+		// alright now what. 
+
+		return vec4(u_markcolor, smoothstep(edge,-edge,field))
 	}
+
 	mark_pixel:marker_paint()
 	mark_vertex: vec3(markers[].pos,-2.) * (m_world * device.m_camera)
 
@@ -1507,6 +1496,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 		// | /  |
 		// |/   |
 		// 23---5
+		/*
 		var mask = 0
 		// ok the top flags. 
 		if(!prev) mask += corner_tl_r + corner_tr_r
@@ -1523,6 +1513,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 			if(next.x < self.x) mask += corner_bl_h
 			else if(next.x > self.x) mask += corner_bl_r
 		}
+	*/
 		// round edges
 		//if(laststart === undefined || start < laststart) edge += 1
 
@@ -1535,25 +1526,42 @@ class MarkedTextImpl extends TaggedTextImpl{
 			buf[o+i].rect.z = self.w
 			buf[o+i].rect.w = self.h
 		}
-		buf[o].pos.x = self.x
+		var px1 = prev?prev.x:-1
+		var px2 = prev?prev.x2:-1
+		var nx1 = next?next.x:-1
+		var nx2 = next?next.x2:-1
+
+		for(var i = 0;i<6;i++){
+			var oi = o+i
+			buf[oi].rect.x = self.x
+			buf[oi].rect.y = self.y
+			buf[oi].rect.z = self.w
+			buf[oi].rect.w = self.h
+			buf[oi].other.x = px1
+			buf[oi].other.y = px2
+			buf[oi].other.z = nx1
+			buf[oi].other.w = nx2
+		}
+
+		buf[o].pos.x = self.x - font_size
 		buf[o].pos.y = self.y
 		buf[o].data = data // edge flags and rect
-		buf[o].corner = 0 + mask
+		buf[o].corner = 0 
 		o++
-		buf[o+3].pos.x = buf[o].pos.x = self.x2
+		buf[o+3].pos.x = buf[o].pos.x = self.x2 + font_size
 		buf[o+3].pos.y = buf[o].pos.y = self.y
 		buf[o+3].data = buf[o].data = data
-		buf[o+3].corner = buf[o].corner = 1 + mask
+		buf[o+3].corner = buf[o].corner = 1 
 		o++
-		buf[o+1].pos.x = buf[o].pos.x = self.x
+		buf[o+1].pos.x = buf[o].pos.x = self.x - font_size
 		buf[o+1].pos.y = buf[o].pos.y = self.y2
 		buf[o+1].data = buf[o].data = data
-		buf[o+1].corner = buf[o].corner = 2 + mask
+		buf[o+1].corner = buf[o].corner = 2 
 		o+=3
-		buf[o].pos.x = self.x2
+		buf[o].pos.x = self.x2 + font_size
 		buf[o].pos.y = self.y2
 		buf[o].data = data
-		buf[o].corner = 3 + mask
+		buf[o].corner = 3 
 		o++
 		alloc_markoff = o
 
