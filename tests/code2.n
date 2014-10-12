@@ -18,10 +18,6 @@ class CodeEdit extends Layer{
 
 	class Chunk extends Chunk{
 		load(CodeViewTypes)
-		marker_warp:(field, pos){
-			if(field<0.)return sin(field - time.sec + 0.01*pos.y)
-			return field
-		}
 	}
 
 	constructor(){

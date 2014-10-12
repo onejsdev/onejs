@@ -780,7 +780,7 @@ class CodeViewImpl{
 		vec2 mp = tag_pos
 		if(m.w < 0.){ // selected
 			u_bgcolor = u_markcolor
-			u_subpixel_off = 0.
+			//u_subpixel_off = 0.
 		}// u_bgcolor = u_markcolor
 		//var group = dtags.x
 		//var type = dtags.y
