@@ -1,6 +1,7 @@
 import math
 import gl
 import glscene
+import distfield2d
 
 class CodeViewTypes{
 
@@ -730,7 +731,58 @@ class CodeViewImpl{
 		return t
 	}
 
-	paint:(vec2 p, dpx, dpy, md){
+
+	load(DistField2D)
+
+	paint:(vec2 p, dpdx, dpdy, edge){
+		//var edge = min(length(dpx))
+		int m = tags[].z
+		float selected = tags[].w
+		if(m == 10){
+			return vec4(0)
+		}
+		if(m == 32){
+			if(selected < 0.){
+				var w = .3
+				var h = .13
+				var field = box(p, .5-.5*w,.5-.5*h,w,h)
+				return vec4(#AF8F7E, smoothstep(.75*edge,-.75*edge,field))
+			}
+			return vec4(0)
+		}
+		if(m == 9){ // the screen aligned tab dots
+			// make a nice tab line
+			//var out = vec4(0)
+			if(edge > 0.02){
+				float py = .5*device.h - pixel vertex.y * floor(device.h * .5) 
+				if(p.x > 1.*abs(dpdx.x) && p.x <= 2.*abs(dpdx.x) && mod(py,2.)>1.) return vec4(#445,1.)
+			}
+			else{
+				var sz = 0.03
+				var w = .01
+				var h = .02
+				var field = box(mod(p,vec2(1.,.1)),.5*w,0,w,h)
+				var col = vec4(#445, smoothstep(edge,-edge,field))
+				if(col.a>0.01)return col
+			}
+
+			if(selected < 0.){
+				if(edge > 0.02){
+					if(p.x > 3.*dpdx.x && p.y > .5 - .5*dpdy.y && p.y < .5 + .5*dpdy.y)
+						return vec4(#AF8F7E,1.)
+					return vec4(0)
+				}
+				var sz = .01
+				var field = line(p, 0., .5-sz, 1., .5-sz, 2.*sz)
+				return vec4(#AF8F7E, smoothstep(edge,-edge,field))
+			}
+			return vec4(0)
+		}
+		return vec4(-1.)
+	}
+
+	paint_pixel:(vec2 p, dpdx, dpdy, md){
+		var edge = min(length(dpx))
 		int m = tags[].z
 		float selected = tags[].w
 		if(m == 10){
