@@ -753,7 +753,7 @@ class CodeViewImpl{
 		if(m == 9){ // the screen aligned tab dots
 			// make a nice tab line
 			//var out = vec4(0)
-			if(edge > 0.02){
+			if(edge > 0.01){
 				float py = .5*device.h - pixel vertex.y * floor(device.h * .5) 
 				if(p.x > 1.*abs(dpdx.x) && p.x <= 2.*abs(dpdx.x) && mod(py,2.)>1.) return vec4(#445,1.)
 			}
@@ -761,7 +761,7 @@ class CodeViewImpl{
 				var sz = 0.03
 				var w = .01
 				var h = .02
-				var field = box(mod(p,vec2(1.,.1)),.5*w,0,w,h)
+				var field = box(mod(p,vec2(1.,.05)),.5*w,0,w,h)
 				var col = vec4(#445, smoothstep(edge,-edge,field))
 				if(col.a>0.01)return col
 			}

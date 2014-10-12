@@ -18,8 +18,8 @@ class CodeEdit extends Layer{
 
 	class Chunk extends Chunk{
 		load(CodeViewTypes)
-		marker_warp:(field, pos){
-			if(field<0.)return sin(field - time.sec + 0.01*pos.y)
+		marker_style:(field, pos){
+			//if(field<0.)return sin(field - time.sec + 0.02*pos.y)
 			return field
 		}
 	}
@@ -43,7 +43,7 @@ Scene{
 		ax = 3
 		ay = 5
 		sx = 
-		sy = 1//:1.1 + 0.5cos(0.2*time.sec)
+		sy = 1.//:1.1 + 0.5cos(0.2*time.sec)
 		font_size = 13.0
 		u_bgcolor = #002041
 		//u_bgcolor = undefined
