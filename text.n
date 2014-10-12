@@ -1436,8 +1436,8 @@ class MarkedTextImpl extends TaggedTextImpl{
 
 
 	marker_paint:(){
-		var pos = mark_pos
-		var rel = markers[].pos - pixel markers[].rect.xy
+		var pos = markers[].pos 
+		var rel = pos - pixel markers[].rect.xy
 		// do pixel antialias calc
 		vec2 dpdx = dFdx(rel)
 		vec2 dpdy = dFdy(rel)
@@ -1448,7 +1448,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 
 		var field = roundbox(rel, 0,0, wh.x, wh.y, u_border_radius)
 		if(field < 0.)
-		field = sin(0.5field-3.time.sec)
+		field = sin(field-3.time.sec+0.005*pos.y)
 		// alright now what. 
 
 		return vec4(u_markcolor, smoothstep(edge,-edge,field))
