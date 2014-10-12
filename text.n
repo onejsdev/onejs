@@ -1450,28 +1450,36 @@ class MarkedTextImpl extends TaggedTextImpl{
 		var nx2 = other.w
 
 		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
-
-		var rc = u_border_radius*1.25
+		// we have to shift the non-edge block to meed the border radius of the next selection
+		var correction = u_border_radius*1.25
 		if(px1 != px2){
 			// we have to know wether we need to extend our border radius
 			var base = px1-rect.x
+			var leftc = 0.
+			var rightc = 0.
+			if(px1 > rect.x) leftc = correction
+			if(px2 < rect.x + rect.z) rightc = correction
 			var corner = 
 				substract(
 					union(
 						roundbox(rel, rect.z, -.5*edge, 100.,rect.w, u_border_radius),
 						roundbox(rel, -100., -.5*edge, 100.,rect.w, u_border_radius)),
-					box(rel, base - rc, -1., px2-px1 + 2.*rc, rect.w*.5)
+					box(rel, base - leftc, -1., (px2-px1) + (leftc+rightc), rect.w*.5)
 				)
 			field = union(field, corner)
 		}
 		if(nx1 != nx2){
 			var base = nx1-rect.x
+			var leftc = 0.
+			var rightc = 0.
+			if(nx1 > rect.x) leftc = correction
+			if(nx2 < rect.x + rect.z) rightc = correction			
 			var corner = 
 				substract(
 					union(
 						roundbox(rel, rect.z, .5*edge, 100.,rect.w, u_border_radius),
 						roundbox(rel, -100., .5*edge, 100.,rect.w, u_border_radius)),
-					box(rel, base - rc, rect.w*.5, nx2-nx1 + 2.*rc, rect.w*.5+1.)
+					box(rel, base - leftc, rect.w*.5, (nx2-nx1) + (leftc + rightc), rect.w*.5+1.)
 				)
 			field = union(field, corner)
 		}
