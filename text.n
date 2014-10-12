@@ -1451,53 +1451,31 @@ class MarkedTextImpl extends TaggedTextImpl{
 
 		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
 
-		// alright.now what.
-		// well, we need to draw in a box and then subtract the edges from it using negative boxes
-		// like draw a normal rect entirely through the bottomhalf
-		// and then draw a subtraction edges
-		// so. what do we do.
-		// lets first work on the upwards facing part.
-		//if(px1 != -1.){
-			// we have to put a normal box from px1 to rect.x+rect.z
-			// only union when we are 
-			var rc = u_border_radius*1.5
-			if(px1 != px2){
-				// we have to know wether we need to extend our border radius
-				var base = px1-rect.x
-				var corner = 
-					substract(
-						union(
-							roundbox(rel, rect.z, -.5*edge, 100.,rect.w, u_border_radius),
-							roundbox(rel, -100., -.5*edge, 100.,rect.w, u_border_radius)),
-						box(rel, base - rc, -1., px2-base + 2.*rc, rect.w*.5)
-					)
-				field = union(field, corner)
-			}
-			if(nx1 != nx2){
-				var base = nx1-rect.x
-				var corner = 
-					substract(
-						union(
-							roundbox(rel, rect.z, .5*edge, 100.,rect.w, u_border_radius),
-							roundbox(rel, -100., .5*edge, 100.,rect.w, u_border_radius)),
-						box(rel, base - rc, rect.w*.5, nx2-base + 2.*rc, rect.w*.5+1.)
-					)
-				field = union(field, corner)
-			}
-			field = marker_warp(field, pos)
-			//field = box(rel, base, -1., px2-base, rect.w*.5)
-			//ok so lets do a block at the top
-			//field = union(field, corner)
-			//field = union(field, corner)// union(field,corner)
-			// now we have to pick or top corners.
-			// if we are < px2 we choose a negative round edge
-			// ok so how are we going to do this.
-
-		//}
-
-		//if(field < 0.)
-		//field = sin(field-3.time.sec+0.005*pos.y)
-		// alright now what. 
+		var rc = u_border_radius*1.25
+		if(px1 != px2){
+			// we have to know wether we need to extend our border radius
+			var base = px1-rect.x
+			var corner = 
+				substract(
+					union(
+						roundbox(rel, rect.z, -.5*edge, 100.,rect.w, u_border_radius),
+						roundbox(rel, -100., -.5*edge, 100.,rect.w, u_border_radius)),
+					box(rel, base - rc, -1., px2-px1 + 2.*rc, rect.w*.5)
+				)
+			field = union(field, corner)
+		}
+		if(nx1 != nx2){
+			var base = nx1-rect.x
+			var corner = 
+				substract(
+					union(
+						roundbox(rel, rect.z, .5*edge, 100.,rect.w, u_border_radius),
+						roundbox(rel, -100., .5*edge, 100.,rect.w, u_border_radius)),
+					box(rel, base - rc, rect.w*.5, nx2-nx1 + 2.*rc, rect.w*.5+1.)
+				)
+			field = union(field, corner)
+		}
+		field = marker_warp(field, pos)
 
 		return vec4(u_markcolor, smoothstep(edge,-edge,field))
 	}
@@ -1575,6 +1553,8 @@ class MarkedTextImpl extends TaggedTextImpl{
 			buf[o+i].rect.w = self.h
 		}
 		var px1 = 0,px2 = 0,nx1 = 0,nx2 = 0
+		// how do we find out if self and prev have overlap
+
 		if(prev) px1 = prev.x, px2 = prev.x2
 		if(next) nx1 = next.x, nx2 = next.x2
 
