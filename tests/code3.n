@@ -1,0 +1,56 @@
+import math
+import gl
+import glscene
+
+import input
+import diff
+
+import codeview
+import edit
+import chunked
+
+class CodeEdit extends Layer{
+
+	load(ChunkedTextImpl)
+	load(CodeViewTypes)
+	load(CodeViewImpl)
+	load(EditImpl)
+
+	class Chunk extends Chunk{
+		load(CodeViewTypes)
+	}
+
+	constructor(){
+		Layer::constructor()
+		ChunkedTextImpl::constructor()
+		CodeViewImpl::constructor()
+		EditImpl::constructor()
+	}
+
+	method(){
+		Layer::method()
+	}
+}
+
+Scene{
+	antialias = false
+	fill = #002041
+	CodeEdit{
+		ax = 0
+		ay = 0
+		sx = 
+		sy = : 400./mouse.x//  :6.1 + 5.5cos(0.5*time.sec)
+		font_size = 13.0
+		u_bgcolor = #002041
+		//u_bgcolor = undefined
+		u_markcolor = #86543a
+
+		u_contrast = 1.0
+		u_subpixel_distance = 3.
+		u_boldness =0.9//0.5
+
+		line_spacing = 1.3
+		source = import('constraint.n','string')
+		ast = parse(source)
+	}
+}

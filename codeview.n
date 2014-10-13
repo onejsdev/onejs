@@ -731,9 +731,6 @@ class CodeViewImpl{
 		return t
 	}
 
-
-	load(DistField2D)
-
 	paint:(vec2 p, dpdx, dpdy, edge){
 		//var edge = min(length(dpx))
 		int m = tags[].z
@@ -761,7 +758,7 @@ class CodeViewImpl{
 				var w = .01
 				var h = .02
 				var field = box(mod(p,vec2(1.,.05)),.5*w,0,w,h)
-				var col = vec4(#445, smoothstep(edge,-edge,field))
+				var col = vec4(#667, smoothstep(edge,-edge,field))
 				if(col.a>0.01)return col
 			}
 
