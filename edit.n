@@ -2,6 +2,7 @@ import math
 import glscene
 import diff
 import chunked
+import distfield2d
 
 class EditImpl{
 
@@ -18,9 +19,22 @@ class EditImpl{
 			// denormalized positions
 			ax = 0
 			ay = 0
-			w = 1
+			w = 10
 			x = 0
-			pixel:#white
+
+			// cursor that switches from pixel rendering to vector rendering depending on scale
+			draw_cursor:(){
+				var rel = mesh[].xy
+				var dpdx = dFdx(rel)
+				var dpdy = dFdy(rel)
+				var edge = min(length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2,1.)
+				if(edge > 0.04){
+					if(rel.x < dpdx.x) return vec4(#white,1.)
+					return vec4(0.)
+				}
+				return vec4(#white, smoothstep(edge,-edge, box(rel, 0,0,0.1,1.)))
+			}
+			pixel:draw_cursor()
 		}
 
 		hideProperties()

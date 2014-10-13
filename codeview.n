@@ -753,12 +753,11 @@ class CodeViewImpl{
 		if(m == 9){ // the screen aligned tab dots
 			// make a nice tab line
 			//var out = vec4(0)
-			if(edge > 0.01){
+			if(edge > 0.01){ // pixel drawing
 				float py = .5*device.h - pixel vertex.y * floor(device.h * .5) 
 				if(p.x > 1.*abs(dpdx.x) && p.x <= 2.*abs(dpdx.x) && mod(py,2.)>1.) return vec4(#445,1.)
 			}
-			else{
-				var sz = 0.03
+			else{ // switch to vector drawing
 				var w = .01
 				var h = .02
 				var field = box(mod(p,vec2(1.,.05)),.5*w,0,w,h)
@@ -781,30 +780,6 @@ class CodeViewImpl{
 		return vec4(-1.)
 	}
 
-	paint_pixel:(vec2 p, dpdx, dpdy, md){
-		var edge = min(length(dpx))
-		int m = tags[].z
-		float selected = tags[].w
-		if(m == 10){
-			return vec4(0)
-		}
-		if(m == 32){
-			if(selected < 0.
-			 && p.x > .5 - 1.*dpx && p.x < .5 + 1.*dpx
-			 && p.y > .5 - 1.*dpy && p.y < .5 + 1.*dpy)
-				return vec4(#AF8F7E,1.)
-			return vec4(0)
-		}
-		if(m == 9){ // the screen aligned tab dots
-			float py = .5*device.h - pixel vertex.y * floor(device.h * .5) 
-			if(p.x > 1.*abs(dpx) && p.x <= 2.*abs(dpx) && mod(py,2.)>1.) return vec4(#445,1.)
-			
-			if(selected < 0. && p.x > 3.*dpx && p.y > .5 - .5*dpy && p.y < .5 + .5*dpy)
-				return vec4(#AF8F7E,1.)
-			return vec4(0)
-		}
-		return vec4(-1.)
-	}
 /*
 	customDistance:(){
 		vec4 m = pixel tags[]

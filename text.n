@@ -1382,8 +1382,6 @@ class TaggedTextImpl extends TextImpl{
 class MarkedTextImpl extends TaggedTextImpl{
 	u_markcolor = #red
 
-	load(DistField2D)
-
 	struct marker_t{
 		vec2 pos 
 		vec4 rect
@@ -1391,7 +1389,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 		float data
 		float corner
 	}
-	u_border_radius = 2.
+	u_border_radius = 1.5
 	markers = marker_t[]()
 
 	// what i want is a super basic drawing api. how do we do it.
