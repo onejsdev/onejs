@@ -61,7 +61,7 @@ class TextImpl{
 	mode_whitespace = false // wether whitespace generates triangles
 	mode_tabs_are_spaces = false
 	// our font blob
-	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
 	
 	font_size = 10
 	line_spacing = 1.2
@@ -477,8 +477,8 @@ class TextImpl{
 		var font_size = .2
 		// if we render to a font we go -1,-1 bottom left to 1,1 top right
 
-		var width = 1024
-		var height = 1024
+		var width = 2048
+		var height = 2048
 		var margin = 8./width
 
 		var glyphs = font.glyphs
@@ -1410,10 +1410,22 @@ class MarkedTextImpl extends TaggedTextImpl{
 		var px2 = other.y
 		var nx1 = other.z
 		var nx2 = other.w
-
+		var gloop = 10.+5.sin(time.sec)
+		// main shape
 		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
+		if(px1 != px2){
+			var field2 = roundbox(rel, px1 - rect.x, -rect.w, px2 - px1, rect.w, u_border_radius)
+			field = blendpoly(field, field2, gloop)
+		}
+		if(nx1 != nx2){
+			var field2 = roundbox(rel, nx1 - rect.x, rect.w, nx2 - nx1, rect.w, u_border_radius)
+			field = blendpoly(field, field2, gloop)
+		}
+
+		/*
 		// we have to shift the edge box to meet the hollow border radius of the next selection
-		var correction = u_border_radius*1.5
+		var correction = u_border_radius*1.9
+		// top part shape connection
 		if(px1 != px2){
 			// we have to know wether we need to extend our border radius
 			var base = px1-rect.x
@@ -1432,6 +1444,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 			if(px1>rect.x+rect.z) field = union(field,box(rel,rect.z - u_border_radius*2.,0.,u_border_radius*2.,rect.w*.5))
 			field = union(field, corner)
 		}
+		// bottom part shapes
 		if(nx1 != nx2){
 			var base = nx1-rect.x
 			var leftc = 0.
@@ -1449,14 +1462,15 @@ class MarkedTextImpl extends TaggedTextImpl{
 			if(nx2<rect.x) field = union(field,box(rel,0.,rect.w*.5,u_border_radius*2.,rect.w*.5))
 
 			field = union(field, corner)
-		}
+		}*/
 		field = marker_style(field, pos)
+		var alpha = smoothstep(edge,-edge,field)
+		if(alpha<0.001) discard;
 
-		return vec4(u_markcolor, smoothstep(edge,-edge,field))
+		return vec4(u_markcolor, alpha)
 	}
 
-	mark_pixel:marker_paint()
-	mark_vertex: vec3(markers[].pos,-2.) * (m_world * device.m_camera)
+	marker_vertex: vec3(markers[].pos,-2.) * (m_world * device.m_camera)
 
 	mark_pos: vec2(floor(mod(markers[].corner,2.)), floor(abs(mod(markers[].corner,4.)/2.)))
 
@@ -1497,39 +1511,14 @@ class MarkedTextImpl extends TaggedTextImpl{
 		// | /  |
 		// |/   |
 		// 23---5
-		/*
-		var mask = 0
-		// ok the top flags. 
-		if(!prev) mask += corner_tl_r + corner_tr_r
-		else{
-			if(prev.x2 > self.x2) mask += corner_tr_h
-			else if(prev.x2 < self.x2) mask += corner_tr_r
-			if(prev.x < self.x) mask += corner_tl_h
-			else if(prev.x > self.x) mask += corner_tl_r
-		}
-		if(!next) mask += corner_bl_r + corner_br_r
-		else{
-			if(next.x2 > self.x2) mask += corner_br_h
-			else if(next.x2 < self.x2) mask += corner_br_r
-			if(next.x < self.x) mask += corner_bl_h
-			else if(next.x > self.x) mask += corner_bl_r
-		}
-	*/
-		// round edges
-		//if(laststart === undefined || start < laststart) edge += 1
-
-		// allright how are we going to encode edgeflags, and a rectangle hm?
-		// well first we need to take a flag, 1,2,4,8 for the corner
-		// and we need flags for the corner itself
 		for(var i = 0;i<6;i++){
 			buf[o+i].rect.x = self.x
 			buf[o+i].rect.y = self.y
 			buf[o+i].rect.z = self.w
 			buf[o+i].rect.w = self.h
 		}
-		var px1 = 0,px2 = 0,nx1 = 0,nx2 = 0
-		// how do we find out if self and prev have overlap
 
+		var px1 = 0,px2 = 0,nx1 = 0,nx2 = 0
 		if(prev) px1 = prev.x, px2 = prev.x2
 		if(next) nx1 = next.x, nx2 = next.x2
 
@@ -1574,7 +1563,7 @@ class MarkedTextImpl extends TaggedTextImpl{
 		}
 	}
 
-	addMarkers(start, end, prev, data){
+	addMarkers(start, end, prev, next, data){
 		if(end < start){
 			var t = start
 			start = end
@@ -1585,31 +1574,37 @@ class MarkedTextImpl extends TaggedTextImpl{
 		var m = []
 
 		for(var o = start, last = o; o < end; o++){
- 			if(o == end - 1 || tags[o*6].z == 10){
- 				var r = cursorRect(last)
-				var x = mesh[o*6+1].x
+			ch = tags[o*6].z
+			if(o == end - 1 || ch == 10){
+				var r = cursorRect(last)
+				var x = (o+1)*6 == alloc_off || ch == 10? mesh[o*6+1].x: mesh[(o+1)*6].x
 				r.start = last
 				r.end = o
 				r.w = x - r.x
 				r.x2 = r.x + r.w
 				r.y2 = r.y + r.h
- 				m.push(r)
- 				last = o+1
- 			}
- 		}
- 		for(var i = 0;i<m.length;i++){
- 			addMarker(m[i-1] || prev, m[i], m[i+1], data)
- 		}
- 		// return the last marker
- 		return m[m.length - 1]
+				m.push(r)
+				last = o+1
+			}
+		}
+		for(var i = 0;i<m.length;i++){
+			addMarker(m[i-1] || prev, m[i], m[i+1] || next, data)
+		}
+		// return the last marker
+		return m[m.length - 1]
 	}
 
 	drawSelf:(sec){
 		// lets draw our rects, and self
 		this{
-			pixel:mark_pixel
-			vertex:mark_vertex
+			pixel:marker_paint()
+			vertex:marker_vertex
 		}
 		this{}
 	}
+}
+
+// the cursor drawing
+class CursorsImpl{
+	
 }

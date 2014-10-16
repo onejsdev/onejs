@@ -764,7 +764,7 @@ class CodeViewImpl{
 
 			if(selected < 0.){
 				if(edge > 0.02){
-					if(p.x > 3.*dpdx.x && p.y > .5 - .5*dpdy.y && p.y < .5 + .5*dpdy.y)
+					if(p.x > 3.*dpdx.x && p.y >= .5 - .5*dpdy.y && p.y <= .5 + .5*dpdy.y)
 						return vec4(#AF8F7E,1.)
 					return vec4(0)
 				}
