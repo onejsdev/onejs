@@ -212,7 +212,9 @@ class CodeViewImpl{
 		}
 	}
 
-	Program(n){}
+	Program(n){
+		Block(n)
+	}
 
 	Empty(n){}
 
@@ -538,7 +540,7 @@ class CodeViewImpl{
 		if(n.id) space(), expand(n.id)
 		var mygroup = group++
 		ParenL(_Function,mygroup)
-		for(var i, param from n.params){
+		if(n.params) for(var i, param from n.params){
 			if(i) Comma(_Function), space()
 			expand(param)
 		}

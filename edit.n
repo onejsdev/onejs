@@ -1,7 +1,7 @@
 import math
 import glscene
 import diff
-import chunked
+import text_chunked
 import distfield2d
 
 class EditImpl{
@@ -27,9 +27,9 @@ class EditImpl{
 				var rel = mesh[].xy
 				var dpdx = dFdx(rel)
 				var dpdy = dFdy(rel)
-				var edge = min(length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2,1.)
+				var edge = min(length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2, 1.)
 				if(edge > 0.04){
-					if(rel.x < dpdx.x) return vec4(#white,1.)
+					if(rel.x < dpdx.x) return vec4(#white, 1.)
 					return vec4(0.)
 				}
 				return vec4(#white, smoothstep(edge,-edge, box(rel, 0,0,0.1,1.)))
@@ -46,7 +46,6 @@ class EditImpl{
 			y = rect.y
 			h = rect.h
 			// we have to generate some marker rects
-
 			text_layer.clearMarkers()
 			if(start != end){
 				text_layer.addMarkers(start, end)

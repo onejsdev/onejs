@@ -1,44 +1,79 @@
+// Copyright (C) 2014 OneJS
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//       http://www.apache.org/licenses/LICENSE-2.0
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+
 import math
-import glscene
+import text
+import text_marked
 
 // chunked text behaves like text
-class ChunkedTextImpl{
+class ChunkedTextLayerImpl{
+	// use layer matrices
 
 	dontProxy('default_alloc', 'chunk_lines',
 		'text_initialized','chunk_list','line_height',
 		'cache_chunk','last_chunk','add_y','char_off')
+	//dump = 1
+	// load up the renderer
+	load(MarkedTextLayerImpl)
 
-	// text chunk class
-	class Chunk extends Text{
+	vertex: (mesh[].xy+vec2(text_x, text_y)) * (m_world * device.m_camera)
+
+	// this thing holds the data, but not the rendering
+	class Chunk extends WorkerProxy{
+		load(MarkedTextLayerImpl)
+		y = 0
 		constructor(parent){
 			this.parent = parent
-			font_size = parent.font_size
-			style = parent.style
-			paint = parent.paint || paint
-			toInt = parent.toInt
-			u_bgcolor = parent.u_bgcolor
-			u_markcolor = parent.u_markcolor
-			//customDistance = parent.customDistance
-			//sampleDistance = parent.sampleDistance
-			line_spacing = parent.line_spacing
-			Text::constructor()
+			glyphyFromParent(parent)
+			if(!parent.chunk_list)parent.chunk_list = []
+			parent.chunk_list.push(this)
 		}
-		u_contrast: parent.u_contrast
-		u_boldness: parent.u_boldness
-		u_subpixel_distance: parent.u_subpixel_distance
+		$constructor:(){
+			if(!parent.chunk_list)parent.chunk_list = []
+			parent.chunk_list.push(this)
+		}
+		$flagDirty:(){
+			parent.redraw()
+		}
+	}
+	// alright we have a Chunk which holds data
+	// and a data API but isnt actually a rendernode
+	// so how do we draw those things
+	drawSelf:(sec){
+		// draw markers
+		for(var chunk from chunk_list){
+			markers = chunk.markers
+			text_y = chunk.y
+			this{
+				pixel:marker_paint()
+				vertex:marker_vertex
+			}
+		}
+		// lets draw our text
+		for(var chunk from chunk_list){
+			mesh = chunk.mesh
+			tags = chunk.tags
+		 	text_y = chunk.y
+			this{}
+		}
 	}
 
 	default_alloc = 5000
 	chunk_lines = 100
 
-	get line_height(){
-		return last_chunk? last_chunk.line_height: 0
-	}
-
 	constructor(){
-		text_initialized = true
+		MarkedTextLayerImpl::constructor()
 		// create a new last_chunk to start growing
-		chunk_list = [last_chunk = this.Chunk.new(this)]
+		last_chunk = this.Chunk.new(this)
 		last_chunk.chunk_id = 0
 		last_chunk.allocText(default_alloc)
 		last_chunk.accum_off = 0
@@ -135,15 +170,14 @@ class ChunkedTextImpl{
 	newline(t){
 		char_off += last_chunk.newline(t)
 		if(last_chunk.lines > chunk_lines){
+			last_chunk.updateText()
 			var new_chunk = this.Chunk.new(this)
 			// complete last_chunk
-			last_chunk.updateText()
 			add_y += last_chunk.add_y
 			new_chunk.accum_off = last_chunk.char_off + last_chunk.accum_off
-			new_chunk.chunk_id = chunk_list.length
+			new_chunk.chunk_id = chunk_list.length - 1
 			new_chunk.y = add_y 
-
-			chunk_list.push(last_chunk = new_chunk)
+			last_chunk = new_chunk
 			last_chunk.allocText(default_alloc)
 		}
 	}

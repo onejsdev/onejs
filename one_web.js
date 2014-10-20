@@ -261,7 +261,8 @@ ONE.proxy_ = function(){
 								return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
 							}
 							else if(v._t_){
-								if(v.buffer) v.buffer.clean = false
+								// little hack to force the buffer to re-upload in case of fake worker
+								if(v.buffer) v.clean = false
 								return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
 							}
 						}
@@ -1023,6 +1024,9 @@ ONE.browser_boot_ = function(){
 				if(msg._type == 'setvalue'){
 					var obj = this.proxy_obj[msg._uid]
 					if(!obj) throw new Error('Value set on nonexistant object ' + msg._uid)
+					var old = obj[msg.name]
+					//!TODO make this nicer
+					if(old && old._vb_) msg.value._vb_ = old._vb_
 					obj[msg.name] = msg.value
 					if(obj.hasOwnProperty('__class__')){
 						console.log('Warning, sending update to a prototype ', msg)

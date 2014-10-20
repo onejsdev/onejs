@@ -639,6 +639,7 @@ class Draw extends WorkerProxy{
 					this.${uid}_shader = shader`
 
 			// create sub attribute buffers
+			/*
 			for(var name in sub_attribs){
 				ret += `
 					this.${uid}_vb_${name} = gl.createBuffer()`					
@@ -649,7 +650,7 @@ class Draw extends WorkerProxy{
 				if(attribs[name].sub) continue
 				ret += `
 					this.${uid}_vb_${name} = gl.createBuffer()`					
-			}
+			}*/
 
 			// done with the shader compile
 			ret += `
@@ -671,12 +672,15 @@ class Draw extends WorkerProxy{
 				}
 
 				ret += `
-				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
-				var arr_buf = ${buf_name}.buffer
-				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
-					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
-					arr_buf.clean = this.${uid}_vb_${name}.clean = true
+				
+				var arr_buf = ${buf_name}
+				if(!arr_buf.clean){
+					if(!arr_buf._vb_) arr_buf._vb_ = gl.createBuffer()
+					gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
+					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf.buffer, ${glc.STATIC_DRAW})
+					arr_buf.clean = true
 				}
+				else gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
 				`
 				for(var sub in sub_attr){
 					var type = sub_attr[sub]._t_
@@ -687,7 +691,7 @@ class Draw extends WorkerProxy{
 				var al = shader.al_${full_name}
 				gl.enableVertexAttribArray(al)
 				gl.vertexAttribPointer(al, ${sub_type.slots}, ${glc.FLOAT}, false, ${type.size}, ${sub_type.off})
-				item_count = arr_buf.byteLength / ${type.size}
+				item_count = arr_buf.buffer.byteLength / ${type.size}
 				`
 				}
 			}
@@ -707,16 +711,18 @@ class Draw extends WorkerProxy{
 				}
 
 				ret += `
-				gl.bindBuffer(${glc.ARRAY_BUFFER}, this.${uid}_vb_${name})
-				var arr_buf = ${buf_name}.buffer
-				if(!this.${uid}_vb_${name}.clean || !arr_buf.clean){
-					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf, ${glc.STATIC_DRAW})
-					arr_buf.clean = this.${uid}_vb_${name}.clean = true
+				var arr_buf = ${buf_name}
+				if(!arr_buf.clean){
+					if(!arr_buf._vb_) arr_buf._vb_ = gl.createBuffer()
+					gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
+					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf.buffer, ${glc.STATIC_DRAW})
+					arr_buf.clean = true
 				}
+				else gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
 				var al = shader.al_${name}
 				gl.enableVertexAttribArray(al)
 				gl.vertexAttribPointer(al, ${type.slots}, ${glc.FLOAT}, false, ${type.size}, 0)
-				item_count = arr_buf.byteLength / ${attr._t_.size}
+				item_count = arr_buf.buffer.byteLength / ${attr._t_.size}
 				`
 			}
 			

@@ -6,7 +6,7 @@ import slides
 import codeview
 import noise
 import warps
-import font_styles
+import text_styles
 
 class CrazyCode extends CodeView{
     load( FontStyles )

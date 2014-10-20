@@ -19,7 +19,6 @@
 import math
 import gl
 import network
-import distfield2d
 
 class TextImpl{
 
@@ -43,7 +42,7 @@ class TextImpl{
 	u_boldness = 0
 	u_scaling = 0
 	u_distance = 0
-	u_gamma_adjust = vec3(1.4,1.6,1.4)
+	u_gamma_adjust = vec3(1.4,1.4,1.4)
 	u_outline = false
 	u_debug = false
 	u_contrast = 1.4
@@ -55,13 +54,16 @@ class TextImpl{
 	// the text extents
 	_text_w = 0
 	_text_h = 0
+	// displacement
+	text_x = 0
+	text_y = 0
 
 	// fundamental rendering modes
 	mode_sdf = true // turn sdf mode on or off
 	mode_whitespace = false // wether whitespace generates triangles
 	mode_tabs_are_spaces = false
 	// our font blob
-	font = import('fonts/code_font1_ascii.glf', 'arraybuffer')
+	font = import('fonts/code_font1_ascii_baked.glf', 'arraybuffer')
 	
 	font_size = 10
 	line_spacing = 1.2
@@ -105,7 +107,7 @@ class TextImpl{
 
 	set text(v){
 		if(v && v._ast_) v = v.value
-		if(typeof v !== 'string') v = '<invalid type>'
+		if(typeof v !== 'string') v = String(v)//'<invalid type>'
 		__text = v
 		if(text_initialized){
 			allocText(__text.length)
@@ -146,7 +148,15 @@ class TextImpl{
 		
 		// updates geometry
 		text_initialized = true
-		text = __text
+		if(__text) text = __text
+	}
+
+	glyphyFromParent(parent){
+		glyphy_info = parent.glyphy_info
+		font_size = parent.font_size
+		line_spacing = parent.line_spacing
+		mode_whitespace = parent.mode_whitespace
+		text_initialized = true
 	}
 
 	// just for the compiler you can 
@@ -155,7 +165,7 @@ class TextImpl{
 	// global font cache
 	_glyphy_font_cache = {}
 
-	genDefaults(info){
+	genWhitespace(info){
 		// we need to add a space, newline and tab character.
 		if(!(32 in info.glyphs)) info.count++
 		info.glyphs[32] = { // space
@@ -274,7 +284,7 @@ class TextImpl{
 			info.atlas = Atlas.array(blob.slice(off * 4), info.tex_w, info.tex_h)
 		}
 		else throw new Error('Error in font file')
-		genDefaults(info)
+		genWhitespace(info)
 		return info
 	}
 
@@ -310,7 +320,6 @@ class TextImpl{
 		}
 	}
 
-	
 	charBounds(off){
 		// lets find the bounds rectangle for a char
 		var idx = off*6
@@ -1132,6 +1141,7 @@ class TextImpl{
 	}
 }
 
+// text with extra tag struct
 class TaggedTextImpl extends TextImpl{
 
 	
@@ -1223,7 +1233,7 @@ class TaggedTextImpl extends TextImpl{
 		}
 		return -1
 	}
-
+	tags = vec4[]()
 	tag_pos: vec2(floor(mod(abs(tags[].w),256.)), floor(abs(tags[].w)/256.))
 	
 	tagChar(off, length, x, y, z){
@@ -1377,234 +1387,4 @@ class TaggedTextImpl extends TextImpl{
 		if(add_y > _text_h) _text_h = add_y	
 		return chars
 	}
-}
-
-class MarkedTextImpl extends TaggedTextImpl{
-	u_markcolor = #red
-
-	struct marker_t{
-		vec2 pos 
-		vec4 rect
-		vec4 other
-		float data
-		float corner
-	}
-	u_border_radius = 1.5
-	markers = marker_t[]()
-
-	// what i want is a super basic drawing api. how do we do it.
-	
-	marker_style:(field, pos){
-		return field
-	}
-
-	marker_paint:(){
-		var pos = markers[].pos 
-		var rect = pixel markers[].rect
-		var rel = pos - rect.xy
-		// do pixel antialias calc
-		float edge = min(length(vec2(length(dFdx(rel)), length(dFdy(rel)))) * SQRT_1_2,1.)
-
-		vec4 other = pixel markers[].other
-		var px1 = other.x
-		var px2 = other.y
-		var nx1 = other.z
-		var nx2 = other.w
-		var gloop = 10.+5.sin(time.sec)
-		// main shape
-		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
-		if(px1 != px2){
-			var field2 = roundbox(rel, px1 - rect.x, -rect.w, px2 - px1, rect.w, u_border_radius)
-			field = blendpoly(field, field2, gloop)
-		}
-		if(nx1 != nx2){
-			var field2 = roundbox(rel, nx1 - rect.x, rect.w, nx2 - nx1, rect.w, u_border_radius)
-			field = blendpoly(field, field2, gloop)
-		}
-
-		/*
-		// we have to shift the edge box to meet the hollow border radius of the next selection
-		var correction = u_border_radius*1.9
-		// top part shape connection
-		if(px1 != px2){
-			// we have to know wether we need to extend our border radius
-			var base = px1-rect.x
-			var leftc = 0.
-			var rightc = 0.
-			if(px1 > rect.x) leftc = correction
-			if(px2 < rect.x + rect.z) rightc = correction
-			var corner = 
-				subtract(
-					union(
-						roundbox(rel, rect.z, -.5*edge, 100.,rect.w, u_border_radius),
-						roundbox(rel, -100., -.5*edge, 100.,rect.w, u_border_radius)),
-					box(rel, base - leftc, -.5*rect.w, (px2-px1) + (leftc+rightc), rect.w)
-				)
-			// straight corner
-			if(px1>rect.x+rect.z) field = union(field,box(rel,rect.z - u_border_radius*2.,0.,u_border_radius*2.,rect.w*.5))
-			field = union(field, corner)
-		}
-		// bottom part shapes
-		if(nx1 != nx2){
-			var base = nx1-rect.x
-			var leftc = 0.
-			var rightc = 0.
-			if(nx1 > rect.x) leftc = correction
-			if(nx2 < rect.x + rect.z) rightc = correction			
-			var corner = 
-				subtract(
-					union(
-						roundbox(rel, rect.z, .5*edge, 100.,rect.w, u_border_radius),
-						roundbox(rel, -100., .5*edge, 100.,rect.w, u_border_radius)),
-					box(rel, base - leftc, rect.w*.5, (nx2-nx1) + (leftc + rightc), rect.w)
-				)
-			// straight corner
-			if(nx2<rect.x) field = union(field,box(rel,0.,rect.w*.5,u_border_radius*2.,rect.w*.5))
-
-			field = union(field, corner)
-		}*/
-		field = marker_style(field, pos)
-		var alpha = smoothstep(edge,-edge,field)
-		if(alpha<0.001) discard;
-
-		return vec4(u_markcolor, alpha)
-	}
-
-	marker_vertex: vec3(markers[].pos,-2.) * (m_world * device.m_camera)
-
-	mark_pos: vec2(floor(mod(markers[].corner,2.)), floor(abs(mod(markers[].corner,4.)/2.)))
-
-	clearMarkers(){
-		vec4 tags = alloc_tags
-		for(var m = 0; m < alloc_off *6; m++){
-			var tag = tags[m].w
-			if(tag<0) tags[m].w = -tag
-		}
-		alloc_markers = marker_t[]()
-	}
-
-	allocMarkers(length){
-		alloc_markoff = 0
-		alloc_marklen = length * 6
-		alloc_markers = marker_t[alloc_marklen]()
-	}
-
-	updateText(){
-		if(alloc_markers) markers = alloc_markers
-		TaggedTextImpl::updateText()
-	}
-
-	reallocMarkers(count){
-
-	}
-	
-	addMarker(prev, self, next, data){
-		vec4[] mesh = alloc_mesh
-		vec4[] tags = alloc_tags
-		marker_t[] markers = alloc_markers
-		// lets fetch the rect of our mesh
-		var o = alloc_markoff
-		marker_t[] buf = alloc_markers
-		// 0___14
-		// |   /|
-		// |  / |
-		// | /  |
-		// |/   |
-		// 23---5
-		for(var i = 0;i<6;i++){
-			buf[o+i].rect.x = self.x
-			buf[o+i].rect.y = self.y
-			buf[o+i].rect.z = self.w
-			buf[o+i].rect.w = self.h
-		}
-
-		var px1 = 0,px2 = 0,nx1 = 0,nx2 = 0
-		if(prev) px1 = prev.x, px2 = prev.x2
-		if(next) nx1 = next.x, nx2 = next.x2
-
-		for(var i = 0;i<6;i++){
-			var oi = o+i
-			buf[oi].rect.x = self.x
-			buf[oi].rect.y = self.y
-			buf[oi].rect.z = self.w
-			buf[oi].rect.w = self.h
-			buf[oi].other.x = px1
-			buf[oi].other.y = px2
-			buf[oi].other.z = nx1
-			buf[oi].other.w = nx2
-		}
-
-		buf[o].pos.x = self.x - font_size
-		buf[o].pos.y = self.y
-		buf[o].data = data // edge flags and rect
-		buf[o].corner = 0 
-		o++
-		buf[o+3].pos.x = buf[o].pos.x = self.x2 + font_size
-		buf[o+3].pos.y = buf[o].pos.y = self.y
-		buf[o+3].data = buf[o].data = data
-		buf[o+3].corner = buf[o].corner = 1 
-		o++
-		buf[o+1].pos.x = buf[o].pos.x = self.x - font_size
-		buf[o+1].pos.y = buf[o].pos.y = self.y2
-		buf[o+1].data = buf[o].data = data
-		buf[o+1].corner = buf[o].corner = 2 
-		o+=3
-		buf[o].pos.x = self.x2 + font_size
-		buf[o].pos.y = self.y2
-		buf[o].data = data
-		buf[o].corner = 3 
-		o++
-		alloc_markoff = o
-
-		// lets also signal the text renderer of our selection
-		for(var m = self.start*6; m < (self.end+1)*6; m++){
-			var tag = tags[m].w 
-			if(tag>0) tags[m].w = -tag
-		}
-	}
-
-	addMarkers(start, end, prev, next, data){
-		if(end < start){
-			var t = start
-			start = end
-			end = t
-		}
-		vec4[] mesh = alloc_mesh
-		vec4[] tags = alloc_tags
-		var m = []
-
-		for(var o = start, last = o; o < end; o++){
-			ch = tags[o*6].z
-			if(o == end - 1 || ch == 10){
-				var r = cursorRect(last)
-				var x = (o+1)*6 == alloc_off || ch == 10? mesh[o*6+1].x: mesh[(o+1)*6].x
-				r.start = last
-				r.end = o
-				r.w = x - r.x
-				r.x2 = r.x + r.w
-				r.y2 = r.y + r.h
-				m.push(r)
-				last = o+1
-			}
-		}
-		for(var i = 0;i<m.length;i++){
-			addMarker(m[i-1] || prev, m[i], m[i+1] || next, data)
-		}
-		// return the last marker
-		return m[m.length - 1]
-	}
-
-	drawSelf:(sec){
-		// lets draw our rects, and self
-		this{
-			pixel:marker_paint()
-			vertex:marker_vertex
-		}
-		this{}
-	}
-}
-
-// the cursor drawing
-class CursorsImpl{
-	
 }

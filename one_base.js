@@ -120,6 +120,9 @@ ONE.base_ = function(){
 	// load a property bag onto my object
 	this.load = function( irole , dbg){
 		var role = irole
+		if(irole === undefined){
+			throw new Error("Loading undefined role")
+		}
 		if(typeof irole == 'string'){// try to read it from scope
 			role = this.__modules__[irole]
 			if(!role) throw new Error("Cannot find role "+irole+" on this")
@@ -129,7 +132,6 @@ ONE.base_ = function(){
 			role.call(base)
 			return
 		}
-
 		if(typeof role == 'object'){
 			for(var key in role){
 				var set = role.__lookupSetter__(key)

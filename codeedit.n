@@ -1,0 +1,20 @@
+import math
+import glscene
+import codeview
+import edit
+import text_chunked
+
+class CodeEdit extends Layer{
+
+	load(ChunkedTextLayerImpl)
+	load(CodeViewTypes)
+	load(CodeViewImpl)
+	load(EditImpl)
+
+	constructor(){
+		Layer::constructor()
+		ChunkedTextLayerImpl::constructor()
+		CodeViewImpl::constructor()
+		EditImpl::constructor()
+	}
+}

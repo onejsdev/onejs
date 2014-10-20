@@ -14,7 +14,7 @@ import gl
 import math
 import constraint 
 import input
-import text
+import text_marked
 
 class Scene extends Device{
 
@@ -148,17 +148,12 @@ class Layer extends Draw{
 	d = 0
 }
 
-class TextLayerImpl{
-	vertex: mesh[].xy * (m_world * device.m_camera)
-}
-
 class Text extends Layer{
-	load(MarkedTextImpl)
-	load(TextLayerImpl)
+	load(MarkedTextLayerImpl)
 
 	constructor(){
 		Layer::constructor()
-		MarkedTextImpl::constructor()
+		MarkedTextLayerImpl::constructor()
 	}
 
 	font_size = 20

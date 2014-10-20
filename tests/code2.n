@@ -1,36 +1,7 @@
 import math
 import gl
 import glscene
-
-import input
-import diff
-
-import codeview
-import edit
-import chunked
-
-class CodeEdit extends Layer{
-
-	load(ChunkedTextImpl)
-	load(CodeViewTypes)
-	load(CodeViewImpl)
-	load(EditImpl)
-
-	class Chunk extends Chunk{
-		load(CodeViewTypes)
-	}
-
-	constructor(){
-		Layer::constructor()
-		ChunkedTextImpl::constructor()
-		CodeViewImpl::constructor()
-		EditImpl::constructor()
-	}
-
-	method(){
-		Layer::method()
-	}
-}
+import codeedit
 
 Scene{
 	antialias = false

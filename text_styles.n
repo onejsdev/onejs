@@ -352,8 +352,6 @@ class WeirdColor{
 
 class FontStyles{
 
-	load( SubFontStyles )
-
 	class weirdColor extends Base{
 		load( WeirdColor )
 	}

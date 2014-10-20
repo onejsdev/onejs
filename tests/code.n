@@ -1,40 +1,7 @@
 import math
 import gl
 import glscene
-
-import input
-import diff
-
-import codeview
-import edit
-import chunked
-
-class CodeEdit extends Layer{
-
-	load(ChunkedTextImpl)
-	load(CodeViewTypes)
-	load(CodeViewImpl)
-	load(EditImpl)
-
-	class Chunk extends Chunk{
-		load(CodeViewTypes)
-		marker_style:(field, pos){
-			//if(field<0.)return sin(field - time.sec + 0.02*pos.y)
-			return field
-		}
-	}
-
-	constructor(){
-		Layer::constructor()
-		ChunkedTextImpl::constructor()
-		CodeViewImpl::constructor()
-		EditImpl::constructor()
-	}
-
-	method(){
-		Layer::method()
-	}
-}
+import codeedit
 
 Scene{
 	antialias = false
@@ -42,19 +9,22 @@ Scene{
 	CodeEdit{
 		ax = 0
 		ay = 0
+
 		sx = 
-		sy = 1//:2.1 + 0.5cos(time.sec)
-		font_size = 13.0
+		sy = 1//.1//:2.1 + 0.5cos(time.sec)
+
+		font_size = 13.5
 		u_bgcolor = #002041
+
 		//u_bgcolor = undefined
 		u_markcolor = #86543a
 
-		u_contrast = 1.0
+		u_contrast = 1.1
 		u_subpixel_distance = 3.
 		u_boldness =0.9//0.5
 
 		line_spacing = 1.3
-		source = import('constraint.n','string')
+		source = import('gl.n','string')
 		ast = parse(source)
 	}
 }
