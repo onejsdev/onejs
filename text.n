@@ -18,9 +18,9 @@
  */
 import math
 import gl
-import network
 
 class TextImpl{
+	dontProxy('add_x','add_y','lines','text_initialized')
 
 	class Atlas extends Texture{
 		lookup:(int offset, ivec2 _atlas_pos){
@@ -42,18 +42,16 @@ class TextImpl{
 	u_boldness = 0
 	u_scaling = 0
 	u_distance = 0
-	u_gamma_adjust = vec3(1.4,1.4,1.4)
+	u_gamma_adjust = vec3(1.2,1.2,1.2)
 	u_outline = false
 	u_debug = false
 	u_contrast = 1.4
 	u_outline_thickness = 1//:device.ratio
 	u_color = #white
-	u_bgcolor = #black
+	//u_bgcolor = #black
 	u_subpixel_off = 1.0115
 	u_subpixel_distance = 3.
-	// the text extents
-	_text_w = 0
-	_text_h = 0
+
 	// displacement
 	text_x = 0
 	text_y = 0
@@ -112,22 +110,34 @@ class TextImpl{
 		if(text_initialized){
 			allocText(__text.length)
 			string(__text)
-			updateText()
 		}
 	}
 
-	constructor(){
+	get char_count(){
+		return vec4[] mesh.quad.length
+	}
 
-		var font_name = font && font.name
-		var info = _glyphy_font_cache[font_name] || 
-			(_glyphy_font_cache[font_name] = parseFont(font))
+	constructor(parent){
 
+		if(parent){
+			glyphy_info = parent.glyphy_info
+			font_size = parent.font_size
+			line_spacing = parent.line_spacing
+			mode_whitespace = parent.mode_whitespace
+		}
+		else{
+			var font_name = font && font.name
+			glyphy_info = _glyphy_font_cache[font_name] || 
+				(_glyphy_font_cache[font_name] = parseFont(font))
+		}
+
+		glyphy_atlas = glyphy_info.atlas
 		// we cant do glyphy mode with baked textures
-		if(info.baked) mode_sdf = true
+		if(glyphy_info.baked) mode_sdf = true
 
 		if(mode_sdf){
-			if(!info.sdf_texture) generateSDFCache(info)
-			else sdf_texture = info.sdf_texture
+			if(!glyphy_info.sdf_texture) generateSDFCache(glyphy_info)
+			else sdf_texture = glyphy_info.sdf_texture
 			if(u_bgcolor){
 				glyphy_pixel: glyphy_sdf_draw_subpixel_5tap(pixel mesh[])
 			}
@@ -139,24 +149,14 @@ class TextImpl{
 			glyphy_pixel: glyphy_atlas_draw(pixel mesh[])
 		}
 		
-		u_item_geom_x = info.item_w
-		u_item_geom = ivec2(info.item_w, info.item_h)
-		u_atlas_size = vec2(info.tex_w, info.tex_h)
-
-		glyphy_atlas = info.atlas
-		glyphy_info = info
+		u_item_geom_x = glyphy_info.item_w
+		u_item_geom = ivec2(glyphy_info.item_w, glyphy_info.item_h)
+		u_atlas_size = vec2(glyphy_info.tex_w, glyphy_info.tex_h)
 		
 		// updates geometry
+		mesh = vec4[]()
 		text_initialized = true
 		if(__text) text = __text
-	}
-
-	glyphyFromParent(parent){
-		glyphy_info = parent.glyphy_info
-		font_size = parent.font_size
-		line_spacing = parent.line_spacing
-		mode_whitespace = parent.mode_whitespace
-		text_initialized = true
 	}
 
 	// just for the compiler you can 
@@ -288,160 +288,98 @@ class TextImpl{
 		return info
 	}
 
-	dontProxy('add_x','add_y','alloc_off','alloc_length','char_off','lines','alloc_mesh','text_initialized')
-
 	allocText(len){
-		_text_w = 0
-		_text_h = 0
-
+		text_w = 0
+		text_h = 0
 		add_x = 0
-		add_y = 0
-		alloc_off = 0
-		char_off = 0
-		alloc_length = len * 6
+		add_y = 0//font_size
 		lines = 0
-		alloc_mesh = vec4[alloc_length]()
-	}
-
-	reallocText(extra){
-		vec4[] old_mesh = alloc_mesh
-		var old_length = alloc_length
-		alloc_length += extra * 6
-		alloc_mesh = vec4[alloc_length]()
-
-		// lets copy it
-		vec4[] nmesh = alloc_mesh
-
-		for(var i = 0;i<old_length;i++){
-			nmesh[i].x = old_mesh[i].x
-			nmesh[i].y = old_mesh[i].y
-			nmesh[i].z = old_mesh[i].z
-			nmesh[i].w = old_mesh[i].w
-		}
+		vec4[] mesh.quad.length = len // size up the geometry
+		mesh.length = 0
 	}
 
 	charBounds(off){
 		// lets find the bounds rectangle for a char
-		var idx = off*6
-		vec4[] mesh = alloc_mesh
-		vec4 m0 = mesh[idx]
-		vec4 m1 = mesh[idx + 1]
-		vec4 m2 = mesh[idx + 2]
-		return {
-			x:m0.x
-			y:m0.y
-			w:m1.x - m0.x
-			h:m2.y - m0.y
+		vec4[] mesh = mesh
+		var obj = {
+			x:mesh.quad_tl[off].x
+			y:mesh.quad_tl[off].y
 		}
-		// lets find the baseline
-		// how do we find it? 2 options.
-		// we can store the baseline in the vertexbuffer in the
-		// newline character, so we scan back till we hit a newline
-		// and then add font_size * line_height
-		// thats pretty cheap
-		// we scan for it in the lines 
+		obj.w = mesh.quad_br[off].x - obj.x
+		obj.h = mesh.quad_br[off].y - obj.y
+		return obj
 	}
 	
 	// white space
 	space(t){
 		if(t===undefined) t = 1
+		var i = 0
 		if(mode_whitespace){
-			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[32])
+			for(; i<t;i++) addChar(glyphy_info.glyphs[32])
 		}
 		else{
 			add_x += glyphy_info.glyphs[32].advance * font_size * t
 		}
-		return t
+		return i
 	}
 
 	newline(t){
 		if(t===undefined) t = 1
+		var i = 0
 		if(mode_whitespace){
-			for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[10])
+			for(; i<t; i++) addChar(glyphy_info.glyphs[10])
 		}
 		add_x = 0
 		add_y += font_size * line_spacing * t
 		lines++
-		return t
+		return i
 	}
 
 	tab(t){
 		if(t===undefined) t = 1
+		var i = 0
 		if(mode_tabs_are_spaces){
 			return space(3 * t)
 		}
 		else {
 			if(mode_whitespace){
-				for(var i = 0; i<t;i++) addChar(glyphy_info.glyphs[9])
+				for(; i<t; i++) addChar(glyphy_info.glyphs[9])
 			}
 			else add_x += glyphy_info.glyphs[9].advance * font_size * t
 		}
-		return t
+		return i
 	}
 
 	addChar(info){
-		vec4[] buf = alloc_mesh
-		var o = alloc_off
-		//add_x = Math.round(add_x)
-		//add_y = Math.round(add_y)
+		vec4[] mesh = mesh
+		var o = mesh.quad.length++
+		var x1 = add_x + font_size * info.min_x
+		var x2 = add_x + font_size * info.max_x
+		var y1 = add_y - font_size * info.min_y
+		var y2 = add_y - font_size * info.max_y
+		var italic = italic_ness * info.height * font_size
 		if(mode_sdf){
-			buf[o].x = add_x + font_size * info.min_x
-			buf[o].y = add_y - font_size * info.min_y
-			buf[o].z = info.tmin_x
-			buf[o].w = info.tmin_y
-			o++
-			buf[o+3].x = buf[o].x = add_x + font_size * info.max_x
-			buf[o+3].y = buf[o].y = add_y - font_size * info.min_y
-			buf[o+3].z = buf[o].z = info.tmax_x
-			buf[o+3].w = buf[o].w = info.tmin_y
-			o++
-			buf[o+1].x = buf[o].x = add_x + font_size * info.min_x + italic_ness * info.height * font_size
-			buf[o+1].y = buf[o].y = add_y - font_size * info.max_y
-			buf[o+1].z = buf[o].z = info.tmin_x
-			buf[o+1].w = buf[o].w = info.tmax_y
-			o+=3
-			buf[o].x = add_x + font_size * info.max_x + italic_ness * info.height * font_size
-			buf[o].y = add_y - font_size * info.max_y
-			buf[o].z = info.tmax_x
-			buf[o].w = info.tmax_y
-			o++
+			mesh.quad_tl[o] = vec4(x1, y1, info.tmin_x, info.tmin_y)
+			mesh.quad_tr[o] = vec4(x2, y1, info.tmax_x, info.tmin_y)
+			mesh.quad_bl[o] = vec4(x1 + italic, y2, info.tmin_x, info.tmax_y)
+			mesh.quad_br[o] = vec4(x2 + italic, y2, info.tmax_x, info.tmax_y)
 		}
 		else{
 			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1
 			var gy = ((info.atlas_y<<6) | info.nominal_h)<<1
-			buf[o].x = add_x + font_size * info.min_x
-			buf[o].y = add_y - font_size * info.min_y
-			buf[o].z = gx
-			buf[o].w = gy
-			o++
-			buf[o+3].x = buf[o].x = add_x + font_size * info.max_x
-			buf[o+3].y = buf[o].y = add_y - font_size * info.min_y
-			buf[o+3].z = buf[o].z = gx | 1
-			buf[o+3].w = buf[o].w = gy
-			o++
-			buf[o+1].x = buf[o].x = add_x + font_size * info.min_x
-			buf[o+1].y = buf[o].y = add_y - font_size * info.max_y
-			buf[o+1].z = buf[o].z = gx
-			buf[o+1].w = buf[o].w = gy | 1
-			o+=3
-			buf[o].x = add_x + font_size * info.max_x
-			buf[o].y = add_y - font_size * info.max_y
-			buf[o].z = gx | 1
-			buf[o].w = gy | 1
-			o++
+			mesh.quad_tl[o] = vec4(x1, y1, gx, gy)
+			mesh.quad_tr[o] = vec4(x2, y1, gx|1, gy)
+			mesh.quad_bl[o] = vec4(x1 + italic, y2, gx, gy|1)
+			mesh.quad_br[o] = vec4(x2 + italic, y2, gx|1, gy|1)
 		}
-		char_off++
 		add_x += info.advance * font_size
-		if(add_x > _text_w)_text_w = add_x
-		alloc_off = o
+		if(add_x > text_w) text_w = add_x
 	}
 
 	string(text, x, y){
 		if(x !== undefined) add_x = x 
 		if(y !== undefined) add_y = y 
 		var length = text.length
-
-		if(alloc_off + length *6 > alloc_length) reallocText(alloc_off / 6 + length)
 		var chars = 0
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
@@ -467,21 +405,15 @@ class TextImpl{
 			addGlyph(info)
 			//console.log(o)
 		}
-		if(add_y > _text_h) _text_h = add_y	
+		if(add_y > text_h) text_h = add_y	
 		return chars
-	}
-
-	updateText(){
-		mesh = alloc_mesh
-		text_w = _text_w
-		text_h = _text_h
 	}
 
 	// we build up an sdf texture that we draw to in once:(){}
 	generateSDFCache(font){
-		var len = font.count * 6
-		vec4[] buf = vec4[len]()
-
+		vec4[] buf = vec4[]()
+		buf.quad.length = font.count
+		buf.length = 0
 		// we have to allocate actual texture positions
 		var font_size = .2
 		// if we render to a font we go -1,-1 bottom left to 1,1 top right
@@ -501,7 +433,6 @@ class TextImpl{
 
 		for(var k in glyphs){
 			var info = glyphs[k]
-
 			// 0___14 
 			// |   /|
 			// |  / |
@@ -511,29 +442,15 @@ class TextImpl{
 			// lets add some vertices
 			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1
 			var gy = ((info.atlas_y<<6) | info.nominal_h)<<1
-			buf[o].x = info.tmin_x = px
-			buf[o].y = info.tmin_y = py
-			buf[o].z = gx
-			buf[o].w = gy
-			o++
-			buf[o+3].x = buf[o].x = info.tmax_x = px + font_size * info.width
-			buf[o+3].y = buf[o].y = py
-			buf[o+3].z = buf[o].z = gx | 1
-			buf[o+3].w = buf[o].w = gy
-			o++
-			buf[o+1].x = buf[o].x = px
-			buf[o+1].y = buf[o].y = info.tmax_y = py - font_size * info.height
-			buf[o+1].z = buf[o].z = gx
-			buf[o+1].w = buf[o].w = gy | 1
-			o+=3
-			buf[o].x = px + font_size * info.width
-			buf[o].y = py - font_size * info.height
-			buf[o].z = gx | 1
-			buf[o].w = gy | 1
-			o++
-			px += (info.tmax_x-info.tmin_x) + margin//glyph.advance * font_size
+			var o = buf.quad.length++
+			buf.quad_tl[o] = vec4(info.tmin_x = px, info.tmin_y = py, gx, gy)
+			buf.quad_tr[o] = vec4(info.tmax_x = px + font_size * info.width, py, gx|1, gy)
+			buf.quad_bl[o] = vec4(px, info.tmax_y = py - font_size * info.height, gx, gy|1)
+			buf.quad_br[o] = vec4(px + font_size * info.width, py - font_size * info.height, gx|1, gy|1)
+
+			px += (info.tmax_x - info.tmin_x) + margin//glyph.advance * font_size
 			// scale it into texture coordinates
-			var my_h = (info.tmin_y-info.tmax_y) + margin
+			var my_h = (info.tmin_y - info.tmax_y) + margin
 			if(my_h > maxh) maxh = my_h
 
 			info.tmin_x = info.tmin_x *.5 + .5
@@ -1047,7 +964,7 @@ class TextImpl{
 
 		u_distance = gsdist * 0.003
 		
-		vec4 exit = paint(p, dpdx.x, dpdx.y, m)
+		vec4 exit = paint(p, dpdx, dpdx, m)
 		if(exit.a >= 0.){
 			return exit
 			return vec4(#red,1.)
@@ -1138,253 +1055,5 @@ class TextImpl{
 
 			return out_color
 		}*/
-	}
-}
-
-// text with extra tag struct
-class TaggedTextImpl extends TextImpl{
-
-	
-	dontProxy('tag_x','tag_y','alloc_tags')
-
-	tag_x = 0
-	tag_y = 0
-
-	charTag(off){
-		return vec4[] alloc_tags[off * 6]
-	}
-	
-	charTag_z(off){
-		return vec4[] alloc_tags[off * 6].z
-	}
-
-	reserialize(){
-		var s = ''
-		vec4[] buf = alloc_tags
-		for(var i = 0;i<char_off;i++){
-			s += String.fromCharCode(buf[i*6].z)
-		}
-		return s
-	}
-	
-	// turn a baseline into a an approximate top
-	baseToTop(y){
-		return y + font_size * cursor_sink - line_height 
-	}
-
-	// fetch the baseline of a character by offset
-	charBaseline(off){
-		// scan backwards to newline and add a line.
-		// if 0 return 0
-		var o = off * 6
-		vec4[] tags = alloc_tags
-		vec4[] mesh = alloc_mesh
-		while(o >= 0){
-			if(tags[o].z == 10){
-				var base = mesh[o].y
-				if(off*6 != o) base += line_height
-				return base
-			} // newline
-			o--
-		}
-		return 0
-	}
-
-	// return the cursor rectangle based on an offset
-	cursorRect(off){
-		var bounds = charBounds(off)
-		var base = charBaseline(off)
-		var height = line_height//font_size * cursor_spacing
-		base += font_size * cursor_sink
-		return {
-			x:bounds.x
-			y:base - height
-			w:bounds.w
-			h:height
-		}
-	}
-
-	// calculate the cursor offset from mouse position
-	offsetFromPos(x, y){
-		vec4[] tags = alloc_tags
-		vec4[] mesh = alloc_mesh
-		var height = line_height
-		for(var o = alloc_off - 6; o >= 0; o -= 6){
-			if(o == 0 || tags[o].z == 10){
-				// the baseline
-				var base = o==0 ? 0: mesh[o].y
-				base += font_size * cursor_sink
-				//console.log(base-height, y, base)
-				if(y < base && y >= base - height){
-					while(o >= 0){
-						var hx = (mesh[o].x + mesh[o+1].x)/2
-						if(x >= mesh[o].x && x < hx){
-							return o/6
-						}
-						if(x > hx){
-							if(tags[o].z == 10) return o / 6
-							return o / 6 + 1
-						}
-						o -=6
-					}
-					return -1
-				}
-			}
-		}
-		return -1
-	}
-	tags = vec4[]()
-	tag_pos: vec2(floor(mod(abs(tags[].w),256.)), floor(abs(tags[].w)/256.))
-	
-	tagChar(off, length, x, y, z){
-		var o = off
-		vec4[] buf = alloc_tags
-		for(var i = 0; i < length; i++){
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 0.1
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 1
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 256
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 256
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 1
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 257
-			o++
-		}
-	}
-
-	reallocText(extra){
-
-		vec4[] old_tags = alloc_tags
-		var old_length = alloc_length
-
-		TextImpl::reallocText(extra)
-
-		alloc_tags = vec4[alloc_length]()
-		vec4[] ntags = alloc_tags
-		for(var i = 0;i<old_length;i++){
-			ntags[i].x = old_tags[i].x
-			ntags[i].y = old_tags[i].y
-			ntags[i].z = old_tags[i].z
-			ntags[i].w = old_tags[i].w
-		}
-	}
-
-	allocText(length){
-		TextImpl::allocText(length)
-		alloc_tags = vec4[alloc_length]()
-	}
-
-	updateText(){
-		TextImpl::updateText()
-		tags = alloc_tags
-	}
-	/*
-	insertText(offset, length){
-		var from = alloc_off
-		var to = alloc_off + length * 6
-		for(var i = start64;i>=offset;i-=6){
-			var i1 = i+length
-			mesh[i1].x = mesh[i].x
-			mesh[i1].y = mesh[i].y
-			mesh[i1].z = mesh[i].z
-			mesh[i1].w = mesh[i].w
-		}
-	}*/
-
-	newline(t = 1){
-		var off = alloc_off
-		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
-		var i = TextImpl::newline(t)
-		tagChar(off, i, tag_x, tag_y, 10)
-		return i
-	}
-
-	tab(t = 1){
-		var off = alloc_off
-		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
-		var i = TextImpl::tab(t)
-		tagChar(off, i, tag_x, tag_y, 9)
-		return i
-	}
-
-	space(t = 1){
-		var off = alloc_off
-		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
-		var i = TextImpl::space(t)
-		tagChar(off, i, tag_x, tag_y, 32)
-		return i
-	}
-
-	string(text, x, y){
-		if(x !== undefined) add_x = x 
-		if(y !== undefined) add_y = y 
-		var length = text.length
-		var chars = 0
-		if(alloc_off + length * 6 > alloc_length) reallocText(alloc_off / 6 + length)
-
-		// alright lets convert some text babeh!
-		for(var i = 0; i < length; i++){
-			var unicode = text.charCodeAt(i)
-
-			// parse inline tags
-			if(inline_tags && (unicode == 36||unicode==37)){
-				var t = i
-				var next
-				while((next = text.charCodeAt(t+1)) >= 48 && next <=57){
-					t++
-				}
-				if(i != t){
-					var out = parseInt(text.slice(i+1, i-t))
-					if(unicode == 36) tag_x = out
-					else tag_y = out
-					i = t
-					continue
-				}
-			}
-			if(unicode == 32){
-				chars += space()
-				continue
-			}
-			if(unicode == 10){ // newline
-				chars += newline()
-				continue
-			}
-			if(unicode == 9){ // tab
-				chars += tab()
-			}
-			var glyph = glyphy_info.glyphs[unicode]
-			if(!glyph){
-				chars += space()
-				continue
-			}
-			// lets add some vertices
-			var off = alloc_off
-			addChar(glyph)
-			chars++
-			tagChar(off, 1, tag_x, tag_y, unicode)
-		}
-		if(add_y > _text_h) _text_h = add_y	
-		return chars
 	}
 }

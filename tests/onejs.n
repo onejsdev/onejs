@@ -131,45 +131,60 @@ Language(){
 	assert(nest[2].pos.x == 10)
 
 	// struct access
-	struct vec_t{
+	struct test_t extends geom_t{
 		float x
 		float y
 		
 		negate(){
-			return vec_t(-x, -y)
+			return test_t(-x, -y)
 		}
 
-		negate(vec_t v){
+		negate(test_t v){
 			x = -v.x
 			y = -v.y
 		}
 	}
 
-	vec_t v1(1,2)
-	vec_t v2 = v1.negate()	
+	test_t v1(1,2)
+	test_t v2 = v1.negate()	
 
 	assert(v2.x == -1)
 	assert(v2.y == -2)
 
-	vec_t v3 = vec_t.negate(v2)
+	test_t v3 = test_t.negate(v2)
 
 	assert(v3.x == 1)
 	assert(v3.y == 2)
 
 	// nested structs and array types
 	struct rect_t{
-		vec_t[2] p
+		test_t[2] p
 	}
 
 	rect_t[] rt = rect_t[2](0,1,2,3,4,5,6,7)
 	assert(rt[1].p[1].y == 7)
 
-	rt[1].p[1] += vec_t(3,4)
+	rt[1].p[1] += test_t(3,4)
 	
 	assert(rt[1].p[1].y == 11)
 
 	vec4[2] tv4(0,1,2,3,4,5,6,7)
 	var tv4a = vec4[2](0,1,2,3,4,5,6,7)
+
+	assert(tv4a[1][1] == 5)
+
+	// mappings
+	var maptest = test_t[]()
+	maptest.tri.length = 1
+	assert(maptest.length == 3)
+	maptest.tri[0].x = 10
+	assert( maptest[0].x == 10 && maptest[1].x == 10 && maptest[2].x == 10 && maptest[0].y == 0 && maptest[1].y == 0 && maptest[2].y == 0 )
+
+	maptest.tri[0] += test_t(20)
+	maptest.tri_a[0].x += 10
+	var mapadd = test_t(5,6)
+	maptest.tri_b[0] += mapadd
+	assert( maptest[0].x == 40 && maptest[1].x == 35 && maptest[2].x == 30 && maptest[0].y == 20 && maptest[1].y == 26 && maptest[2].y == 20 )
 
 	// array splats
 	var s1 = [1,2,3], s2 = [5,6,7]

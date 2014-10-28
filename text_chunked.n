@@ -11,7 +11,6 @@
 //   limitations under the License.
 
 import math
-import text
 import text_marked
 
 // chunked text behaves like text
@@ -20,20 +19,19 @@ class ChunkedTextLayerImpl{
 
 	dontProxy('default_alloc', 'chunk_lines',
 		'text_initialized','chunk_list','line_height',
-		'cache_chunk','last_chunk','add_y','char_off')
+		'cache_chunk','last_chunk','add_y','char_count')
 	//dump = 1
 	// load up the renderer
 	load(MarkedTextLayerImpl)
 
-	vertex: (mesh[].xy+vec2(text_x, text_y)) * (m_world * device.m_camera)
-
 	// this thing holds the data, but not the rendering
 	class Chunk extends WorkerProxy{
 		load(MarkedTextLayerImpl)
+		dontProxy('total_count')
 		y = 0
 		constructor(parent){
 			this.parent = parent
-			glyphyFromParent(parent)
+			MarkedTextLayerImpl::constructor(parent)
 			if(!parent.chunk_list)parent.chunk_list = []
 			parent.chunk_list.push(this)
 		}
@@ -45,13 +43,13 @@ class ChunkedTextLayerImpl{
 			parent.redraw()
 		}
 	}
-	// alright we have a Chunk which holds data
-	// and a data API but isnt actually a rendernode
-	// so how do we draw those things
+
+	// todo make this windowed by scroll 
 	drawSelf:(sec){
 		// draw markers
 		for(var chunk from chunk_list){
-			markers = chunk.markers
+			marker_mesh = chunk.marker_mesh
+			//if(!marker_mesh.length) continue
 			text_y = chunk.y
 			this{
 				pixel:marker_paint()
@@ -61,14 +59,31 @@ class ChunkedTextLayerImpl{
 		// lets draw our text
 		for(var chunk from chunk_list){
 			mesh = chunk.mesh
-			tags = chunk.tags
+			tag_mesh = chunk.tag_mesh
 		 	text_y = chunk.y
 			this{}
+		}
+		// lets draw our cursors
+		for(var chunk from chunk_list){
+			cursor_mesh = chunk.cursor_mesh
+		 	text_y = chunk.y
+			this{
+				pixel:cursor_paint()
+				vertex:cursor_vertex
+			}
 		}
 	}
 
 	default_alloc = 5000
 	chunk_lines = 100
+
+	get char_count(){
+		return __char_count
+	}
+
+	set char_count(v){
+		__char_count = v
+	}
 
 	constructor(){
 		MarkedTextLayerImpl::constructor()
@@ -76,8 +91,8 @@ class ChunkedTextLayerImpl{
 		last_chunk = this.Chunk.new(this)
 		last_chunk.chunk_id = 0
 		last_chunk.allocText(default_alloc)
-		last_chunk.accum_off = 0
-		char_off = 0
+		last_chunk.total_count = 0
+		__char_count = 0
 		add_y = 0
 		//last_chunk.style = style
 	}
@@ -89,24 +104,31 @@ class ChunkedTextLayerImpl{
 		while(cache_chunk && y < cache_chunk.baseToTop(cache_chunk.y)){
 			cache_chunk = chunk_list[cache_chunk.chunk_id -1]
 		}
+		if(!cache_chunk){
+			return 0
+		}
 		while(cache_chunk && y >= cache_chunk.baseToTop(cache_chunk.y) + cache_chunk.add_y){
 			cache_chunk = chunk_list[cache_chunk.chunk_id + 1]
 		}
-		if(!cache_chunk) cache_chunk = last_chunk
+		if(!cache_chunk){
+			cache_chunk = chunk_list[chunk_list.length - 1]
+			//console.log('here',  cache_chunk.char_count )
+			return cache_chunk.total_count + cache_chunk.char_count
+		}
 		// lets find the closest character
-		return cache_chunk.offsetFromPos(x, y - cache_chunk.y) + cache_chunk.accum_off
+		return cache_chunk.offsetFromPos(x, y - cache_chunk.y) + cache_chunk.total_count
 	}
 
 	cursorRect(off){
 		var chunk = findChunk(off)
-		var rect = chunk.cursorRect(off - chunk.accum_off)		
+		var rect = chunk.cursorRect(off - chunk.total_count)		
 		rect.y += chunk.y
 		return rect
 	}
 
 	charBounds(off){
 		var chunk = findChunk(off)
-		var b = chunk.charBounds(off - chunk.accum_off)
+		var b = chunk.charBounds(off - chunk.total_count)
 		// we need to find the actual baseline for this 
 
 		b.y += chunk.y
@@ -117,16 +139,16 @@ class ChunkedTextLayerImpl{
 	charTag(off){
 		// we have to find the right character tag
 		var chunk = findChunk(off)
-		return chunk.charTag_z(off - chunk.accum_off)
+		return chunk.charTag_z(off - chunk.total_count)
 	}
-	
+
 	findChunk(off){
 		// otherwise we scan up or down from cache_chunk
 		if(!cache_chunk) cache_chunk = last_chunk
-		while(cache_chunk && off < cache_chunk.accum_off){
+		while(cache_chunk && off < cache_chunk.total_count){
 			cache_chunk = chunk_list[cache_chunk.chunk_id -1]
 		}
-		while(cache_chunk && off >= cache_chunk.accum_off + cache_chunk.char_off){
+		while(cache_chunk && off >= cache_chunk.total_count + cache_chunk.char_count){
 			cache_chunk = chunk_list[cache_chunk.chunk_id + 1]
 		}
 		if(!cache_chunk) cache_chunk = last_chunk
@@ -135,7 +157,7 @@ class ChunkedTextLayerImpl{
 
 	charTag_z(off){
 		var chunk = findChunk(off)
-		return chunk.charTag_z(off - chunk.accum_off)
+		return chunk.charTag_z(off - chunk.total_count)
 	}
 
 	reserialize(){
@@ -148,7 +170,7 @@ class ChunkedTextLayerImpl{
 
 	charBaseline(off){
 		var chunk = findChunk(off)
-		return chunk.charBaseline(off - chunk.accum_off) + chunk.y
+		return chunk.charBaseline(off - chunk.total_count) + chunk.y
 	}
 	
 	reallocText(extra){
@@ -159,22 +181,17 @@ class ChunkedTextLayerImpl{
 		//last_chunk.allocText(length)
 	}
 
-	updateText(){
-		last_chunk.updateText()
-	}
-
 	tagChar(off, length, x, y, z){
 		last_chunk.tagChar(off, length, x, y, z)
 	}
 
 	newline(t){
-		char_off += last_chunk.newline(t)
+		char_count += last_chunk.newline(t)
 		if(last_chunk.lines > chunk_lines){
-			last_chunk.updateText()
 			var new_chunk = this.Chunk.new(this)
 			// complete last_chunk
 			add_y += last_chunk.add_y
-			new_chunk.accum_off = last_chunk.char_off + last_chunk.accum_off
+			new_chunk.total_count = last_chunk.char_count + last_chunk.total_count
 			new_chunk.chunk_id = chunk_list.length - 1
 			new_chunk.y = add_y 
 			last_chunk = new_chunk
@@ -183,30 +200,63 @@ class ChunkedTextLayerImpl{
 	}
 
 	tab(t){
-		char_off += last_chunk.tab(t)
+		char_count += last_chunk.tab(t)
 	}
 
 	space(t){
-		char_off += last_chunk.space(t)
+		char_count += last_chunk.space(t)
 	}
 
 	string(text, x, y){
 		// lets add text to our last last_chunk
 		last_chunk.tag_x = tag_x
 		last_chunk.tag_y = tag_y
-		char_off += last_chunk.string(text, x, y)
+		char_count += last_chunk.string(text, x, y)
 	}
 
-	addMarkers(start, end){
-		chunk_list[0].allocMarkers(100)
-		chunk_list[0].addMarkers(start, end)
+	// ok lets first do a clear all, start from scratch kinda thing.
+	addMarkers(start, end, data){
+		if(end < start){
+			var t = end
+			end = start
+			start = t
+		}
+		var chunks = []
+		var array = []
+		// first we are going to build the marker extents array
+		for(var cs = findChunk(start); cs && cs.total_count < end; cs = chunk_list[cs.chunk_id+1]){
+			// now lets mark it from the right start t oend
+			var array_start = array.length
+			cs.getMarkers(max(start, cs.total_count) - cs.total_count, 
+				end - cs.total_count, array)
+			chunks.push(cs, array_start, array.length)
+		}
+		// then we write all the markers into the chunks
+		for(var i = 0; i < chunks.length; i += 3){
+			var chunk = chunks[i]
+			var jstart = chunks[i+1]
+			var jend = chunks[i+2]
+			for(var j = jstart; j < jend; j++){
+				chunk.addMarker(array[j-1], array[j], array[j+1], data)
+			}
+			chunk.marked = true
+		}
 	}
 
 	clearMarkers(){
-		chunk_list[0].clearMarkers()
+		for(var chunk from chunk_list){
+			chunk.clearMarkers()
+		}
 	}
 
-	updateText(){
-		chunk_list[0].updateText()
+	clearCursors(){
+		for(var chunk from chunk_list){
+			chunk.clearCursors()
+		}
+	}
+
+	addCursor(pos){
+		var chunk = findChunk(pos)
+		chunk.addCursor(pos - chunk.total_count)
 	}
 }

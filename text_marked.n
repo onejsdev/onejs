@@ -18,22 +18,29 @@ import distfield2d
 // text with marker layer and cursor layer
 class MarkedTextLayerImpl extends TaggedTextImpl{
 
-	marker_zpos = -2
-	vertex: (mesh[].xy+vec2(text_x, text_y)) * (m_world * device.m_camera)
-	marker_vertex: vec3(markers[].pos + vec2(text_x, text_y),marker_zpos) * (m_world * device.m_camera)
-	
-	u_markcolor = #red
-
-	struct marker_t{
+	struct marker_t extends geom_t{
 		vec2 pos 
 		vec4 rect
 		vec4 other
 		float data
 		float corner
 	}
+
+	constructor(parent){
+		marker_mesh = marker_t[]()
+		cursor_mesh = vec4[]()
+		TaggedTextImpl::constructor(parent)
+	}
+
+	marker_zpos = -2
+	vertex: (mesh[].xy+vec2(text_x, text_y)) * (m_world * device.m_camera)
+	marker_vertex: vec3(marker_mesh[].pos + vec2(text_x, text_y), marker_zpos) * (m_world * device.m_camera)
+	cursor_vertex: vec3(cursor_mesh[].xy + vec2(text_x, text_y), cursor_zpos) * (m_world * device.m_camera)
+
+	u_markcolor = #red
+
 	u_border_radius = 1.5
-	u_gloop = 6.
-	markers = marker_t[]()
+	u_gloop = 6
 
 	// what i want is a super basic drawing api. how do we do it.
 	marker_style:(field, pos){
@@ -41,18 +48,19 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 	}
 
 	marker_paint:(){
-		var pos = markers[].pos 
-		var rect = pixel markers[].rect
+		var pos = marker_mesh[].pos 
+		var rect = pixel marker_mesh[].rect
 		var rel = pos - rect.xy
 		// do pixel antialias calc
 		float edge = min(length(vec2(length(dFdx(rel)), length(dFdy(rel)))) * SQRT_1_2,1.)
 
-		vec4 other = pixel markers[].other
+		vec4 other = pixel marker_mesh[].other
 		var px1 = other.x
 		var px2 = other.y
 		var nx1 = other.z
 		var nx2 = other.w
 		// main shape
+		
 		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
 		if(px1 != px2){
 			var field2 = roundbox(rel, px1 - rect.x, -rect.w, px2 - px1, rect.w, u_border_radius)
@@ -62,8 +70,10 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 			var field2 = roundbox(rel, nx1 - rect.x, rect.w, nx2 - nx1, rect.w, u_border_radius)
 			field = smoothpoly(field, field2, u_gloop)
 		}
-		/*
+		
 		// we have to shift the edge box to meet the hollow border radius of the next selection
+		/*
+		var field = roundbox(rel, 0,0, rect.z, rect.w, u_border_radius)
 		var correction = u_border_radius*1.9
 		// top part shape connection
 		if(px1 != px2){
@@ -102,7 +112,8 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 			if(nx2<rect.x) field = union(field,box(rel,0.,rect.w*.5,u_border_radius*2.,rect.w*.5))
 
 			field = union(field, corner)
-		}*/
+		}
+		*/
 		field = marker_style(field, pos)
 		var alpha = smoothstep(edge,-edge,field)
 		if(alpha<0.001) discard;
@@ -110,138 +121,123 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 		return vec4(u_markcolor, alpha)
 	}
 	
-	mark_pos: vec2(floor(mod(markers[].corner,2.)), floor(abs(mod(markers[].corner,4.)/2.)))
+	mark_pos: vec2(floor(mod(marker_mesh[].corner,2.)), floor(abs(mod(marker_mesh[].corner,4.)/2.)))
 
 	clearMarkers(){
-		vec4 tags = alloc_tags
-		for(var m = 0; m < alloc_off *6; m++){
-			var tag = tags[m].w
-			if(tag<0) tags[m].w = -tag
+		if(marker_mesh.length > 0){
+			vec4[] tags = tag_mesh
+			for(var m = tags.quad.length - 1; m >= 0; m--){
+				if(tags.quad[m].w<0) tags.quad[m].w *= -1
+			}
+			tag_mesh.length += 0
+			marker_mesh.length = 0
 		}
-		alloc_markers = marker_t[]()
 	}
 
-	allocMarkers(length){
-		alloc_markoff = 0
-		alloc_marklen = length * 6
-		alloc_markers = marker_t[alloc_marklen]()
-	}
-
-	updateText(){
-		if(alloc_markers) markers = alloc_markers
-		TaggedTextImpl::updateText()
-	}
-
-	reallocMarkers(count){
-
-	}
-	
 	addMarker(prev, self, next, data){
-		vec4[] mesh = alloc_mesh
-		vec4[] tags = alloc_tags
-		marker_t[] markers = alloc_markers
-		// lets fetch the rect of our mesh
-		var o = alloc_markoff
-		marker_t[] buf = alloc_markers
-		// 0___14
-		// |   /|
-		// |  / |
-		// | /  |
-		// |/   |
-		// 23---5
-		for(var i = 0;i<6;i++){
-			buf[o+i].rect.x = self.x
-			buf[o+i].rect.y = self.y
-			buf[o+i].rect.z = self.w
-			buf[o+i].rect.w = self.h
-		}
+		vec4[] tags = tag_mesh
+		marker_t[] mrk = marker_mesh
+
+		var o = mrk.quad.length++
 
 		var px1 = 0,px2 = 0,nx1 = 0,nx2 = 0
 		if(prev) px1 = prev.x, px2 = prev.x2
 		if(next) nx1 = next.x, nx2 = next.x2
-
-		for(var i = 0;i<6;i++){
-			var oi = o+i
-			buf[oi].rect.x = self.x
-			buf[oi].rect.y = self.y
-			buf[oi].rect.z = self.w
-			buf[oi].rect.w = self.h
-			buf[oi].other.x = px1
-			buf[oi].other.y = px2
-			buf[oi].other.z = nx1
-			buf[oi].other.w = nx2
-		}
-
-		buf[o].pos.x = self.x - font_size
-		buf[o].pos.y = self.y
-		buf[o].data = data // edge flags and rect
-		buf[o].corner = 0 
-		o++
-		buf[o+3].pos.x = buf[o].pos.x = self.x2 + font_size*3.
-		buf[o+3].pos.y = buf[o].pos.y = self.y
-		buf[o+3].data = buf[o].data = data
-		buf[o+3].corner = buf[o].corner = 1 
-		o++
-		buf[o+1].pos.x = buf[o].pos.x = self.x - font_size*3.
-		buf[o+1].pos.y = buf[o].pos.y = self.y2
-		buf[o+1].data = buf[o].data = data
-		buf[o+1].corner = buf[o].corner = 2 
-		o+=3
-		buf[o].pos.x = self.x2 + font_size*3.
-		buf[o].pos.y = self.y2
-		buf[o].data = data
-		buf[o].corner = 3 
-		o++
-		alloc_markoff = o
-
+		
+		mrk.quad[o].data = data
+		mrk.quad[o].rect = vec4(self.x, self.y, self.w, self.h)
+		mrk.quad[o].other = vec4(px1, px2, nx1, nx2)
+		mrk.quad_tl[o].pos = vec2(self.x - font_size, self.y)
+		mrk.quad_tl[o].corner = 0
+		mrk.quad_tr[o].pos = vec2(self.x2 + font_size * 3, self.y)
+		mrk.quad_tr[o].corner = 1
+		mrk.quad_bl[o].pos = vec2(self.x - font_size * 3, self.y2)
+		mrk.quad_bl[o].corner = 2
+		mrk.quad_br[o].pos = vec2(self.x2 + font_size * 3, self.y2)
+		mrk.quad_br[o].corner = 3
+		
 		// lets also signal the text renderer of our selection
-		for(var m = self.start*6; m < (self.end+1)*6; m++){
-			var tag = tags[m].w 
-			if(tag>0) tags[m].w = -tag
+		for(var m = self.start; m < self.end + 1; m++){
+			if(tags.quad[m].w > 0) tags.quad[m].w *= -1
 		}
+		// mark it for update
+		tags.length += 0
 	}
 
-	addMarkers(start, end, prev, next, data){
+	getMarkers(start, end, array){
 		if(end < start){
 			var t = start
 			start = end
 			end = t
 		}
-		vec4[] mesh = alloc_mesh
-		vec4[] tags = alloc_tags
-		var m = []
+		vec4[] mesh = mesh
+		vec4[] tags = tag_mesh
+		var m = array
+		var length = mesh.quad.length
+		if(end > length) end = length
 
 		for(var o = start, last = o; o < end; o++){
-			ch = tags[o*6].z
+			ch = tags.quad[o].z
 			if(o == end - 1 || ch == 10){
 				var r = cursorRect(last)
-				var x = (o+1)*6 == alloc_off || ch == 10? mesh[o*6+1].x: mesh[(o+1)*6].x
+				var x = (o+1) == length || ch == 10? mesh.quad_tr[o].x: mesh.quad_tl[o+1].x
 				r.start = last
 				r.end = o
 				r.w = x - r.x
 				r.x2 = r.x + r.w
 				r.y2 = r.y + r.h
-				m.push(r)
+				array.push(r)
 				last = o+1
 			}
 		}
-		for(var i = 0;i<m.length;i++){
-			addMarker(m[i-1] || prev, m[i], m[i+1] || next, data)
-		}
-		// return the last marker
-		return m[m.length - 1]
+		return array
 	}
 
-	allocCursors(count){
+	addMarkers(start, end, data){
+		var array = []
+		getMarkers(start, end, array)
+		for(var i = 0;i<array.length;i++){
+			addMarker(array[i-1], array[i], array[i+1], data)
+		}
+		return array
+	}
+	
+	clearCursors(){
+		cursor_mesh.length = 0
+	}
 
+	addCursor(pos, data){
+		var rect = cursorRect(pos)
+		vec4[] cursor = cursor_mesh
+		var o = cursor.quad.length++
+		cursor.quad_tl[o] = vec4(rect.x, rect.y, 0, data)
+		cursor.quad_tr[o] = vec4(rect.x + rect.w, rect.y, 1, data)
+		cursor.quad_bl[o] = vec4(rect.x, rect.y + rect.h, 2, data)
+		cursor.quad_br[o] = vec4(rect.x + rect.w, rect.y + rect.h, 3, data)
+	}
+	
+	addCursors(list){
+		for(var cursor in list){
+			addCursor(cursor.end)
+		}
 	}
 
 	cursor_paint:(){
-		return #white
+		var rel = cursor_pos
+		var dpdx = dFdx(rel)
+		var dpdy = dFdy(rel)
+		var edge = min(length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2, 1.)
+		if(edge > 0.04){
+			if(rel.x < dpdx.x) return vec4(#white, 1.)
+			return vec4(0.)
+		}
+		return vec4(#white, smoothstep(edge,-edge, box(rel, 0,0,0.1,1.)))
 	}
+
 	cursor_zpos = 2.
-	cursors = vec4[]()
-	cursor_vertex: vec3(cursors[].xy,cursor_zpos) * (m_world * device.m_camera)
+	cursor_mesh = vec4[]()
+	
+	cursor_pos: vec2(floor(mod(cursor_mesh[].z,2.)), floor(abs(mod(cursor_mesh[].z,4.)/2.)))
 
 	drawSelf:(sec){
 		this{

@@ -26,6 +26,16 @@ ONE.hacklog = function(txt){
 }
 
 ONE.worker_boot_ = function(host){
+	
+	function delayRunMessage(msg){
+		return function(){
+			var dt = Date.now()
+			if(typeof msg.proxify_cache == 'object') host.proxify_cache = msg.proxify_cache
+			ONE.__modules__[msg.module_name].compiled_function.call(ONE.root)
+			ONE.total_run = Date.now() -dt
+			setTimeout(host.writeModuleCache, 10)
+		}
+	}
 
 	host.onmessage = function(event){
 		var data = event.data
@@ -66,42 +76,20 @@ ONE.worker_boot_ = function(host){
 				ONE.total_parse += ms
 			}
 			else if(msg._type == 'run'){
-				if(ONE.import_queue) ONE.import_complete = ONE.run_message(msg)
-				else ONE.run_message(msg)()
+				if(ONE.import_queue) ONE.import_complete = delayRunMessage(msg)
+				else delayRunMessage(msg)()
 			}
 			else if(msg._type == 'import'){
-				ONE.import_fetch(msg.url, msg.responseType)
+				ONE.importFetch(msg.url, msg.responseType)
 			}
 			else if(msg._type == 'eval_cached'){
 				var module = ONE.root.deserializeModule(msg.module_name, msg.value)
 			}
 		}
-		if(host.msg_queue.length) host.msgFlush()
+		host.postProcess()
 	}
 
-	// message queueing
-	host.msg_start = 0
-	host.msg_queue = []
-	host.msgFlush = function(){
-		//try{
-		this.postMessage(this.msg_queue)
-		//}
-		//catch(e){
-		//	var q = this.msg_queue
-		//	for(var i = 0;i<q.length;i++){
-		//		var keys = Object.keys(q[i])
-		//		for(var j = 0;j<keys.length;j++){
-		//			var x = q[i][keys[j]]
-		//			if(typeof x == 'object'){
-		//				console.log(keys[j] +' '+ Object.keys(x).join(','))
-		//			}
-		//		}
-		//	}
-		//}
-		this.msg_start = Date.now()
-		this.msg_queue = []
-	}.bind(host)
-
+	// module cache
 	host.writeModuleCache = function(){
 		console.log('load time ' + (ONE.total_eval + ONE.total_parse + ONE.total_run + ONE.total_proxify+ ONE.total_deserialize + ONE.total_compile) + ' ' +
 				'eval: ' + ONE.total_eval + ' parse:'+ONE.total_parse + ' run:'+ONE.total_run + ' proxify:'+ONE.total_proxify + ' total_deserialize:'+ONE.total_deserialize+ ' total_compile:'+ONE.total_compile)
@@ -116,38 +104,116 @@ ONE.worker_boot_ = function(host){
 		}
 	}.bind(host)
 
-	host.sendToHost = function(msg){
-		if(this.msg_queue.push(msg) == 1){
-			this.msg_start = Date.now()
-			setTimeout(this.msgFlush, 0)
-		}
+	// message queueing
+	host.msg_queue = []
+	host.msg_transfer = []
+	host.msg_sigblk = []
+	host.transferToHost = function(data){
+		return this.msg_transfer.push(data)
 	}
 
+	host.sendToHost = function(msg, sigblk){
+		if(sigblk) this.msg_sigblk.push(sigblk, msg)
+		this.msg_queue.push(msg)
+	}
+
+	// Set immediate
+	function _setImmediate(cb){
+		return host.immediate_queue.push(cb) + 1
+	}
+	host.immediate_queue = []
+	if(typeof window !== 'undefined') window.setImmediate = _setImmediate
+	else if(typeof global !== 'undefined') global.setImmediate = _setImmediate
+	else setImmediate = _setImmediate
+
+	// Set interval
+	var __setInterval = setInterval
+	function _setInterval(cb, time){
+		return __setInterval(function(){
+			cb()
+			host.postProcess()
+		}, time)
+	}
+	if(typeof window !== 'undefined') window.setInterval = _setInterval
+	else if(typeof global !== 'undefined') global.setInterval = _setInterval
+	else setInterval = _setInterval
+
+	// Set timeout
+	var __setTimeout = setTimeout
+	function _setTimeout(cb, time){
+		return __setTimeout(function(){
+			cb()
+			host.postProcess()
+		}, time)
+	}
+	if(typeof window !== 'undefined') window.setTimeout = _setTimeout
+	else if(typeof global !== 'undefined') global.setTimeout = _setTimeout
+	else setTimeout = _setTimeout
+
+	// vector queue, used to auto transfer typed vectors when their length changes
+	host.vector_queue = []
+
+	// proxification
 	host.proxy_obj = {}
+	host.proxify_queue = []
+	host.proxify_cache = {}
+	host.proxy_uid = 1
+	host.proxy_free = []
 
-	ONE.proxify = function(){
-		var list = ONE.proxify_list
-		ONE.proxify_list = []
-		var dt = Date.now()
-		for(var i = 0, l = list.length; i<l; i++){
-			list[i]._proxify()
+	// do all the things we need to do post a code execution
+	host.postProcess = function(){
+		// process proxification
+		while(host.proxify_queue.length || host.vector_queue.length || host.msg_queue.length || host.immediate_queue.length){
+			if(host.proxify_queue.length){
+				var queue = host.proxify_queue
+				host.proxify_queue = []
+				var dt = Date.now()
+				for(var i = 0, l = queue.length; i<l; i++){
+					queue[i]._proxify()
+				}
+				ONE.total_proxify += Date.now() - dt
+			}
+			// process vector queue
+			if(host.vector_queue.length){
+				var queue = host.vector_queue
+				host.vector_queue = []
+				for(var i = 0;i<queue.length;i++){
+					var q = queue[i]
+					// call the setter to transfer
+					q._bind_[q._key_] = q
+				}
+			}
+			// process the message queue
+			if(host.msg_sigblk.length){
+				var queue = host.msg_sigblk
+				for(var i = 0;i<queue.length;i+=2){
+					queue[i]['__setvalue_'+queue[i+1].name] = undefined
+				}
+				host.msg_sigblk = []
+			}		
+			// first flush what we have
+			if(host.msg_queue.length){
+				var queue = host.msg_queue
+				var transfer = host.msg_transfer
+				host.msg_transfer = []
+				host.msg_queue = []
+				host.postMessage(queue, transfer)
+			}
+			// execute all setImmediates
+			if(host.immediate_queue.length){
+				var queue = host.immediate_queue
+				host.immediate_queue = []
+				for(var i = 0; i<queue.length; i++){
+					queue[i]()
+				}
+			}
 		}
-		ONE.total_proxify += Date.now() - dt
 	}
-
-	ONE.run_message = function(msg){
-		return function(){
-			var dt = Date.now()
-			if(typeof msg.proxify_cache == 'object') ONE.proxify_cache = msg.proxify_cache
-			ONE.__modules__[msg.module_name].compiled_function.call(ONE.root)
-			ONE.total_run = Date.now() -dt
-			setTimeout(host.writeModuleCache, 10)
-		}
-	}
+	
 	ONE.import_queue = 0
 	ONE.import_complete
 
-	ONE.import_fetch = function(url, responseType){
+	ONE.importFetch = function(url, responseType){
 		ONE.import_queue++
 		var req = new XMLHttpRequest()
 		var full_url = ONE.origin + '/' + url
@@ -165,17 +231,18 @@ ONE.worker_boot_ = function(host){
 					if(typeof mod.instance == 'object')
 						mod.instance.name = url
 				}
-				if(!--ONE.import_queue && ONE.import_complete) ONE.import_complete()
+				if(!--ONE.import_queue && ONE.import_complete){
+					ONE.import_complete()
+					host.postProcess()
+				}
 			}
 		}
 		req.send()
 	}
 
 	ONE.compile_cache_queue = []
-	ONE.proxify_list = []
-	ONE.proxify_cache = {}
-	ONE.proxy_uid = 1
-	ONE.proxy_free = []
+
+	// statistics
 	ONE.total_eval = 0
 	ONE.total_proxify = 0
 	ONE.total_parse = 0
@@ -199,16 +266,14 @@ ONE.proxy_ = function(){
 
 		// called when someone makes an instance
 		this._constructor = function(){
-			if(!ONE.proxy_free.length) this.__proxy__ = ONE.proxy_uid++
-			else this.__proxy__ = ONE.proxy_free.pop()
+			if(!ONE.host.proxy_free.length) this.__proxy__ = ONE.host.proxy_uid++
+			else this.__proxy__ = ONE.host.proxy_free.pop()
 			this.defineProperty('__proxy__', { enumerable:false, configurable:true })
 			// store it
 			ONE.host.proxy_obj[this.__proxy__] = this
 
 			// queue up our object proxify
-			if(ONE.proxify_list.push(this) == 1){
-				setTimeout(ONE.proxify, 0)
-			}
+			ONE.host.proxify_queue.push(this)
 		}
 		
 		// make sure extend pre and post dont fire on us
@@ -218,8 +283,8 @@ ONE.proxy_ = function(){
 		// this is necessary otherwise the getter/setter layer never works
 		this._extendPre = function(){
 			if(this == blockPrePost) return // make sure our current.extend doesnt trigger us
-			if(!ONE.proxy_free.length) this.__proxy__ = ONE.proxy_uid++
-			else this.__proxy__ = ONE.proxy_free.pop()
+			if(!ONE.host.proxy_free.length) this.__proxy__ = ONE.host.proxy_uid++
+			else this.__proxy__ = ONE.host.proxy_free.pop()
 			this.defineProperty('__proxy__', { enumerable:false, configurable:true })
 			// store it
 			ONE.host.proxy_obj[this.__proxy__] = this
@@ -235,6 +300,7 @@ ONE.proxy_ = function(){
 			if(this.__lookupSetter__(name)) return
 
 			var store = '__' + name
+			var sigblk = '__setvalue_' + name
 			this[store] = this[name]
 
 			if(!this.__lookupSetter__(name)) Object.defineProperty(this, name, {
@@ -244,7 +310,13 @@ ONE.proxy_ = function(){
 				set:function(v){
 					var old = this[store]
 					this[store] = v
-
+					var sigmsg = this[sigblk]
+					// fastpath to swallow multiple value changes in one execution
+					if(sigmsg && sigmsg._type == 'setvalue' && (!v || !v._transfer_)){
+						console.log('blocking signal')
+						sigmsg.value = v
+						return
+					}
 					if(this.hasOwnProperty('__compilehash__')){
 						// if we switch from value to astnode and back we need a recompile
 						if(v && v.__proxy__ || old && old.__proxy__){
@@ -257,21 +329,21 @@ ONE.proxy_ = function(){
 						else if(old && old._ast_) recompile = true
 
 						if(!recompile){
+							var msg = {_type:'setvalue', _uid:this.__proxy__, name:name}
+							this[sigmsg] = msg
 							if(typeof v !== 'object'){
-								return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
+								msg.value = v
 							}
 							else if(v._t_){
-								// little hack to force the buffer to re-upload in case of fake worker
-								if(v.buffer) v.clean = false
-								return ONE.host.sendToHost({_type:'setvalue', _uid:this.__proxy__, name:name, value:v})
+								if(v._transfer_) msg.value = v._transfer_(ONE.host)
+								else msg.value = v
 							}
+							return ONE.host.sendToHost(msg, this)
 						}
 						// line us up for reproxification
 						if(!this._proxify_flag){
 							this._proxify_flag = true
-							if(ONE.proxify_list.push(this) == 1){
-								setTimeout(ONE.proxify, 0)
-							}
+							ONE.host.proxify_queue.push(this)
 						}
 					}
 				}
@@ -302,6 +374,7 @@ ONE.proxy_ = function(){
 		// proxify builds the message that spawns and updates proxified objects
 		// on the host side.
 		this._proxify = function(){
+
 			// create a proxy id
 			this._proxify_flag = false
 			var proto = Object.getPrototypeOf(this)
@@ -311,7 +384,7 @@ ONE.proxy_ = function(){
 			// iterate the keys we have
 			var comp
 			var msg = {_type:'proxify', _proto:proto.__proxy__, _uid:this.__proxy__}
-
+			var transfers = []
 			var hash = proto.__compilehash__ || ""
 
 			var keys = Object.keys(this)
@@ -319,6 +392,10 @@ ONE.proxy_ = function(){
 
 			for(var i = 0, l = keys.length; i < l; i++){
 				var name = keys[i]
+				// skip all getters and setters
+				if((this.__lookupSetter__(name) || 
+				   this.__lookupGetter__(name)) && !this['on_' + name]) continue
+
 				var prop = this[name]
 				var ch = name.charCodeAt(0)
 
@@ -363,8 +440,16 @@ ONE.proxy_ = function(){
 						else if(prop._t_){ // only copy typed properties
 							this._propertyProxy(name)
 							// make a value-forward getter-setter
-							msg[name] = prop
-							var proto_prop = proto[name]
+							// check if we are doing a transferable
+							if(prop._transfer_){
+								prop._bind_ = this
+								prop._key_ = name
+								msg[name] = prop._transfer_(ONE.host)
+							}
+							else{
+								msg[name] = prop
+							}
+							//var proto_prop = proto[name]
 							//if(proto_prop !== undefined && (!proto_prop._t_ || proto_prop._t_.name != prop._t_.name)){
 							//	throw new Error('Error, cannot change type from baseclass property '+name+' my type: ' + prop._t_.name)
 							//}
@@ -378,6 +463,7 @@ ONE.proxy_ = function(){
 								var local_val = locals[local_name]
 								if(local_val && local_val.__proxy__){
 									msg[local_name] = local_val.__proxy__
+									if(!msg._refs) msg._refs = []
 									msg._refs.push(local_name)
 								}
 								else if(typeof prop != 'object' || (prop && prop._t_)){
@@ -412,7 +498,7 @@ ONE.proxy_ = function(){
 
 					this.proxy_refs = Object.create(null)
 					// WARNING. we might need more strict rules on compiler cache, but lets try it
-					var code = ONE.proxify_cache[hash]
+					var code = ONE.host.proxify_cache[hash]
 					if(code === undefined){
 						code = ''
 						var comp = this.__compiles__
@@ -421,7 +507,7 @@ ONE.proxy_ = function(){
 							code += prop.call(this) + '\n'
 						}
 						code += this._compilePropBinds()
-						ONE.proxify_cache[hash] = code
+						ONE.host.proxify_cache[hash] = code
 						ONE.host.sendToHost({_type:'proxify_cache', key:hash, value:code})
 					}
 					//else console.log('code cache hit!')
@@ -452,6 +538,7 @@ ONE.proxy_ = function(){
 			this.__compilehash__ = hash
 			msg._code = msg._code?msg._code + methods:methods
 			// ok we first send our object with codehash
+
 			ONE.host.sendToHost(msg)
 		}
 
@@ -537,9 +624,10 @@ ONE.proxy_ = function(){
 			var arr = obj[bind_store]
 			var i
 			if(!Array.isArray(arr) || (i = arr.indexOf(this)) == -1){
-				console.log('Unbind property error ' + prop)
+				console.log('Unbind property error ' + prop, this.__proxy__)
+				//throw new Error('unbind')
 				return
-			}
+			} 
 			arr.splice(i, 1)
 		}
 
@@ -556,10 +644,10 @@ ONE.proxy_ = function(){
 				if(this._cleanup) this._cleanup()
 				if(this._deinitBinds) this._deinitBinds()
 			}
-
+		
 			// copy stuff from msg
 			for(var k in msg){
-				if(k.charCodeAt(0) != 95){
+				if(k.charCodeAt(0)!= 95){
 					// store it
 					this[k] = msg[k]
 				}
@@ -656,13 +744,17 @@ ONE.browser_boot_ = function(){
 	if(ONE.fake_worker){
 		worker = {
 			postMessage: function(msg){
-				host.onmessage({data:msg})
+				setTimeout(function(){
+					host.onmessage({data:msg})
+				},0)
 			},
 			onmessage:function(){}
 		}
 		var host = {
 			postMessage: function(msg){
-				worker.onmessage({data:msg})
+				setTimeout(function(){
+					worker.onmessage({data:msg})
+				},0)
 			},
 			onmessage: function(){}
 		}
@@ -739,6 +831,7 @@ ONE.browser_boot_ = function(){
 				this.total_storage += key.length + value.length
 			}
 			catch(e){
+				console.log("clearing storage write_module")
 				this.storage.clear()
 			}
 		},
@@ -793,6 +886,7 @@ ONE.browser_boot_ = function(){
 				return callback(cache)
 			}
 			catch(e){
+				console.log("clearing storage get_proxify")				
 				localStorage.clear()
 				callback({})
 			}
@@ -814,6 +908,7 @@ ONE.browser_boot_ = function(){
 				this.proxify_local_storage++
 			}
 			catch(e){
+				console.log("clearing storage write_proxify", e)				
 				localStorage.clear()
 			}
 			return
@@ -1004,9 +1099,9 @@ ONE.browser_boot_ = function(){
 		var data = event.data
 		// we have to create an object
 		if(Array.isArray(data)){
-
 			for(var i = 0, l = data.length;i < l;i++){
 				var msg = data[i]
+
 				//console.log(msg)
 				if(msg._type == 'setref'){
 					var on_obj = this.proxy_obj[msg._uid]
@@ -1035,8 +1130,13 @@ ONE.browser_boot_ = function(){
 				}
 				else if(msg._type == 'call'){
 					var obj = this.proxy_obj[msg._uid]
-					if(!obj) throw new Error('Call on nonexistant object ' + msg._uid)
-					obj[msg.name].call(obj, msg.args)
+					if(!obj){
+						//throw new Error('Call on nonexistant object ' + msg._uid)
+						console.log('Call on nonexistant object ' + msg._uid)
+					}
+					else{
+						obj[msg.name].call(obj, msg.args)
+					}
 				}
 				else if(msg._type == 'proxify'){
 					// lets check our 
@@ -1222,7 +1322,7 @@ ONE.browser_boot_ = function(){
 		
 	window.onerror = function(msg, url, line) {
 		var name = url.match(/[^\/]*$/)[0]
-		ONE.error(msg + ' in '+name+' line '+line)
+		console.log(msg + ' in '+name+' line '+line)
 		return false
 	}
 } 

@@ -15,25 +15,30 @@ import text
 
 // text with extra tag struct
 class TaggedTextImpl extends TextImpl{
+
+	dontProxy('tag_x','tag_y')
 	
-	dontProxy('tag_x','tag_y','alloc_tags')
+	constructor(parent){
+		tag_mesh = vec4[]()
+		TextImpl::constructor(parent)
+	}
 
 	tag_x = 0
 	tag_y = 0
 
 	charTag(off){
-		return vec4[] alloc_tags[off * 6]
+		return vec4[] tag_mesh.quad[off]
 	}
 	
 	charTag_z(off){
-		return vec4[] alloc_tags[off * 6].z
+		return vec4[] tag_mesh.quad[off].z
 	}
 
 	reserialize(){
 		var s = ''
-		vec4[] buf = alloc_tags
-		for(var i = 0;i<char_off;i++){
-			s += String.fromCharCode(buf[i*6].z)
+		vec4[] buf = tag_mesh
+		for(var i = 0, l = buf.quad.length; i<l; i++){
+			s += String.fromCharCode(buf.quad[i].z)
 		}
 		return s
 	}
@@ -47,13 +52,13 @@ class TaggedTextImpl extends TextImpl{
 	charBaseline(off){
 		// scan backwards to newline and add a line.
 		// if 0 return 0
-		var o = off * 6
-		vec4[] tags = alloc_tags
-		vec4[] mesh = alloc_mesh
+		var o = off
+		vec4[] tags = tag_mesh
+		vec4[] mesh = mesh
 		while(o >= 0){
-			if(tags[o].z == 10){
-				var base = mesh[o].y
-				if(off*6 != o) base += line_height
+			if(tags.quad[o].z == 10){
+				var base = mesh.quad_tl[o].y
+				if(off != o) base += line_height
 				return base
 			} // newline
 			o--
@@ -77,26 +82,26 @@ class TaggedTextImpl extends TextImpl{
 
 	// calculate the cursor offset from mouse position
 	offsetFromPos(x, y){
-		vec4[] tags = alloc_tags
-		vec4[] mesh = alloc_mesh
+		vec4[] tags = tag_mesh
+		vec4[] mesh = mesh
 		var height = line_height
-		for(var o = alloc_off - 6; o >= 0; o -= 6){
-			if(o == 0 || tags[o].z == 10){
+		for(var o = tags.quad.length - 1; o >= 0; o--){
+			if(o == 0 || tags.quad[o].z == 10){
 				// the baseline
-				var base = o==0 ? 0: mesh[o].y
+				var base = o==0? 0: mesh.quad_tl[o].y
 				base += font_size * cursor_sink
 				//console.log(base-height, y, base)
 				if(y < base && y >= base - height){
 					while(o >= 0){
-						var hx = (mesh[o].x + mesh[o+1].x)/2
-						if(x >= mesh[o].x && x < hx){
-							return o/6
+						var hx = (mesh.quad_tl[o].x + mesh.quad_tr[o].x)/2
+						if(x >= mesh.quad_tl[o].x && x < hx){
+							return o
 						}
 						if(x > hx){
-							if(tags[o].z == 10) return o / 6
-							return o / 6 + 1
+							if(tags.quad[o].z == 10) return o
+							return o + 1
 						}
-						o -=6
+						o --
 					}
 					return -1
 				}
@@ -104,72 +109,26 @@ class TaggedTextImpl extends TextImpl{
 		}
 		return -1
 	}
-	tags = vec4[]()
-	tag_pos: vec2(floor(mod(abs(tags[].w),256.)), floor(abs(tags[].w)/256.))
+	tag_pos: vec2(floor(mod(abs(tag_mesh[].w),256.)), floor(abs(tag_mesh[].w)/256.))
 	
-	tagChar(off, length, x, y, z){
-		var o = off
-		vec4[] buf = alloc_tags
+	tagChar(length, x, y, z){
+		vec4[] tags = tag_mesh
 		for(var i = 0; i < length; i++){
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 0.1
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 1
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 256
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 256
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 1
-			o++
-			buf[o].x = x
-			buf[o].y = y
-			buf[o].z = z
-			buf[o].w = 257
-			o++
-		}
-	}
-
-	reallocText(extra){
-
-		vec4[] old_tags = alloc_tags
-		var old_length = alloc_length
-
-		TextImpl::reallocText(extra)
-
-		alloc_tags = vec4[alloc_length]()
-		vec4[] ntags = alloc_tags
-		for(var i = 0;i<old_length;i++){
-			ntags[i].x = old_tags[i].x
-			ntags[i].y = old_tags[i].y
-			ntags[i].z = old_tags[i].z
-			ntags[i].w = old_tags[i].w
+			var o = tags.quad.length++
+			tags.quad[o] = vec3(x,y,z)
+			tags.quad_tl[o].w = 0.1
+			tags.quad_tr[o].w = 1
+			tags.quad_bl[o].w = 256
+			tags.quad_br[o].w = 257
 		}
 	}
 
 	allocText(length){
 		TextImpl::allocText(length)
-		alloc_tags = vec4[alloc_length]()
+		vec4[] tag_mesh.quad.length = length
+		tag_mesh.length = 0
 	}
 
-	updateText(){
-		TextImpl::updateText()
-		tags = alloc_tags
-	}
 	/*
 	insertText(offset, length){
 		var from = alloc_off
@@ -184,26 +143,20 @@ class TaggedTextImpl extends TextImpl{
 	}*/
 
 	newline(t = 1){
-		var off = alloc_off
-		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
 		var i = TextImpl::newline(t)
-		tagChar(off, i, tag_x, tag_y, 10)
+		tagChar(i, tag_x, tag_y, 10)
 		return i
 	}
 
 	tab(t = 1){
-		var off = alloc_off
-		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
 		var i = TextImpl::tab(t)
-		tagChar(off, i, tag_x, tag_y, 9)
+		tagChar(i, tag_x, tag_y, 9)
 		return i
 	}
 
 	space(t = 1){
-		var off = alloc_off
-		if(alloc_off + t * 6 > alloc_length) reallocText(alloc_off / 6 + t)
 		var i = TextImpl::space(t)
-		tagChar(off, i, tag_x, tag_y, 32)
+		tagChar(i, tag_x, tag_y, 32)
 		return i
 	}
 
@@ -212,8 +165,6 @@ class TaggedTextImpl extends TextImpl{
 		if(y !== undefined) add_y = y 
 		var length = text.length
 		var chars = 0
-		if(alloc_off + length * 6 > alloc_length) reallocText(alloc_off / 6 + length)
-
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
 			var unicode = text.charCodeAt(i)
@@ -250,12 +201,11 @@ class TaggedTextImpl extends TextImpl{
 				continue
 			}
 			// lets add some vertices
-			var off = alloc_off
 			addChar(glyph)
 			chars++
-			tagChar(off, 1, tag_x, tag_y, unicode)
+			tagChar(1, tag_x, tag_y, unicode)
 		}
-		if(add_y > _text_h) _text_h = add_y	
+		if(add_y > text_h) text_h = add_y	
 		return chars
 	}
 }

@@ -372,7 +372,7 @@ class DepTraceGLSL extends AST.Walk{
 		var fields = n.infer.fields
 		var key_name = n.key.name
 
-		if(!fields) throw new Error('key access on type without fields: '  + n.infer.name + '('+n+')')
+		if(!fields) throw new Error('key access on type without fields: '  + n.infer.name + '('+AST.toString(n)+')')
 
 		if(key_name == 'length' && n.infer.dim){
 			n.const_length = n.infer.dim

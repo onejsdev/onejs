@@ -46,8 +46,7 @@ ONE.genjs_ = function(){
 	this.typeCopy = function(input, nomethods){
 		var output = {}
 		output._type_ = 1
-		if(input.base) output.base = this.typeCopy(input.base)
-		output.construct = input.construct
+		
 		for(var field_name in input.fields){
 			if(!output.fields) output.fields = {}
 			output.fields[field_name] =  this.typeCopy(input.fields[field_name], 1)
@@ -58,17 +57,32 @@ ONE.genjs_ = function(){
 		if(input.slots !== undefined) output.slots = input.slots
 		if(input.view !== undefined) output.view = input.view
 		if(input.off !== undefined) output.off = input.off
-
+		if(input.dim !== undefined) output.dim = input.dim
+		for(var mapping_name in input.mappings){
+			if(!output.mappings) output.mappings = {}
+			output.mappings[mapping_name] = input.mappings[mapping_name]
+		}
 		if(!nomethods){
+			// fix constructor list
+			//output.construct = input.construct
 			for(var method_name in input.methods){
 				if(!output.methods) output.methods = {}
-
 				var method = input.methods[method_name]
 				this.Clean.run(method)
 				output.methods[method_name] = method
 			}
 		}
 		return output
+	}
+
+	// horrible way to deal with json not having prototypical inheritance
+	this.typeBase = function(type){
+		if(type.dim !== undefined){
+			var sub = Object.create(type)
+			sub.dim = undefined
+			return sub
+		}
+		return type
 	}
 
 	this.ToJS = this.ToCode.extend(this, function(outer){
@@ -240,6 +254,7 @@ ONE.genjs_ = function(){
 		globals.clearInterval = 1
 		globals.setTimeout = 1
 		globals.clearTimeout = 1
+		globals.setImmediate = 1
 		globals.console = 1
 		globals.__module__ = 1
 		globals.window = 1
@@ -288,7 +303,7 @@ ONE.genjs_ = function(){
 			this.depth = this.depth + this.indent
 			
 			ret += '(' + this.destruc_prefix + nest + '=' + this.destruc_prefix +
-				(nest-1) + acc + ')===undefined||(' + this.newline + this.depth
+				(nest - 1) + acc + ')===undefined||(' + this.newline + this.depth
 			
 			if(v.type == 'Object') ret += this._destrucObject(v, nest + 1, fn, vars)
 			else ret += this._destrucArray(v, nest + 1, fn, vars)
@@ -451,7 +466,7 @@ ONE.genjs_ = function(){
 			if(type){
 
 				// lets make this type av on module
-				this.module.local_types[type.name] = type
+				this.module.local_types[type.name] = outer.typeBase(type)
 				return '__module__.local_types.'+type.name
 			}
 
@@ -589,7 +604,8 @@ ONE.genjs_ = function(){
 						if(ctx._t_) type = ctx._t_
 					}
 					var isthis
-
+					var mapping
+					var mapoff = ''
 					//!TODO why was this again ->
 					if(typeof type == 'object' && type._type_ || (isthis = type = this.type_method)){
 						// alright so now we need to walk back down
@@ -605,39 +621,83 @@ ONE.genjs_ = function(){
 						for(;;){
 							// if we are doing an index, we have to have an array type
 							if(node.index){
-								if(node.object.index) throw new Error('Dont support double indexes on structs')
+								//if(node.object.index) throw new Error('Dont support double indexes on structs')
 								// we can only support indexes on fields with primitive
 								// subtypes or on fields with dimensions.
-								if(!field.dim && field.prim) throw new Error('cannot index primitive field '+outer.AST.toString(n)+' '+n.infer)
+								if(field.dim === undefined && field.prim) throw new Error('cannot index primitive field '+outer.AST.toString(n)+' '+n.infer)
 								if(!field.size) throw new Error('cannot index 0 size field '+outer.AST.toString(n))
 								
 								// so if we have dim, we want index calcs.
 								if(idx!=='') idx += '+'
-								if(field.dim) idx += '('+this.expand(node.index, n) + ')*' + (field.size / outer.viewSize[type.view]) 
-								else idx += '('+this.expand(node.index, n) + ')'
+								if(field.dim !== undefined){
+									idx += '('+this.expand(node.index, n) + ')*' + (field.size / outer.viewSize[type.view]) 
+									if(mapping && type == field){
+										// lets add our mapping multiplier
+										idx = '('+idx+')*' + mapping[0]
+										if(mapping[1] != 0) mapoff = '+' + type.slots * mapping[1]
+									}
+									field = outer.typeBase(field)
+									//Object.getPrototypeOf(field)
+								}
+								else{
+
+									if(node.index.type != 'Value') throw new Error('Cannot use dynamic index on non array struct')
+									var ic = node.index.value
+									idx += '('+this.expand(node.index, n) + ')'
+									var i =0
+									for(var k in field.fields){
+										if(i == ic){
+											field = field.fields[k]
+											break
+										}
+										i++
+									}
+									if(i != ic) throw new Error('Cannot find field with index '+ic + ' on struct')
+								}
 							}
 							else {
 								var fname = node.key && node.key.name || node.name
-								if(fname == 'length' && field.dim){
+								if(fname == 'length' && field.dim !== undefined){
+									if(field == type){
+										if(mapping){
+											if(n.parent.type == 'Assign' || n.parent.type == 'Update')
+												n.infer_multiply = mapping[0]
+											else
+												return base  + '.length/'+mapping[0]
+										}
+										return base + '.length'
+									}
 									return field.dim
 								}
-								var next_field = field.fields[fname]
-								if(!next_field){
-									// what i want is an array saying
-									// check for swizzling.
-									var swiz = this.check_swizzle( fname, field.slots )
-									if(swiz) break
-									throw new Error('Invalid field '+ fname + ' ' +outer.AST.toString(n))
+								if(field.dim !== undefined){
+									// someone is trying to access a field, lets see if its a mapping
+									mapping = field.mappings[fname]
+									if(field.name != type.name && mapping)
+										throw new Error('Cannot access mapping on substructure')
+									if(!mapping){
+										console.log(field)
+										throw new Error('Accessing field on array '+ fname + ' ' +outer.AST.toString(n))
+									}
 								}
-								field = next_field
-								off += field.off
+								else{
+									var next_field = field.fields[fname]
+									if(!next_field){
+										// what i want is an array saying
+										// check for swizzling.
+										var swiz = this.check_swizzle( fname, field.slots )
+										if(swiz) break
+										throw new Error('Invalid field '+ fname + ' ' +outer.AST.toString(n))
+									}
+									field = next_field
+									off += field.off
+								}
 							}
 							if(node == n) break
 							node = node.parent
 						}
 						// alright so what we can do is actually take the pointer and assign to it
 						// minimize the offset
-						var dt =  (off / outer.viewSize[type.view])
+						var dt = (off / outer.viewSize[type.view])
 						var voff = idx
 						if(dt){
 							if(voff!=='') voff += '+' + dt
@@ -660,15 +720,17 @@ ONE.genjs_ = function(){
 										output + '._t_=__module__.local_types.' + ret_type.name
 
 							for(var i = 0;i<swiz.length;i++){
-								ret += ','+output+'['+i+'] = ' + base + '[' + voff + '+' + swiz[i] + ']'
+								ret += ','+output+'['+i+'] = ' + base + '[' + voff + mapoff + '+' + swiz[i] + ']'
 							}
 							ret += ',' + output + ')'
 							return ret
 						}
 						//console.log(node,field)
-						if((!node.index || field.dim) && !field.prim){
+						if(type.dim !== undefined) base += '._array_'
+						//(!node.index || field.dim !== undefined || field.name==type.name && mapping) && 
+						if(!field.prim){
 							n.infer = field
-							n.inferptr = 1
+							n.infer_struct = 1
 							if(swiz){
 								// lets check the swizzle againt duplicates
 								for(var i = 0;i<swiz.length;i++){
@@ -678,16 +740,26 @@ ONE.genjs_ = function(){
 										}
 									}
 								}
-								n.swiz = swiz
+								n.infer_swiz = swiz
 							}
 							// translate this to a new Array
 							this.find_function(n).call_var = 1
+							n.infer_base = base
+							n.infer_offset = voff
+							if(mapping) n.infer_mapping = mapping, n.infer_maptype = type
+							voff += mapoff
 							if(voff == '0') return base
-							this.module.local_types[type.name] = type
+							this.module.local_types[type.name] = outer.typeBase(type)
 							return '('+this.call_tmpvar+'='+base+'.subarray(' + voff + ','+voff + '+' + field.slots + '),'+
 								this.call_tmpvar+'._t_=__module__.local_types.'+type.name+','+this.call_tmpvar+')'
 						}
-						return base + '[' + voff+ ']'
+						if(mapping){
+							n.infer_base = base
+							n.infer_offset = voff
+							n.infer_mapping = mapping
+							n.infer_maptype = type
+ 						}
+						return base + '[' + voff+ mapoff+ ']'
 					}
 				}
 				if(node.type != 'Key' && node.type != 'Index') break
@@ -1235,6 +1307,7 @@ ONE.genjs_ = function(){
 				// lets copy the fields
 				type.fields = Object.create(base.fields || null)
 				type.methods = Object.create(base.methods || null)
+				type.mappings = Object.create(base.mappings || null)
 				type.construct = Object.create(base.construct || null)
 				type.size = base.size
 				type.view = base.view
@@ -1242,6 +1315,7 @@ ONE.genjs_ = function(){
 			else {
 				type.fields = {}
 				type.methods = {}
+				type.mappings = {}
 				type.construct = {}
 				type.size = 0
 				type.view = undefined
@@ -1302,9 +1376,28 @@ ONE.genjs_ = function(){
 						while(name in store) name = name + '_'
 						store[name] = step
 				}
-				else {
-					throw new Error('Cannot use ' + step.type + ' in struct definition')
+				else if(step.type == 'List'){
+					// alright we have a mapping.
+					var items = step.items
+					// we have to be an assign first, then Values
+					var item0 = items[0]
+					if(item0.type != 'Assign') throw new Error('Struct mapping first item in List should be an assign')
+					if(item0.left.type !='Id') throw new Error('Struct mapping assign should be to an Id')
+					if(item0.right.type !='Value') throw new Error('Struct mapping assign should be a value')
+					var map = type.mappings[item0.left.name] = [item0.right.value]
+					for(var j = 1; j<items.length;j++){
+						var item = items[j]
+						if(item.type != 'Value') throw new Error('Struct mapping item should be a value')
+						map.push(item.value)
+					}
 				}
+				else if(step.type == 'Assign'){
+					if(step.left.type !='Id') throw new Error('Struct mapping assign should be to an Id')
+					if(step.right.type !='Value') throw new Error('Struct mapping assign should be a value')
+					type.mappings[step.left.name] = [step.right.value]
+				}
+				else
+					throw new Error('Cannot use ' + step.type + ' in struct definition')
 			}
 			type.slots = type.size / outer.viewSize[type.view]
 			
@@ -1611,13 +1704,20 @@ ONE.genjs_ = function(){
 		
 		this.Update = function( n ){
 			var ret
-			if( n.prefix ) ret = n.op + this.expand(n.arg, n)
+			if( n.prefix ){
+				ret = n.op + this.expand(n.arg, n)
+				if(n.arg.infer_multiply) throw new Error("Cannot put a prefix operator on a multiplied length")
+				if(n.arg.infer_mapping) throw new Error("Cannot put a prefix operator on a mapped struct property")
+			}
 			else {
 				if( n.op === '!') throw new Error("Postfix ! not implemented")
 				if(n.op ==='~'){
 					ret = 'ONE.trace('+this.expand(n.arg, n) + ')'
 				}
-				else ret = this.expand (n.arg, n) + n.op
+				ret = this.expand (n.arg, n)
+				if(n.arg.infer_mapping) throw new Error("Cannot put a postfix operator on a mapped struct property")
+				if(n.arg.infer_multiply) ret = '(('+ret + '+=' + n.arg.infer_multiply+')/'+n.arg.infer_multiply+'-1)'
+				else ret += n.op	
 			}
 			return ret
 		}
@@ -1691,6 +1791,8 @@ ONE.genjs_ = function(){
 			}
 			else if(n.left.type == 'Id' || n.left.type == 'Key' || n.left.type == 'Index'){
 				var left = this.expand(n.left, n, false)
+				var mul
+				if(n.left.infer_multiply) mul = n.left.infer_multiply 
 				if(n.left.onthis){
 					var fn = this.find_function(n)
 					if(fn.root){
@@ -1698,46 +1800,60 @@ ONE.genjs_ = function(){
 					}
 				}
 				// so what operator are we?
-				if(n.left.inferptr){ // we are an assign to a struct type
+				if(n.left.infer_struct){ // we are an assign to a struct type
 					// we need to know what the rhs is.
-					n.right.assign_type = n.left.infer
-					n.right.assign_swiz = n.left.swiz
-					n.right.assign_left = left
-					n.right.assign_op = n.op
+					n.right.struct_assign = n.left
+					n.right.struct_assign_op = n.op
 					var right = this.expand(n.right, n)
-					// lhs not consumed by rhs (constructor calls do that)
-					if(n.right.assign_left){
+					// lhs not consumed by rhs (struct constructor calls consume lhs)
+					if(n.right.struct_assign){
 						if(!n.right.infer || n.right.infer.slots != n.left.infer.slots)
 							throw new Error('Incompatible types in assignment')
-						
 						// do a structure copy
 						// allocate tempvars
 						var func = this.find_function(n)
-						if(!func.type_nesting) func.type_nesting = 2
-						else func.type_nesting += 2
-						
-						if(!func.destruc_vars || func.type_nesting+1 > func.destruc_vars)
-							func.destruc_vars = func.type_nesting
-						
-						var tmp_l = this.destruc_prefix + (func.destruc_vars - 2)
-						var tmp_r = this.destruc_prefix + (func.destruc_vars - 1)
+						var tmp_l = this.destruc_prefix + 0
+						var tmp_r = this.destruc_prefix + 1
+						var tmp_c = this.destruc_prefix + 2
 						var nslots = n.left.infer.slots
-						//var arr = n.left.infer.arr
-						var ret = '(' + tmp_l + '=' + left + ',' + tmp_r + '=' + right
-						var swiz = n.left.swiz
-						if(swiz){
+						// left target is a struct. 
+						if(n.left.infer_struct){
+							if(!func.destruc_vars || func.destruc_vars<3) func.destruc_vars = 3
+
+							var ret = '(' + tmp_c + '=' + n.left.infer_offset + ',' + tmp_l + '=' + n.left.infer_base + ',' + tmp_r + '=' + right
+							var swiz = n.left.infer_swiz
+							var mapping = n.left.infer_mapping
+							var maptype = n.left.infer_maptype
 							for(var i = 0;i<nslots;i++){
-								ret += ',' + tmp_l + '[' + swiz[i] + ']'+
-									n.op + tmp_r + '[' + i + ']'
+								ret += ','
+								var tgtslot = swiz? swiz[i]: i
+								if(mapping){
+									for(var m = mapping.length - 1; m >= 1; m--){
+										ret += tmp_l + '[' + tmp_c + '+' + (mapping[m] * maptype.slots+ tgtslot) +']'
+										if(m == 1) ret += n.op
+										else ret += '='
+									}
+								}
+								else ret += tmp_l + '[' + tmp_c + '+' + tgtslot  + ']' + n.op
+								ret += tmp_r + '[' + i + ']'
 							}
 						}
 						else{
-							for(var i = 0;i<nslots;i++){
-								ret += ',' + tmp_l + '[' + i + ']'+
-									n.op + tmp_r + '[' + i + ']'
+							if(!func.destruc_vars || func.destruc_vars<2) func.destruc_vars = 3
+
+							var ret = '(' + tmp_l + '=' + left + ',' + tmp_r + '=' + right
+							var swiz = n.left.infer_swiz
+							if(swiz){
+								for(var i = 0;i<nslots;i++){
+									ret += ',' + tmp_l + '[' + swiz[i] + ']'+ n.op + tmp_r + '[' + i + ']'
+								}
+							}
+							else{
+								for(var i = 0;i<nslots;i++){
+									ret += ',' + tmp_l + '[' + i + ']' + n.op + tmp_r + '[' + i + ']'
+								}
 							}
 						}
-						func.type_nesting -=2
 						ret += ','+tmp_r+')'
 					}
 					else {
@@ -1745,9 +1861,35 @@ ONE.genjs_ = function(){
 					}
 				}
 				else {
-					ret += left
-					if(ret[ret.length - 1] == '\n') ret += this.indent + this.depth
-					ret += this.space + n.op + this.space + this.expand(n.right, n)
+					if(n.left.infer_mapping){ // we have to duplicate the assignment
+						var mapping = n.left.infer_mapping
+						var maptype = n.left.infer_maptype
+						var func = this.find_function(n)
+
+						if(!func.destruc_vars || func.destruc_vars<2) func.destruc_vars = 2
+						var tgt = this.destruc_prefix + 0
+						var tmp = this.destruc_prefix + 1
+						var base = n.left.infer_base
+						var off = n.left.infer_offset
+						ret += '(' + tmp + '=' + off + ',' + tgt + '=' + base + ','
+						for(var m = mapping.length - 1; m >= 1; m--){
+							ret += tgt + '[' + tmp + '+' + mapping[m] * maptype.slots + ']'
+							if(m == 1) ret += n.op
+							else ret += '='
+						}
+					 	ret += this.expand(n.right, n)
+					 	ret += ')'
+					}
+					else{
+						ret += left
+						if(ret[ret.length - 1] == '\n') ret += this.indent + this.depth
+						if(mul){
+							ret = '(' + ret + this.space + n.op + this.space + '(' + this.expand(n.right, n) + ')*' + mul + ')/' + mul
+						}
+						else{
+							ret += this.space + n.op + this.space + this.expand(n.right, n) 
+						}
+					}
 				}
 			}
 			else {
@@ -1848,7 +1990,6 @@ ONE.genjs_ = function(){
 		this.Unary = function( n ){
 			var arg = this.expand(n.arg, n)
 			var arg_t = n.arg.type
-			
 			if( n.prefix ){
 				if(arg_t == 'Assign' || arg_t == 'Binary' || arg_t == 'Logic' || arg_t == 'Condition')
 					arg = '(' + arg + ')'
@@ -1914,7 +2055,7 @@ ONE.genjs_ = function(){
 			if(!sthis){
 				// lets allocate a tempvar
 				this.find_function(n).call_var = 1
-				this.module.local_types[type.name] = type
+				this.module.local_types[type.name] = outer.typeBase(type)
 
 				var alloc = '(' + this.call_tmpvar+'= '+'new ' + type.view + 'Array(' + type.slots + ')'+',' +
 					this.call_tmpvar + '._t_=__module__.local_types.' + type.name + ',' + this.call_tmpvar + ')'
@@ -1948,40 +2089,48 @@ ONE.genjs_ = function(){
 			if(!func.type_nesting) func.type_nesting = 1
 			else func.type_nesting ++
 			
-			if(!func.destruc_vars || func.type_nesting > func.destruc_vars)
-				func.destruc_vars = func.type_nesting
+			if(!func.destruc_vars || func.type_nesting*2 > func.destruc_vars)
+				func.destruc_vars = func.type_nesting*2
 			
-			var output = this.destruc_prefix + (func.destruc_vars - 1)
-			
+			var output = this.destruc_prefix + (func.destruc_vars - 2)
+			var output_offset = this.destruc_prefix + (func.destruc_vars - 1)
+			var output_base = output
 			var nslots = type.slots
 			var ret
 			var swiz
+			var mapping
+			var maptype
 			var op = '='
-			var off
-			// consume a targetptr
-			if(n.assign_left){
-				ret = '('+output+' = '+n.assign_left
-				swiz = n.assign_swiz
-				//off = 1
-				n.assign_left = undefined
-				op = n.assign_op
+			var offset = ''
+
+			if(n.struct_assign){ // we are an assignment to a struct datatype
+				var struct = n.struct_assign
+				ret = '('+output+'='+struct.infer_base + ',' + output_offset + '=' + struct.infer_offset
+				offset = output_offset + '+'
+				mapping = struct.infer_mapping
+				maptype = struct.infer_maptype
+				swiz = struct.infer_swiz
+				n.struct_assign = undefined
+				op = n.struct_assign_op
 			}
 			else{
 				// store the type on our module for quick reference
 				this.module.local_types[type.name] = type
-				ret = '('+output+'= new '+type.view+'Array('
-				
 				//ret = '('+output+'= {o:0,t:module.'+type.name+','+type.arr+':new '+type.view+'Array('
 				//if(dims) ret += '(' + this.expand(dims, n) + ')*' + nslots + ')}'
 				//else ret += nslots + ')}'
-				
-				if(dims){
-					var dim_code = this.expand(dims, n) 
-					ret += '(' + dim_code + ')*' + nslots + ')' +
-						',' + output + '._t_ = Object.create(__module__.local_types.' + type.name + ' || null), ' +
-						output + '._t_.dim = ' + dim_code 
+				if(dims !== undefined){
+					type = Object.create(type)
+					type.dim = dims
+					var dim_code = dims?this.expand(dims, n):0
+					ret = '('+output+'= new '+type.view+'Vector('+dim_code+',__module__.local_types.' + type.name + ')'
+					output = output + '._array_'
+					//ret += '(' + dim_code + ')*' + nslots + ')' +
+					//	',' + output + '._t_ = Object.create(__module__.local_types.' + type.name + ' || null), ' +
+					//	output + '._t_.dim = ' + dim_code 
 				}
 				else{
+					ret = '('+output+'= new '+type.view+'Array('
 					ret += nslots + ')' +
 						',' + output + '._t_ = __module__.local_types.' + type.name
 				}
@@ -1990,7 +2139,6 @@ ONE.genjs_ = function(){
 					var store = (this.store_pretemp?this.store_pretemp:'this.struct_') + (this.store_tempid++)
 					ret = '((' + output + ' = ' +store +') || ' + ret + ')' 
 				}
-
 			}
 			var slot = 0
 
@@ -2004,6 +2152,7 @@ ONE.genjs_ = function(){
 					for(var i = 0, l = args.length; i<l; i++){
 						walker.call(this, args[i], elem, l  == 1, ntype)
 					}
+					return
 				}
 				// write directly
 				if(typeof elem == 'number' || elem.type == 'Value'){
@@ -2014,26 +2163,43 @@ ONE.genjs_ = function(){
 						//if(off) ret += output+'.o+'
 						var out_slot = slot++
 						if(swiz) out_slot = swiz[out_slot]
-						ret += output+'['+ out_slot +']'+op
+						if(mapping){
+							for(var m = mapping.length-1;m>=1;m--){
+								ret += output+'[' + offset + (mapping[m] * maptype.slots + out_slot ) + ']'
+								if(m == 1) ret += op
+								else ret += '='
+							}
+						}
+						else ret += output+'['+ offset + out_slot +']'+op
 					}
 					ret += val
+					//console.log(ret)
 				}
 				// expand to a var, and decide wether it is compound or primtive.
 				else {
 					var val = this.expand(elem, n)
-					if(!val.infer || !val.infer.methods){ // well assume its a single val
+					if(!elem.infer || elem.infer.prim){ // well assume its a single val
 						ret += ','
 						for(var i = 0, l = issingle?type.slots:1; i < l; i++){
 							//ret += output+'.'+type.arr+'['
 							//if(off) ret += output+'.o+'
 							var out_slot = slot++
 							if(swiz) out_slot = swiz[out_slot]
-							ret += output+'[' + out_slot +']' + op
+							if(mapping){
+								for(var m = mapping.length-1;m>=1;m--){
+									ret += output+'[' + offset + (mapping[m] * maptype.slots + out_slot) + ']'
+									if(m == 1) ret += op
+									else ret += '='
+								}
+							}
+							else ret += output+'['+ offset + out_slot +']'+op
 						}
 						ret += val
+
 					}
 					else {
-						throw new Error('compound error thing')
+						// we need t
+						throw new Error('To implement: typed arguments in struct constructor')
 					}
 				}
 			}
@@ -2043,8 +2209,7 @@ ONE.genjs_ = function(){
 			if(slot%nslots) throw new Error('Incorrect number of fields used in '+name+'() constructor, got '+slot+' expected (multiple of) '+nslots + ' ' +outer.AST.toString(n) )
 			func.type_nesting--
 			
-			ret += ','+output+')'
-
+			ret += ','+output_base+')'
 			n.infer = type
 			
 			return ret
@@ -2295,7 +2460,7 @@ ONE.genjs_ = function(){
 				else if(fn.type == 'Index'){
 					name = fn.object.name
 					// dims might be dynamic
-					dims = fn.index
+					dims = fn.index || 0
 				}
 				else if(fn.type == 'ThisCall'){ // support for calling macros on other objects
 					// check if our object is in locals or context, ifso switch context and find macro
@@ -2661,6 +2826,77 @@ ONE.genjs_compat_ = function(){
 	Float32Array.prototype.__defineSetter__('t', function(v){ this[1] = v })
 	Float32Array.prototype.__defineSetter__('p', function(v){ this[2] = v })
 	Float32Array.prototype.__defineSetter__('q', function(v){ this[3] = v })
+
+	function _Float32Vector(dim, type){
+		this._t_ = Object.create(type || null)
+		this._t_.dim = dim
+		this.__length = dim
+		this._array_ = new Float32Array(dim * type.slots)
+	}
+
+	_Float32Vector.prototype.__defineGetter__('length', function(){ return this.__length })
+	_Float32Vector.prototype.__defineSetter__('length', function(dim){ 
+		var length = dim
+		if(length < 0){
+			length = -length
+			this._transfer_allways_ = true
+			if(length != this._t_.dim){ // always destructively resize when not equal
+				this._t_.dim = length
+				this._array_ = new Float32Array(this._t_.dim * this._t_.slots)
+			}
+		}
+		else if(length > this._t_.dim){
+			var old_array = this._array_
+			this._t_.dim = Math.max(length, 6) * 2
+			var array = this._array_ = new Float32Array(this._t_.dim * this._t_.slots)
+			// a f*ing for loop to memcpy potentially huge things. 'the JIT will save us all'.
+			if(this._transfer_allways_) console.log('Warning resizing a transfer_always Float32Vector ' + length)
+			if(this.__length > 1000) console.log('Warning Float32Vector resize triggered ' + length)
+			for(var i = 0, e = this.__length * this._t_.slots; i < e; i++) array[i] = old_array[i]
+		}
+		if((length || this.__length != length) && this._clean_){
+			this._clean_ = false
+			if(this._bind_) ONE.host.vector_queue.push(this)
+		}
+		this.__length = length
+	})
+
+	// create a compacted transferable
+	_Float32Vector.prototype._transfer_ = function(host){
+		this._clean_ = true
+		var array
+		if(this._transfer_always_){ // just swap the typed array
+			array = this._array_
+			this._array_ = new Float32Array(this._t_.dim * this._t_.slots)
+		}
+		else{
+			// copy the exact sized array out
+			array = new Float32Array(this._array_.buffer, 0, this.__length * this._t_.slots)
+		}
+		host.transferToHost(array.buffer)
+		return {
+			_array_:{buffer:array.buffer},
+			length:this.__length
+		}
+	}
+	// catch people using it untyped
+	for(var i = 0;i<3;i++){
+		Object.defineProperty(_Float32Vector.prototype,i,{
+			get:function(){throw new Error('Guard property hit: Please cast object property to local typed var to access Float32Vector') },
+			set:function(){throw new Error('Guard property hit: Please cast object property to local typed var to access Float32Vector') },
+			enumerable:false
+		})
+	}
+	if(typeof window !== 'undefined'){
+		window.Float32Vector = _Float32Vector
+	}
+	else if(typeof global !== 'undefined'){
+		global.Float32Vector = _Float32Vector
+	}
+	else{
+		Float32Vector = _Float32Vector
+	}
+
 
 	//!TODO add the swizzles: ok now xy yx xyz zyx zxy yzx yzx rgb bgr xyzw wzyx bgra
 

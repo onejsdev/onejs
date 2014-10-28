@@ -1,5 +1,4 @@
 import math
-import gl
 import glscene
 import codeedit
 
@@ -19,12 +18,11 @@ Scene{
 		//u_bgcolor = undefined
 		u_markcolor = #86543a
 
-		u_contrast = 1.1
+		u_contrast = 1.2
 		u_subpixel_distance = 3.
-		u_boldness =0.9//0.5
-
+		u_boldness =1.0//0.5
 		line_spacing = 1.3
-		source = import('gl.n','string')
+		source = import('constraint.n', 'string')
 		ast = parse(source)
 	}
 }

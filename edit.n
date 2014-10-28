@@ -7,78 +7,44 @@ import distfield2d
 class EditImpl{
 
 	// single cursor
-	class Cursor extends Layer{
-
-		constructor(text_layer){
-			parent = this.text_layer = text_layer
-			Layer::constructor()
-			dontProxy('start','end','max')
+	class Cursor{
+		constructor(cursors, id){
+			this.cursors = cursors
+			text_layer = cursors.text_layer
+			this.id = id
 			start = 0
 			end = 0
 			max = 0
-			// denormalized positions
-			ax = 0
-			ay = 0
-			w = 10
-			x = 0
-
-			// cursor that switches from pixel rendering to vector rendering depending on scale
-			draw_cursor:(){
-				var rel = mesh[].xy
-				var dpdx = dFdx(rel)
-				var dpdy = dFdy(rel)
-				var edge = min(length(vec2(length(dpdx), length(dpdy))) * SQRT_1_2, 1.)
-				if(edge > 0.04){
-					if(rel.x < dpdx.x) return vec4(#white, 1.)
-					return vec4(0.)
-				}
-				return vec4(#white, smoothstep(edge,-edge, box(rel, 0,0,0.1,1.)))
-			}
-			pixel:draw_cursor()
 		}
-
+		
 		hideProperties()
-
-		update(){
-			// figure out where the cursor is going
-			var rect = text_layer.cursorRect(end)
-			x = rect.x
-			y = rect.y
-			h = rect.h
-			// we have to generate some marker rects
-			text_layer.clearMarkers()
-			if(start != end){
-				text_layer.addMarkers(start, end)
-			}
-			text_layer.updateText()
-		}
 
 		moveLeft(only_end){
 			end = end - 1
 			if(!only_end) start = end
-			update()
-			max = x
+			max = text_layer.cursorRect(end).x
+			cursors.update()
 		}
 
 		moveRight(only_end){
 			end = end + 1
 			if(!only_end) start = end
-			update()
-			max = x
+			max = text_layer.cursorRect(end).x
+			cursors.update()
 		}
 
 		moveUp(only_end, lines = 1){
 			var rect = text_layer.cursorRect(end)
 			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * text_layer.line_height)
 			if(!only_end) start = end
-			update()
+			cursors.update()
 		}
 
 		moveDown(only_end, lines = 1){
 			var rect = text_layer.cursorRect(end)
 			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * text_layer.line_height)
 			if(!only_end) start = end
-			update()
+			cursors.update()
 		}
 
 		moveTo(x, y, only_end){
@@ -88,7 +54,7 @@ class EditImpl{
 			if(!only_end) change = start != end || change, start = end
 			var r = text_layer.cursorRect(off)
 			max = r.x
-			if(change) update()
+			if(change) cursors.update()
 		}
 
 		isSelection(){
@@ -103,9 +69,33 @@ class EditImpl{
 	// cursor set 
 	class Cursors{
 		constructor(text_layer){
-			list = [Cursor.new(text_layer)]
+			this.text_layer = text_layer
+			list = [Cursor.new(this, 0)]
 		}
 
+		update(){
+			if(pending) return
+			pending = 1
+			setImmediate() do()=>{
+				pending = 0
+				text_layer.clearMarkers()
+				text_layer.clearCursors()
+				// lets update all our render things.
+				for(var cursor from list){
+					if(cursor.start != cursor.end){
+						text_layer.addMarkers(cursor.start, cursor.end)
+					}
+					text_layer.addCursor(cursor.end)
+				}
+			}
+		}
+
+		add(){
+			var cursor = Cursor.new(this,list.length)
+			list.push(cursor)
+			return cursor
+		}
+		// forwards the whole api
 		for(var key in Cursor) bind(key){
 			if(typeof Cursor[key] == 'function'){
 				this[key] = (){
@@ -129,11 +119,26 @@ class EditImpl{
 
 		mouse.leftdown(v)=>{
 			// set cursor start
-			cursors.moveTo(mouse.x, mouse.y)
-			mouse.capture() do =>{
-				// move
-				cursors.moveTo(mouse.x, mouse.y, true)
-
+			// if we are doing a meta-click-drag we need to add a cursor
+			// if we are doing an alt-drag we need to (add?) create cursors
+			// in a rectangle
+			if(key.leftmeta || key.rightmeta){
+				var cursor = cursors.add()
+				
+				// in that case what we need to 
+				cursor.moveTo(mouse.x, mouse.y)
+				mouse.capture() do =>{
+					// move
+					cursor.moveTo(mouse.x, mouse.y, true)
+				}
+			}
+			else{
+				// in that case what we need to 
+				cursors.moveTo(mouse.x, mouse.y)
+				mouse.capture() do =>{
+					// move
+					cursors.moveTo(mouse.x, mouse.y, true)
+				}
 			}
 		}
 

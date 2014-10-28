@@ -14,7 +14,7 @@ import gl
 import math
 import constraint 
 import input
-import text_marked
+import text_tagged
 
 class Scene extends Device{
 
@@ -42,11 +42,11 @@ class Scene extends Device{
 			}
 			proto = Object.getPrototypeOf(proto)
 		}
-		if(!layout_timer) layout_timer = setTimeout(onLayout.bind(this))
+		if(!layout_cb) layout_cb = setImmediate(onLayout.bind(this))
 	}
 
 	onLayout(){
-		layout_timer = undefined
+		layout_cb = undefined
 		solver.solve()
 		// alright so.. how do we get those pesky values to update?
 		redraw()
@@ -149,13 +149,13 @@ class Layer extends Draw{
 }
 
 class Text extends Layer{
-	load(MarkedTextLayerImpl)
+	load(TaggedTextImpl)
 
 	constructor(){
 		Layer::constructor()
-		MarkedTextLayerImpl::constructor()
+		TaggedTextImpl::constructor()
 	}
-
+	vertex: (mesh[].xy+vec2(text_x, text_y)) * (m_world * device.m_camera)
 	font_size = 20
 	u_boldness= 0.8
 	u_color = #white

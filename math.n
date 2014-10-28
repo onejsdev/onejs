@@ -469,8 +469,20 @@ define easeBounce(t){
 	return easeOutBounce(t)
 }
 	
+struct geom_t{
+	// mappings
+	tri = 3,0,1,2
+	tri_a = 3,0
+	tri_b = 3,1
+	tri_c = 3,2
+	quad = 6,0,1,2,3,4,5
+	quad_tl = 6,0
+	quad_tr = 6,1,4
+	quad_bl = 6,2,3
+	quad_br = 6,5
+}
 
-struct vec{
+struct vec_t extends geom_t{
 
 	zero(){
 		_[#] = 0
@@ -691,7 +703,7 @@ struct ivec4{
 	int x, y, z, w
 }
 
-struct vec2 extends vec{
+struct vec2 extends vec_t{
 	float x, y
 
 	random( float scale = 1 ){
@@ -768,7 +780,7 @@ struct vec2 extends vec{
 	}
 }
 
-struct vec3 extends vec{
+struct vec3 extends vec_t{
 	float x, y, z
 
 	random( float scale = 1 ){
@@ -841,7 +853,7 @@ struct vec3 extends vec{
 	}
 }
 
-struct vec4 extends vec{
+struct vec4 extends vec_t{
 	float x, y, z, w
 
 	random( float scale = 1 ){
@@ -885,7 +897,7 @@ struct mat{
 	}
 }
 
-struct quat extends vec{
+struct quat extends vec_t{
 	float x,y,z,w
 
 	identity(){

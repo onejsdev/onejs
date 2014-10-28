@@ -182,7 +182,7 @@ ONE.ast_ = function(){
 		var types = module.types
 		for(var type_name in types){
 			var in_type = types[type_name]
-			blob.types[type_name] = this.typeCopy( in_type)
+			blob.types[type_name] = this.typeCopy(in_type)
 		}
 
 		// lets serialize the types
@@ -226,7 +226,6 @@ ONE.ast_ = function(){
 			blob.macros[macro_name] = this.Clean.run(module.macros[macro_name])
 		}
 		var json =  JSON.stringify(blob)
-		
 		return json
 	}
 
@@ -273,7 +272,7 @@ ONE.ast_ = function(){
 			new_types[type_name] = module.types[type_name]
 		}
 		module.types = new_types
-		
+		//console.log(module.types)
 		var dt = Date.now()
 		module.compiled_function = Function.call(null, '__module__', module.generated_js)(module)
 		ONE.total_compile += Date.now() - dt
@@ -398,6 +397,11 @@ ONE.ast_ = function(){
 				var walk = '\tn.parent = p\nif(this.Pre)this.Pre(n)\n'
 				var clean = '\tdelete n.parent\n'+
 							'\tdelete n.infer\n'+
+							'\tdelete n.infer_struct\n'+
+							'\tdelete n.infer_base\n'+
+							'\tdelete n.infer_offset\n'+
+							'\tdelete n.struct_assign\n'+
+
 							//'\tdelete n.comments\n'+
 							'\tdelete n.genstart\n'+
 							'\tdelete n.genend\n'+

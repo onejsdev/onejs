@@ -12,7 +12,7 @@ class CrazyCode extends CodeView{
     load( FontStyles )
 
 	style:(vec4 pos2){
-		vec4 m = tags[] // magical comments!
+		vec4 m = tag_mesh[] // magical comments!
 		vec2 pos = tag_pos 
 		vec2 center = pos - .5
 
@@ -66,7 +66,7 @@ class CrazyCode extends CodeView{
 	style2:(vec4 pos2){
         
         vec4 c//COMEABS
-		vec4 m = tags[] // maal comments!
+		vec4 m = tag_mesh[] // maal comments!
 		vec2 pos = tag_pos
 		vec2 center = pos - .5
 
@@ -196,7 +196,7 @@ Deck{
 				text = "$0The $1Creative $0Power\n    of the $2GPU"
 				style:(vec4 pos2){
 					var pos = tag_pos
-					int tag = tags[].x
+					int tag = tag_mesh[].x
 					if(tag == 0){
 						u_color = #white
 					}
@@ -350,16 +350,17 @@ Deck{
 			Bullet{
 				font_size = 5
 				x:device.w /2 - 600
+				x: -10
 				y = 0
 				ax = 6
 				ay = 0
 				sx: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
 				sy: 1 + 38.*pow(8.) on abs on sin(.1time.sec)
+				//sx = sy = :4.
 				inline_tags = true
 				style:(vec4 pos2){
 					var pos = tag_pos
-					var tagxy = tags[].xy * vec2(1.,0.12) - vec2(8.,8.)
-
+					var tagxy = tag_mesh[].xy * vec2(1.,0.12) - vec2(8.,8.)
 					int tag = mod(length(tagxy)-2.time.sec,6.)
 					if(tag == 0){
 						u_color = #white
@@ -386,9 +387,16 @@ Deck{
 				var out = ''
 				for(var j = 0;j<200;j++){
 					for(var i = 0;i<17;i++) out += '|%'+j+'$'+(i)+'color = compute('+('00'+i).slice(-2)+','+('00'+j).slice(-2)+',t)'
+					//for(var i = 0;i<2;i++) out += '|$'+(i%2?0:1)+'AA'
+
 					out += '\n'
 				}
 				text = out
+				constructor(){
+					Bullet::constructor()
+					console.log(tag_mesh)
+
+				}
 			}
 		}
 	}
@@ -402,7 +410,7 @@ Deck{
 			inline_tags = true
 			style:(vec4 pos2){
 				var pos = tag_pos
-				int tag = tags[].x
+				int tag = tag_mesh[].x
 				if(tag == 0){
 					u_color = #white
 					u_outline_thickness = 2.+sin(length(pos - .5)*18. + 8.*time.sec)
@@ -431,7 +439,7 @@ Deck{
 			inline_tags = true
 			style:(vec4 pos2){
 				var pos = tag_pos
-				int tag = tags[].x
+				int tag = tag_mesh[].x
 				if(tag == 0){
 					u_color = #white
 					
@@ -460,7 +468,7 @@ Deck{
 			inline_tags = true
 			style:(vec4 pos2){
 				var pos = tag_pos
-				int tag = tags[].x
+				int tag = tag_mesh[].x
 				if(tag == 0){
 					u_color = #white
 				}
@@ -487,7 +495,7 @@ Deck{
 			inline_tags = true
 			style:(vec4 pos2){
 				var pos = tag_pos
-				int tag = tags[].x
+				int tag = tag_mesh[].x
 				if(tag == 0){
 					u_color = #white
 					u_outline = false

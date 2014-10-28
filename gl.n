@@ -57,7 +57,7 @@ class Draw extends WorkerProxy{
 		if(!obj.device) out('no device on class ', obj)
 
 		if(obj.device.onAddChild) obj.device.onAddChild(obj)
-		if(parent.onAddChild) parent.onAddChild(obj)
+		if(parent != obj.device && parent.onAddChild) parent.onAddChild(obj)
 
 		return obj
 	}
@@ -72,7 +72,7 @@ class Draw extends WorkerProxy{
 
 	// API available in draw
 	clearAll:( vec3 col ){
-		gl.clearColor(col[0], col[1], col[2], 1.0)
+		gl.clearColor(col.x, col.y, col.z, 1.0)
 		//gl.colorMask(true, true, true, true)
 		gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT|gl.STENCIL_BUFFER_BIT)
 	}
@@ -521,6 +521,7 @@ class Draw extends WorkerProxy{
 				var skip = false
 				var shader = this.${uid}_shader
 				if(!shader){
+
 					var pix_source = "${pix_shader}"
 					var vtx_source = "${vtx_shader}"
 					var cache_key = pix_source + vtx_source
@@ -674,13 +675,15 @@ class Draw extends WorkerProxy{
 				ret += `
 				
 				var arr_buf = ${buf_name}
-				if(!arr_buf.clean){
-					if(!arr_buf._vb_) arr_buf._vb_ = gl.createBuffer()
-					gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
-					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf.buffer, ${glc.STATIC_DRAW})
-					arr_buf.clean = true
-				}
-				else gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
+				item_count = arr_buf.length
+				if(item_count){
+					if(!arr_buf._uploaded_){
+						if(!arr_buf._vb_) arr_buf._vb_ = gl.createBuffer()
+						gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
+						gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf._array_.buffer, ${glc.STATIC_DRAW})
+						arr_buf._uploaded_ = true
+					}
+					else gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
 				`
 				for(var sub in sub_attr){
 					var type = sub_attr[sub]._t_
@@ -688,12 +691,14 @@ class Draw extends WorkerProxy{
 					var full_name = name + '_' + sub
 
 					ret +=`
-				var al = shader.al_${full_name}
-				gl.enableVertexAttribArray(al)
-				gl.vertexAttribPointer(al, ${sub_type.slots}, ${glc.FLOAT}, false, ${type.size}, ${sub_type.off})
-				item_count = arr_buf.buffer.byteLength / ${type.size}
+					var al = shader.al_${full_name}
+					gl.enableVertexAttribArray(al)
+					gl.vertexAttribPointer(al, ${sub_type.slots}, ${glc.FLOAT}, false, ${type.size}, ${sub_type.off})
 				`
 				}
+				ret +=`
+				}
+				`
 			}
 
 			// plain attributes
@@ -712,20 +717,24 @@ class Draw extends WorkerProxy{
 
 				ret += `
 				var arr_buf = ${buf_name}
-				if(!arr_buf.clean){
-					if(!arr_buf._vb_) arr_buf._vb_ = gl.createBuffer()
-					gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
-					gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf.buffer, ${glc.STATIC_DRAW})
-					arr_buf.clean = true
+				item_count = arr_buf.length
+				if(item_count){
+					if(!arr_buf._uploaded_){
+						if(!arr_buf._vb_) arr_buf._vb_ = gl.createBuffer()
+						gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
+						gl.bufferData(${glc.ARRAY_BUFFER}, arr_buf._array_.buffer, ${glc.STATIC_DRAW})
+						arr_buf._uploaded_ = true
+					}
+					else gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
+					var al = shader.al_${name}
+					gl.enableVertexAttribArray(al)
+					gl.vertexAttribPointer(al, ${type.slots}, ${glc.FLOAT}, false, ${type.size}, 0)
 				}
-				else gl.bindBuffer(${glc.ARRAY_BUFFER}, arr_buf._vb_)
-				var al = shader.al_${name}
-				gl.enableVertexAttribArray(al)
-				gl.vertexAttribPointer(al, ${type.slots}, ${glc.FLOAT}, false, ${type.size}, 0)
-				item_count = arr_buf.buffer.byteLength / ${attr._t_.size}
 				`
 			}
-			
+			ret +=`
+				if(item_count){
+			`
 			// samplers
 			var tex_id = 0
 			for(var sam_name in samplers){
@@ -825,6 +834,7 @@ class Draw extends WorkerProxy{
 			ret += `
 				${uniform_parts.setters}
 				if(!skip)gl.drawArrays(${glc.TRIANGLES}, 0, item_count)
+				}
 			`
 			// correctly indent the code
 			ret = ret.replace(/\n\t\t\t\t/g, '\n' + this.indent)
@@ -1290,7 +1300,6 @@ class Device extends Draw{
 
 	$drawloop:(now){
 		if(frame_limit && frame_id >= frame_limit) return
-
 		if(frame_rate){
 			document.title = parseInt(1000/(now - last))
 			last = now
