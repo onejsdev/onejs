@@ -2849,7 +2849,6 @@ ONE.genjs_compat_ = function(){
 			var old_array = this._array_
 			this._t_.dim = Math.max(length, 6) * 2
 			var array = this._array_ = new Float32Array(this._t_.dim * this._t_.slots)
-			// a f*ing for loop to memcpy potentially huge things. 'the JIT will save us all'.
 			if(this._transfer_allways_) console.log('Warning resizing a transfer_always Float32Vector ' + length)
 			if(this.__length > 1000) console.log('Warning Float32Vector resize triggered ' + length)
 			for(var i = 0, e = this.__length * this._t_.slots; i < e; i++) array[i] = old_array[i]
@@ -2862,21 +2861,28 @@ ONE.genjs_compat_ = function(){
 	})
 
 	// create a compacted transferable
-	_Float32Vector.prototype._transfer_ = function(host){
+	_Float32Vector.prototype._transfer_ = function(host, name){
 		this._clean_ = true
-		var array
+		
+		if(!this.__length){
+			return {length:0}
+		}
 		if(this._transfer_always_){ // just swap the typed array
-			array = this._array_
+			var array = this._array_
 			this._array_ = new Float32Array(this._t_.dim * this._t_.slots)
+			host.transferToHost(array.buffer, name)
+			return {
+				_array_:{buffer:array.buffer},
+				length:this.__length
+			}
 		}
 		else{
-			// copy the exact sized array out
-			array = new Float32Array(this._array_.buffer, 0, this.__length * this._t_.slots)
-		}
-		host.transferToHost(array.buffer)
-		return {
-			_array_:{buffer:array.buffer},
-			length:this.__length
+			var buffer = this._array_.buffer.slice(0, this.__length * this._t_.slots * 4)
+			host.transferToHost(buffer, name)
+			return {
+				_array_:{buffer:buffer},
+				length:this.__length
+			}
 		}
 	}
 	// catch people using it untyped

@@ -127,7 +127,7 @@ class CrazyCode extends CodeView{
 			u_color = weirdColor.sleepTime( pos , mesh[].xy ) 
 		}
 	}
-
+	u_bgcolor = #black
 }
 
 Deck{
@@ -392,11 +392,6 @@ Deck{
 					out += '\n'
 				}
 				text = out
-				constructor(){
-					Bullet::constructor()
-					console.log(tag_mesh)
-
-				}
 			}
 		}
 	}

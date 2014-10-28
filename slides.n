@@ -175,6 +175,7 @@ class Deck extends Scene{
 				y: 20 + font_size
 				x: text_hcenter
 			//}
+			u_bgcolor = #black
 		}
 		class Left extends Layer{
 			x: 100
@@ -194,12 +195,14 @@ class Deck extends Scene{
 		class Bullet extends Text{
 			x = 40
 			font_size = 70
+			u_bgcolor = #black
 		}
 		class Center extends Text{
 			font_size = 80
 			u_outline = true
 			x:device.w*.5 - text_w *.5
 			y:device.h*.5 - text_h *.5
+			u_bgcolor = #black
 		}
 		Left.Bullet = Bullet
 		Right.Bullet = Bullet

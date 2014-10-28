@@ -49,7 +49,6 @@ class ChunkedTextLayerImpl{
 		// draw markers
 		for(var chunk from chunk_list){
 			marker_mesh = chunk.marker_mesh
-			//if(!marker_mesh.length) continue
 			text_y = chunk.y
 			this{
 				pixel:marker_paint()

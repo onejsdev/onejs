@@ -108,7 +108,10 @@ ONE.worker_boot_ = function(host){
 	host.msg_queue = []
 	host.msg_transfer = []
 	host.msg_sigblk = []
-	host.transferToHost = function(data){
+	//var id = 1
+	host.transferToHost = function(data, name){
+		if(data.transferd) return
+		data.transfered = 1
 		return this.msg_transfer.push(data)
 	}
 
@@ -374,7 +377,6 @@ ONE.proxy_ = function(){
 		// proxify builds the message that spawns and updates proxified objects
 		// on the host side.
 		this._proxify = function(){
-
 			// create a proxy id
 			this._proxify_flag = false
 			var proto = Object.getPrototypeOf(this)
@@ -444,7 +446,7 @@ ONE.proxy_ = function(){
 							if(prop._transfer_){
 								prop._bind_ = this
 								prop._key_ = name
-								msg[name] = prop._transfer_(ONE.host)
+								msg[name] = prop._transfer_(ONE.host, name)
 							}
 							else{
 								msg[name] = prop
@@ -744,16 +746,16 @@ ONE.browser_boot_ = function(){
 	if(ONE.fake_worker){
 		worker = {
 			postMessage: function(msg){
-				setTimeout(function(){
-					host.onmessage({data:msg})
-				},0)
+				//setTimeout(function(){
+				host.onmessage({data:msg})
+				//},0)
 			},
 			onmessage:function(){}
 		}
 		var host = {
 			postMessage: function(msg){
 				setTimeout(function(){
-					worker.onmessage({data:msg})
+				worker.onmessage({data:msg})
 				},0)
 			},
 			onmessage: function(){}
