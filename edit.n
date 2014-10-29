@@ -21,6 +21,7 @@ class EditImpl{
 
 		moveLeft(only_end){
 			end = end - 1
+			if(end<0) end = 0
 			if(!only_end) start = end
 			max = text_layer.cursorRect(end).x
 			cursors.update()
@@ -28,6 +29,7 @@ class EditImpl{
 
 		moveRight(only_end){
 			end = end + 1
+			if(end > text_layer.char_count) end = text_layer.char_count
 			if(!only_end) start = end
 			max = text_layer.cursorRect(end).x
 			cursors.update()

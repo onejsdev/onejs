@@ -172,7 +172,7 @@ class Deck extends Scene{
 			u_outline = true
 			//constructor(){
 			//	Text::constructor()
-				y: 20 + font_size
+				y: 20
 				x: text_hcenter
 			//}
 			u_bgcolor = #black

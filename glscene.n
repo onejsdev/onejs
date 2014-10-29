@@ -160,3 +160,32 @@ class Text extends Layer{
 	u_boldness= 0.8
 	u_color = #white
 }
+
+class DebugLayerImpl{
+	constructor(){
+		debug_mesh = vec3[]()
+	}
+	
+	clearDebug(){
+		debug_mesh.length = 0
+	}
+
+	addDebug(x,y,w = 2,h = 2,col = 0){
+		vec3[] mesh = debug_mesh
+		var o = mesh.quad.length++
+		mesh.quad_tl[o] = vec2(x,y)
+		mesh.quad_tr[o] = vec2(x+w,y)
+		mesh.quad_bl[o] = vec2(x,y+h)
+		mesh.quad_br[o] = vec2(x+w,y+h)
+		mesh.quad[o].z = col
+	}
+
+	debug_vertex: debug_mesh[].xy * (m_world * device.m_camera)
+	debug_pixel:(){
+		int dbg = debug_mesh[].z
+		if(dbg == 0) return #red
+		if(dbg == 1) return #green
+		if(dbg == 2) return #blue
+		return #orange
+	}
+}

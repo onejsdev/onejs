@@ -639,7 +639,7 @@ class CodeViewImpl{
 		var mygroup = group++
 		expand(n.fn)
 		ParenL(_Call, mygroup)
-		var hasout =0 
+		var hasout = 0 
 		var post, type
 		for(var len, i, args from n.args){
 			if(n.extarg == 'do' && i == len - 1){
@@ -716,9 +716,7 @@ class CodeViewImpl{
 			allocText(10000)
 			indent = 0
 			group = 0
-			newline()
 			expand(v)
-			newline()
 		}
 	}
 

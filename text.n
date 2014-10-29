@@ -20,7 +20,7 @@ import math
 import gl
 
 class TextImpl{
-	dontProxy('add_x','add_y','lines','text_initialized')
+	dontProxy('start_y','start_x','add_x','add_y','lines','text_initialized')
 
 	class Atlas extends Texture{
 		lookup:(int offset, ivec2 _atlas_pos){
@@ -55,7 +55,8 @@ class TextImpl{
 	// displacement
 	text_x = 0
 	text_y = 0
-
+	start_x = 0
+	start_y = null
 	// fundamental rendering modes
 	mode_sdf = true // turn sdf mode on or off
 	mode_whitespace = false // wether whitespace generates triangles
@@ -124,6 +125,7 @@ class TextImpl{
 			font_size = parent.font_size
 			line_spacing = parent.line_spacing
 			mode_whitespace = parent.mode_whitespace
+			start_y = parent.start_y
 		}
 		else{
 			var font_name = font && font.name
@@ -291,8 +293,8 @@ class TextImpl{
 	allocText(len){
 		text_w = 0
 		text_h = 0
-		add_x = 0
-		add_y = 0//font_size
+		add_x = start_x
+		add_y = start_y === null?line_height:0
 		lines = 0
 		vec4[] mesh.quad.length = len // size up the geometry
 		mesh.length = 0
@@ -301,12 +303,18 @@ class TextImpl{
 	charBounds(off){
 		// lets find the bounds rectangle for a char
 		vec4[] mesh = mesh
+		var len = mesh.quad.length
+		var last = off >= len
+		if(last) off = len - 1
 		var obj = {
 			x:mesh.quad_tl[off].x
 			y:mesh.quad_tl[off].y
 		}
 		obj.w = mesh.quad_br[off].x - obj.x
 		obj.h = mesh.quad_br[off].y - obj.y
+		if(last){
+			obj.x += obj.w
+		}
 		return obj
 	}
 	
@@ -329,7 +337,7 @@ class TextImpl{
 		if(mode_whitespace){
 			for(; i<t; i++) addChar(glyphy_info.glyphs[10])
 		}
-		add_x = 0
+		add_x = start_x
 		add_y += font_size * line_spacing * t
 		lines++
 		return i

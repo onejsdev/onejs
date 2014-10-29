@@ -63,7 +63,7 @@ class TaggedTextImpl extends TextImpl{
 			} // newline
 			o--
 		}
-		return 0
+		return start_y === null? line_height: 0
 	}
 
 	// return the cursor rectangle based on an offset
@@ -71,6 +71,7 @@ class TaggedTextImpl extends TextImpl{
 		var bounds = charBounds(off)
 		var base = charBaseline(off)
 		var height = line_height//font_size * cursor_spacing
+
 		base += font_size * cursor_sink
 		return {
 			x:bounds.x
@@ -86,14 +87,18 @@ class TaggedTextImpl extends TextImpl{
 		vec4[] mesh = mesh
 		var height = line_height
 		for(var o = tags.quad.length - 1; o >= 0; o--){
-			if(o == 0 || tags.quad[o].z == 10){
+			if(o == tags.quad.length - 1 || o == 0 || tags.quad[o].z == 10){
 				// the baseline
-				var base = o==0? 0: mesh.quad_tl[o].y
+				var base = o==0? start_y === null?line_height:0: mesh.quad_tl[o].y
 				base += font_size * cursor_sink
 				//console.log(base-height, y, base)
+
 				if(y < base && y >= base - height){
 					while(o >= 0){
 						var hx = (mesh.quad_tl[o].x + mesh.quad_tr[o].x)/2
+						if(tags.quad[o-1].z == 10 && x< mesh.quad_tl[o].x){
+							return o 
+						}
 						if(x >= mesh.quad_tl[o].x && x < hx){
 							return o
 						}
@@ -103,7 +108,7 @@ class TaggedTextImpl extends TextImpl{
 						}
 						o --
 					}
-					return -1
+					return 0
 				}
 			}
 		}

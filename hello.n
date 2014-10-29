@@ -182,8 +182,6 @@ Deck{
 	Slide{
 		Title{
 			x: 400
-			y: font_size
-			u_outline = true
 			u_color = #white
 			text = 'Why WHY???'
 		}

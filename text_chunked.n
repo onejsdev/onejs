@@ -12,7 +12,7 @@
 
 import math
 import text_marked
-
+import glscene
 // chunked text behaves like text
 class ChunkedTextLayerImpl{
 	// use layer matrices
@@ -23,6 +23,7 @@ class ChunkedTextLayerImpl{
 	//dump = 1
 	// load up the renderer
 	load(MarkedTextLayerImpl)
+	load(DebugLayerImpl)
 
 	// this thing holds the data, but not the rendering
 	class Chunk extends WorkerProxy{
@@ -71,10 +72,14 @@ class ChunkedTextLayerImpl{
 				vertex:cursor_vertex
 			}
 		}
+		this{
+			pixel:debug_pixel()
+			vertex:debug_vertex
+		}
 	}
 
 	default_alloc = 5000
-	chunk_lines = 100
+	chunk_lines = 2
 
 	get char_count(){
 		return __char_count
@@ -86,6 +91,7 @@ class ChunkedTextLayerImpl{
 
 	constructor(){
 		MarkedTextLayerImpl::constructor()
+		DebugLayerImpl::constructor()
 		// create a new last_chunk to start growing
 		last_chunk = this.Chunk.new(this)
 		last_chunk.chunk_id = 0
@@ -100,13 +106,15 @@ class ChunkedTextLayerImpl{
 		// scan the chunks by y pos
 		if(!cache_chunk) cache_chunk = last_chunk
 		// we have to correct for y being at the font baseline.
-		while(cache_chunk && y < cache_chunk.baseToTop(cache_chunk.y)){
+		while(cache_chunk && y < cache_chunk.y){
 			cache_chunk = chunk_list[cache_chunk.chunk_id -1]
 		}
 		if(!cache_chunk){
 			return 0
 		}
-		while(cache_chunk && y >= cache_chunk.baseToTop(cache_chunk.y) + cache_chunk.add_y){
+		while(cache_chunk && y >= cache_chunk.y + cache_chunk.text_h){
+			//addDebug(100, cache_chunk.y + cache_chunk.text_h)
+			//console.log(y, cache_chunk.y + cache_chunk.text_h)
 			cache_chunk = chunk_list[cache_chunk.chunk_id + 1]
 		}
 		if(!cache_chunk){
@@ -115,6 +123,7 @@ class ChunkedTextLayerImpl{
 			return cache_chunk.total_count + cache_chunk.char_count
 		}
 		// lets find the closest character
+
 		return cache_chunk.offsetFromPos(x, y - cache_chunk.y) + cache_chunk.total_count
 	}
 
@@ -189,10 +198,11 @@ class ChunkedTextLayerImpl{
 		if(last_chunk.lines > chunk_lines){
 			var new_chunk = this.Chunk.new(this)
 			// complete last_chunk
-			add_y += last_chunk.add_y
+			add_y += last_chunk.text_h
 			new_chunk.total_count = last_chunk.char_count + last_chunk.total_count
 			new_chunk.chunk_id = chunk_list.length - 1
 			new_chunk.y = add_y 
+			//new_chunk.start_y = 0
 			last_chunk = new_chunk
 			last_chunk.allocText(default_alloc)
 		}
