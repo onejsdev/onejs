@@ -171,6 +171,8 @@ class Key extends WorkerProxy{
 		window.addEventListener('keydown') do(e)=>{
 			var k = toKey[ e.keyCode ]
 			if( k ) this[ k ] = 1
+			console.log(e, k)
+
 			var msg = {	
 				repeat: e.repeat
 				code: e.keyCode
@@ -184,6 +186,7 @@ class Key extends WorkerProxy{
 		window.addEventListener('keyup') do(e)=>{
 			var k = toKey[ e.keyCode ]
 			if( k ) this[ k ] = 0
+			console.log(e, k)
 			var msg = {
 				repeat: e.repeat
 				code: e.keyCode
@@ -195,6 +198,7 @@ class Key extends WorkerProxy{
 		}
 
 		window.addEventListener('keypress') do(e)=>{
+			console.log(e)
 			press = {
 				repeat: e.repeat
 				value: String.fromCharCode(e.charCode)

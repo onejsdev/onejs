@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = true
+ONE.fake_worker = false
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
@@ -614,7 +614,11 @@ ONE.proxy_ = function(){
 								if(node.flagDirty) node.flagDirty()
 							}
 						}
-						if(worker) worker.sendToWorker({_type:'signal', _uid:this.__proxy__, name:prop, value:v})
+						if(worker){
+							var msg = {_type:'signal', _uid:this.__proxy__, name:prop, value:v}
+							//console.log('sig',msg)
+							worker.sendToWorker(msg)
+						}
 					}
 				})
 			}

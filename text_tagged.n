@@ -88,12 +88,13 @@ class TaggedTextImpl extends TextImpl{
 		var height = line_height
 		for(var o = tags.quad.length - 1; o >= 0; o--){
 			if(o == tags.quad.length - 1 || o == 0 || tags.quad[o].z == 10){
-				// the baseline
-				var base = o==0? start_y === null?line_height:0: mesh.quad_tl[o].y
-				base += font_size * cursor_sink
-				//console.log(base-height, y, base)
-
-				if(y < base && y >= base - height){
+				var h1 = charBaseline(o) - height + font_size * cursor_sink
+				var h2
+				// lets fetch the next line, so we never have rounding errors
+				if(tags.quad[o].z == 10) h2 = charBaseline(o+1) - height + font_size * cursor_sink
+				else h2 = h1 + height
+				// what we need is to 
+				if(y < h2 && y >= h1){
 					while(o >= 0){
 						var hx = (mesh.quad_tl[o].x + mesh.quad_tr[o].x)/2
 						if(tags.quad[o-1].z == 10 && x< mesh.quad_tl[o].x){

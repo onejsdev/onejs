@@ -8,10 +8,8 @@ class EditImpl{
 
 	// single cursor
 	class Cursor{
-		constructor(cursors, id){
+		constructor(cursors){
 			this.cursors = cursors
-			text_layer = cursors.text_layer
-			this.id = id
 			start = 0
 			end = 0
 			max = 0
@@ -23,38 +21,38 @@ class EditImpl{
 			end = end - 1
 			if(end<0) end = 0
 			if(!only_end) start = end
-			max = text_layer.cursorRect(end).x
+			max = cursors.text_layer.cursorRect(end).x
 			cursors.update()
 		}
 
 		moveRight(only_end){
 			end = end + 1
-			if(end > text_layer.char_count) end = text_layer.char_count
+			if(end > cursors.text_layer.char_count) end = cursors.text_layer.char_count
 			if(!only_end) start = end
-			max = text_layer.cursorRect(end).x
+			max = cursors.text_layer.cursorRect(end).x
 			cursors.update()
 		}
 
 		moveUp(only_end, lines = 1){
-			var rect = text_layer.cursorRect(end)
-			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * text_layer.line_height)
+			var rect = cursors.text_layer.cursorRect(end)
+			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
 			if(!only_end) start = end
 			cursors.update()
 		}
 
 		moveDown(only_end, lines = 1){
-			var rect = text_layer.cursorRect(end)
-			end = text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * text_layer.line_height)
+			var rect = cursors.text_layer.cursorRect(end)
+			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * cursors.text_layer.line_height)
 			if(!only_end) start = end
 			cursors.update()
 		}
 
 		moveTo(x, y, only_end){
-			var off = text_layer.offsetFromPos(x, y)
+			var off = cursors.text_layer.offsetFromPos(x, y)
 			var change = end != off 
 			end = off
 			if(!only_end) change = start != end || change, start = end
-			var r = text_layer.cursorRect(off)
+			var r = cursors.text_layer.cursorRect(off)
 			max = r.x
 			if(change) cursors.update()
 		}
@@ -73,6 +71,36 @@ class EditImpl{
 		constructor(text_layer){
 			this.text_layer = text_layer
 			list = [Cursor.new(this, 0)]
+			fusing = true
+		}
+
+		fuse(){
+			for(var cur from list){
+				if(cur.start<cur.end) cur.s = cur.start, cur.e = cur.end
+				else cur.s = cur.end, cur.e = cur.start
+			}
+			list.sort(function(a,b){ return a.s < b.s? -1: 1})
+			// lets do single pass
+			for(var i = 0; i<list.length-1;){
+				var cur = list[i]
+				var nxt = list[i+1]
+				// lets figure out the different overlap cases
+				if(cur.e >= nxt.s){
+					if(cur.e <= nxt.e){ // we fuse it [cur<]nxt>
+						if(nxt.end < nxt.start){
+							cur.start = cur.e = nxt.e
+							cur.end = cur.s
+						}
+						else{
+							cur.start = cur.s
+							cur.end = cur.e = nxt.e
+						}
+					}
+					// remove the nxt
+					list.splice(i+1, 1)
+				}
+				else i++
+			}
 		}
 
 		update(){
@@ -82,7 +110,10 @@ class EditImpl{
 				pending = 0
 				text_layer.clearMarkers()
 				text_layer.clearCursors()
-				// lets update all our render things.
+
+				// fuse the cursor list
+				if(fusing) fuse()
+				// draw it into geometry buffers 
 				for(var cursor from list){
 					if(cursor.start != cursor.end){
 						text_layer.addMarkers(cursor.start, cursor.end)
@@ -90,6 +121,28 @@ class EditImpl{
 					text_layer.addCursor(cursor.end)
 				}
 			}
+		}
+
+		rectSelect(x1, y1, x2, y2, clone){
+			if(y2<y1){
+				var t = y1
+				y1 = y2
+				y2 = t
+			}
+			var new_list = Array.prototype.slice.apply(clone)
+			var height = text_layer.line_height
+			var y = y1
+			while(1){
+				var cur = Cursor.new(this,0)
+				new_list.push(cur)
+				cur.start = text_layer.offsetFromPos(x1,y)
+				cur.end = text_layer.offsetFromPos(x2,y)
+				if(y >= y2) break
+				y += height
+				if(y > y2) y = y2
+			}
+			list = new_list
+			update()
 		}
 
 		add(){
@@ -120,31 +173,50 @@ class EditImpl{
 		}
 
 		mouse.leftdown(v)=>{
-			// set cursor start
-			// if we are doing a meta-click-drag we need to add a cursor
-			// if we are doing an alt-drag we need to (add?) create cursors
-			// in a rectangle
+			// rectangular selection
+			if(key.alt){
+				
+				var startx = mouse.x
+				var starty = mouse.y
+				var clone
+				if(key.leftmeta || key.rightmeta) clone = cursors.list
+				else clone = []
+
+				cursors.rectSelect(startx, starty, startx, starty, clone)
+				cursors.fusing = false
+				mouse.capture(=>{
+					cursors.rectSelect(startx, starty, mouse.x, mouse.y, clone)
+				},=>{
+					cursors.fusing = true
+					cursors.update()
+				})
+			}
+			else
+			// add a cursor
 			if(key.leftmeta || key.rightmeta){
 				var cursor = cursors.add()
-				
 				// in that case what we need to 
+				cursors.fusing = false
 				cursor.moveTo(mouse.x, mouse.y)
-				mouse.capture() do =>{
+				mouse.capture(=>{
 					// move
 					cursor.moveTo(mouse.x, mouse.y, true)
-				}
+				},=>{
+					cursors.fusing = true
+					cursors.update()
+				})
 			}
+			// normal selection
 			else{
 				// in that case what we need to 
 				cursors.moveTo(mouse.x, mouse.y)
-				mouse.capture() do =>{
-					// move
+				mouse.capture(=>{
 					cursors.moveTo(mouse.x, mouse.y, true)
-				}
+				})
 			}
 		}
-
-		cursors.moveDown(1, 100)
+		cursors.moveDown(1,0)
+		//cursors.moveDown(1, 100)
 	}
 
 	keyLeftarrow(){

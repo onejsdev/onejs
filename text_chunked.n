@@ -79,7 +79,7 @@ class ChunkedTextLayerImpl{
 	}
 
 	default_alloc = 5000
-	chunk_lines = 2
+	chunk_lines = 100
 
 	get char_count(){
 		return __char_count
@@ -113,17 +113,12 @@ class ChunkedTextLayerImpl{
 			return 0
 		}
 		while(cache_chunk && y >= cache_chunk.y + cache_chunk.text_h){
-			//addDebug(100, cache_chunk.y + cache_chunk.text_h)
-			//console.log(y, cache_chunk.y + cache_chunk.text_h)
 			cache_chunk = chunk_list[cache_chunk.chunk_id + 1]
 		}
 		if(!cache_chunk){
 			cache_chunk = chunk_list[chunk_list.length - 1]
-			//console.log('here',  cache_chunk.char_count )
 			return cache_chunk.total_count + cache_chunk.char_count
 		}
-		// lets find the closest character
-
 		return cache_chunk.offsetFromPos(x, y - cache_chunk.y) + cache_chunk.total_count
 	}
 
@@ -181,13 +176,7 @@ class ChunkedTextLayerImpl{
 		return chunk.charBaseline(off - chunk.total_count) + chunk.y
 	}
 	
-	reallocText(extra){
-		//last_chunk.reallocText(extra)
-	}
-
-	allocText(length){
-		//last_chunk.allocText(length)
-	}
+	allocText(length){}
 
 	tagChar(off, length, x, y, z){
 		last_chunk.tagChar(off, length, x, y, z)
