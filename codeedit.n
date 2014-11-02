@@ -16,5 +16,6 @@ class CodeEdit extends Layer{
 		ChunkedTextLayerImpl::constructor()
 		CodeViewImpl::constructor()
 		EditImpl::constructor()
+		_sortChunks()
 	}
 }

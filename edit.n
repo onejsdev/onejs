@@ -22,7 +22,6 @@ class EditImpl{
 			if(end<0) end = 0
 			if(!only_end) start = end
 			max = cursors.text_layer.cursorRect(end).x
-			cursors.update()
 		}
 
 		moveRight(only_end){
@@ -30,21 +29,18 @@ class EditImpl{
 			if(end > cursors.text_layer.char_count) end = cursors.text_layer.char_count
 			if(!only_end) start = end
 			max = cursors.text_layer.cursorRect(end).x
-			cursors.update()
 		}
 
 		moveUp(only_end, lines = 1){
 			var rect = cursors.text_layer.cursorRect(end)
 			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
 			if(!only_end) start = end
-			cursors.update()
 		}
 
 		moveDown(only_end, lines = 1){
 			var rect = cursors.text_layer.cursorRect(end)
 			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * cursors.text_layer.line_height)
 			if(!only_end) start = end
-			cursors.update()
 		}
 
 		moveTo(x, y, only_end){
@@ -54,7 +50,37 @@ class EditImpl{
 			if(!only_end) change = start != end || change, start = end
 			var r = cursors.text_layer.cursorRect(off)
 			max = r.x
-			if(change) cursors.update()
+		}
+
+		backspace(){
+			s += cursors.delta
+			e += cursors.delta
+			if(s == e){
+				if(s == 0) return
+				cursors.text_layer.removeText(s - 1, e)
+				start = end = s - 1
+				cursors.delta -= 1
+			}
+			else {
+				cursors.text_layer.removeText(s, e)
+				start = end = s
+				cursors.delta -= e - s
+			}
+			max = cursors.text_layer.cursorRect(end).x
+			// lets update all cursors after us with - delta
+		}
+
+		insert(text){
+			s += cursors.delta
+			e += cursors.delta
+			if(s != e){
+				cursors.text_layer.removeText(s, e)
+				cursors.delta -= e - s
+			}
+			cursors.text_layer.insertText(s, text)
+			cursors.delta += text.length
+			start = end = s + text.length
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		isSelection(){
@@ -137,6 +163,7 @@ class EditImpl{
 				new_list.push(cur)
 				cur.start = text_layer.offsetFromPos(x1,y)
 				cur.end = text_layer.offsetFromPos(x2,y)
+				//console.log(cur.end, x2)
 				if(y >= y2) break
 				y += height
 				if(y > y2) y = y2
@@ -154,7 +181,9 @@ class EditImpl{
 		for(var key in Cursor) bind(key){
 			if(typeof Cursor[key] == 'function'){
 				this[key] = (){
+					this.delta = 0
 					for(var cursor from list) cursor[key](...)
+					this.update()
 				}
 			}
 		}
@@ -164,7 +193,9 @@ class EditImpl{
 		cursors = Cursors.new(text_layer || this)
 
 		key.press(v)=>{
-			out(v)
+			// lets do the inserts.
+			// we have to replace our cursor set start->end with something
+			cursors.insert(v.value)
 		}
 
 		key.down(v)=>{
@@ -198,9 +229,11 @@ class EditImpl{
 				// in that case what we need to 
 				cursors.fusing = false
 				cursor.moveTo(mouse.x, mouse.y)
+				cursors.update()
 				mouse.capture(=>{
 					// move
 					cursor.moveTo(mouse.x, mouse.y, true)
+					cursors.update()
 				},=>{
 					cursors.fusing = true
 					cursors.update()
@@ -217,6 +250,10 @@ class EditImpl{
 		}
 		cursors.moveDown(1,0)
 		//cursors.moveDown(1, 100)
+	}
+	
+	keyBackspace(){
+		cursors.backspace()
 	}
 
 	keyLeftarrow(){

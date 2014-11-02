@@ -123,19 +123,25 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 	
 	mark_pos: vec2(floor(mod(marker_mesh[].corner,2.)), floor(abs(mod(marker_mesh[].corner,4.)/2.)))
 
-	clearMarkers(){
+	clearMarkers(notags){
 		if(marker_mesh.length > 0){
+			marker_mesh.length = 0
+			if(!notags) clearTagsMarker()
+		}
+	}
+
+	clearTagsMarker(){
+		if(tags_marked){
+			tags_marked = false
 			vec4[] tags = tag_mesh
 			for(var m = tags.quad.length - 1; m >= 0; m--){
 				if(tags.quad[m].w<0) tags.quad[m].w *= -1
 			}
 			tag_mesh.length += 0
-			marker_mesh.length = 0
 		}
 	}
 
-	addMarker(prev, self, next, data){
-		vec4[] tags = tag_mesh
+	addMarker(prev, self, next, data, notags){
 		marker_t[] mrk = marker_mesh
 
 		var o = mrk.quad.length++
@@ -155,16 +161,22 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 		mrk.quad_bl[o].corner = 2
 		mrk.quad_br[o].pos = vec2(self.x2 + font_size * 3, self.y2)
 		mrk.quad_br[o].corner = 3
-		
+		if(!notags) setTagsMarker(self)
+	}
+
+	setTagsMarker(start, end){
+		vec4[] tags = tag_mesh
+		tags_marked = true
 		// lets also signal the text renderer of our selection
-		for(var m = self.start; m < self.end + 1; m++){
+		for(var m = start; m < end; m++){
 			if(tags.quad[m].w > 0) tags.quad[m].w *= -1
 		}
 		// mark it for update
 		tags.length += 0
 	}
 
-	getMarkers(start, end, array){
+	getMarkers(start, end, array, deltay){
+		if(deltay === undefined) deltay = 0
 		if(end < start){
 			var t = start
 			start = end
@@ -186,7 +198,17 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 				r.w = x - r.x
 				r.x2 = r.x + r.w
 				r.y2 = r.y + r.h
-				array.push(r)
+				r.y += deltay
+				r.y2 += deltay
+				// check if the previous item is on the same r.y
+				// ifso fuse it with this marker
+				var prev = array[array.length -1]
+				if(prev && abs(prev.y-r.y) < 1e-5){ // fuse marker
+					prev.x2 = r.x2
+					prev.w += r.w
+				}
+				else
+					array.push(r)
 				last = o+1
 			}
 		}
@@ -194,6 +216,11 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 	}
 
 	addMarkers(start, end, data){
+		if(end < start){
+			var t = end
+			end = start
+			start = t
+		}
 		var array = []
 		getMarkers(start, end, array)
 		for(var i = 0;i<array.length;i++){
@@ -208,6 +235,7 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 
 	addCursor(pos, data){
 		var rect = cursorRect(pos)
+		rect.w = 5
 		vec4[] cursor = cursor_mesh
 		var o = cursor.quad.length++
 		cursor.quad_tl[o] = vec4(rect.x, rect.y, 0, data)

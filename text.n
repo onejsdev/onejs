@@ -99,6 +99,14 @@ class TextImpl{
 		throw new Error('read only property')
 	}
 
+	get min_y(){
+		return font_size * line_spacing - cursor_sink * font_size
+	}
+
+	get block_y(){
+		return add_y - line_height+cursor_sink*font_size//text_h - new_chunk.line_height + new_chunk.cursor_sink * new_chunk.font_size
+	}
+
 	// define a getter and setter
 	get text(v){
 		return __text
@@ -294,7 +302,7 @@ class TextImpl{
 		text_w = 0
 		text_h = 0
 		add_x = start_x
-		add_y = start_y === null?line_height:0
+		add_y = start_y === null?min_y:0
 		lines = 0
 		vec4[] mesh.quad.length = len // size up the geometry
 		mesh.length = 0
@@ -371,6 +379,7 @@ class TextImpl{
 			mesh.quad_tr[o] = vec4(x2, y1, info.tmax_x, info.tmin_y)
 			mesh.quad_bl[o] = vec4(x1 + italic, y2, info.tmin_x, info.tmax_y)
 			mesh.quad_br[o] = vec4(x2 + italic, y2, info.tmax_x, info.tmax_y)
+			mesh.quad_tl[o].y = y1
 		}
 		else{
 			var gx = ((info.atlas_x<<6) | info.nominal_w)<<1

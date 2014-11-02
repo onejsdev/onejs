@@ -304,15 +304,15 @@ ONE.parser_strict_ = function(){
 	this._var = {keyword: "var"}
 	//this._const = {keyword: "const"}
 	this._while = {keyword: "while", isLoop: true}
-	this._with = {keyword: "with"}
-	this._new = {keyword: "new", beforeExpr: true}
+	this._with = {keyword: "with", preIdent:this._name}
+	this._new = {keyword: "new", preIdent:this._name, beforeExpr: true}
 	this._this = {keyword: "this"}
 
 	// class extends 
-	this._extends = {keyword:"extends"}
-	this._class = {keyword:"class"}
-	this._struct = {keyword:"struct"}
-	this._enum = {keyword:"enum"}
+	this._extends = {keyword:"extends", preIdent:this._name}
+	this._class = {keyword:"class", preIdent:this._name}
+	this._struct = {keyword:"struct", preIdent:this._name}
+	this._enum = {keyword:"enum", preIdent:this._name}
 
 	// The keywords that denote values.
 	this._null = {keyword: "null", isValue:1, atomValue: null}
@@ -323,15 +323,15 @@ ONE.parser_strict_ = function(){
 	// (when parsing `for`) needs to be tested against specifically, so
 	// we assign a variable name to it for quick comparing.
 
-	this._in = {keyword: "in", binop: 7, beforeExpr: true}
-	this._to = {keyword: "to", binop: 7, beforeExpr: true}
-	this._of = {keyword: "of", binop: 7, beforeExpr: true}
-	this._from = {keyword: "from", binop: 7, beforeExpr: true}
+	this._in = {keyword: "in", preIdent:this._name, binop: 7, beforeExpr: true}
+	this._to = {keyword: "to", preIdent:this._name, binop: 7, beforeExpr: true}
+	this._of = {keyword: "of", preIdent:this._name, binop: 7, beforeExpr: true}
+	this._from = {keyword: "from", preIdent:this._name, binop: 7, beforeExpr: true}
 
-	this._instanceof = {keyword: "instanceof", binop: 7, beforeExpr: true}, 
-	this._typeof = {keyword: "typeof", prefix: true, beforeExpr: true}
-	this._void = {keyword: "void", prefix: true, beforeExpr: true}
-	this._delete = {keyword: "delete", prefix: true, beforeExpr: true}
+	this._instanceof = {keyword: "instanceof", preIdent:this._name, binop: 7, beforeExpr: true}, 
+	this._typeof = {keyword: "typeof", preIdent:this._name, prefix: true, beforeExpr: true}
+	this._void = {keyword: "void", preIdent:this._name, prefix: true, beforeExpr: true}
+	this._delete = {keyword: "delete", preIdent:this._name, prefix: true, beforeExpr: true}
 
 	// Punctuation token types.
 	this._bracketL = {type: "[", beforeExpr: true, canInj:1}
@@ -547,6 +547,11 @@ ONE.parser_strict_ = function(){
 		this.tokType = type
 		//this.tokIsType = this.typeKeywords[val]
 		this.skipSpace()
+		if(type.preIdent){
+			if(!this.isIdentifierStart(this.input.charCodeAt(this.tokPos))){
+				this.tokType = type.preIdent
+			}
+		}
 		this.tokVal = val
 		this.tokRegexpAllowed = type.beforeExpr
 	}
@@ -1210,8 +1215,9 @@ ONE.parser_strict_ = function(){
 	this.readWord = function() {
 		var word = this.readWord1()
 		var type = this._name
-		if (!this.containsEsc && this.isKeyword(word))
+		if (!this.containsEsc && this.isKeyword(word)){
 			type = this.keywordTypes[word]
+		}
 		return this.finishToken(type, word)
 	}
 
@@ -2426,12 +2432,7 @@ ONE.parser_strict_ = function(){
 			this.next()
 			return this.finishNode(node, "This")
 		case this._new:
-			// check whats next
-			// if its { = or ( its an identifier
-			if(this.isIdentifierStart(this.input.charCodeAt(this.tokPos)))
-				return this.parseNew()
-			this.tokType = this._name
-			return this.parseIdent()
+			return this.parseNew()
 		case this._name:
 			var typing = this.parseIdent()
 			if(!this.lastSkippedNewlines && this.tokType == this._name){
@@ -2785,9 +2786,9 @@ ONE.parser_strict_ = function(){
 		if(this.tokIsType) node.isType = this.tokVal
 		if (liberal && this.forbidReserved == "everywhere") liberal = false
 		
-		if(this.tokType == this._new && 
+		/*if((this.tokType == this._delete || this.tokType == this._new) && 
 			!this.isIdentifierStart(this.input.charCodeAt(this.tokPos)))
-			this.tokType = this._name
+			this.tokType = this._name*/
 
 		if (this.tokType === this._name) {
 			if (!liberal &&

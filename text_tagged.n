@@ -34,36 +34,66 @@ class TaggedTextImpl extends TextImpl{
 		return vec4[] tag_mesh.quad[off].z
 	}
 
-	reserialize(){
+	serialize(start, end){
 		var s = ''
 		vec4[] buf = tag_mesh
-		for(var i = 0, l = buf.quad.length; i<l; i++){
+		for(var i = start?start:0, l = end?end:buf.quad.length; i<l; i++){
 			s += String.fromCharCode(buf.quad[i].z)
 		}
 		return s
 	}
 	
+	serializeArray(start, end){
+		var s = []
+		vec4[] buf = tag_mesh
+		for(var i = start?start:0, l = end?end:buf.quad.length; i<l; i++){
+			s.push(buf.quad[i].z)
+		}
+		return s
+	}
+
+	serializeTags(start, end){
+		var s = []
+		vec4[] buf = tag_mesh
+		for(var i = start?start:0, l = end?end:buf.quad.length; i<l; i++){
+			s.push(buf.quad[i].x, buf.quad[i].y)
+		}
+		return s
+	}
+
 	// turn a baseline into a an approximate top
 	baseToTop(y){
 		return y + font_size * cursor_sink - line_height 
 	}
 
+	baseToBottom(y){
+		return y + font_size * cursor_sink
+	}
+
+
 	// fetch the baseline of a character by offset
 	charBaseline(off){
-		// scan backwards to newline and add a line.
-		// if 0 return 0
 		var o = off
 		vec4[] tags = tag_mesh
 		vec4[] mesh = mesh
-		while(o >= 0){
-			if(tags.quad[o].z == 10){
-				var base = mesh.quad_tl[o].y
-				if(off != o) base += line_height
-				return base
-			} // newline
-			o--
+		if(o >= char_count) o = char_count - 1
+		var info = glyphy_info.glyphs[tags.quad[o].z]
+		if(!info){
+			console.log(this, serialize())
 		}
-		return start_y === null? line_height: 0
+
+		var base = mesh.quad_tl[o].y + font_size * info.min_y
+		return base
+	}
+	// fetch the baseline of a character by offset
+	charBasecol(off){
+		var o = off
+		vec4[] tags = tag_mesh
+		vec4[] mesh = mesh
+		if(o >= char_count) o = char_count - 1
+		var info = glyphy_info.glyphs[tags.quad[o].z]
+		var base = mesh.quad_tl[o].x - font_size * info.min_x
+		return base
 	}
 
 	// return the cursor rectangle based on an offset
@@ -82,38 +112,48 @@ class TaggedTextImpl extends TextImpl{
 	}
 
 	// calculate the cursor offset from mouse position
+	// -1 to the left of self
+	// -2 to the top of self
+	// -3 to the right of self
+	// -4 below self
 	offsetFromPos(x, y){
 		vec4[] tags = tag_mesh
 		vec4[] mesh = mesh
 		var height = line_height
+		// out codes
+		// lets check if our y < 0 || y > text_h
+		//parent.addDebug(100, 0+ this.y)
+		//parent.addDebug(100, text_h + font_size * cursor_sink + this.y)
+		//parent.addDebug(100, block_y + line_height + this.y)
+		if(y < 0) return -2
+		if(y > text_h + font_size * cursor_sink) return -3
+		// alright. lets scan em 
 		for(var o = tags.quad.length - 1; o >= 0; o--){
-			if(o == tags.quad.length - 1 || o == 0 || tags.quad[o].z == 10){
-				var h1 = charBaseline(o) - height + font_size * cursor_sink
-				var h2
-				// lets fetch the next line, so we never have rounding errors
-				if(tags.quad[o].z == 10) h2 = charBaseline(o+1) - height + font_size * cursor_sink
-				else h2 = h1 + height
-				// what we need is to 
-				if(y < h2 && y >= h1){
-					while(o >= 0){
-						var hx = (mesh.quad_tl[o].x + mesh.quad_tr[o].x)/2
-						if(tags.quad[o-1].z == 10 && x< mesh.quad_tl[o].x){
-							return o 
-						}
-						if(x >= mesh.quad_tl[o].x && x < hx){
-							return o
-						}
-						if(x > hx){
-							if(tags.quad[o].z == 10) return o
-							return o + 1
-						}
-						o --
-					}
-					return 0
+			var info = glyphy_info.glyphs[tags.quad[o].z]
+			var y2 = mesh.quad_tl[o].y + font_size * info.min_y + font_size * cursor_sink
+			var y1 = y2 - line_height
+			if(y>=y1 && y<=y2){
+				var hx = (mesh.quad_tl[o].x + mesh.quad_tr[o].x)/2
+				if(tags.quad[o-1].z == 10 && x< mesh.quad_tl[o].x){
+					return o 
+				}
+				if(x >= mesh.quad_tl[o].x && x < hx){
+					return o
+				}
+				// how shall we do this.
+				if(o == 0 && x < mesh.quad_tl[o].x){
+					return -1 // to the left
+				}
+				if(o == tags.quad.length - 1 && x > mesh.quad_tr[o].x){
+					return -4
+				}
+				if(x > hx){
+					if(tags.quad[o].z == 10) return o
+					return o + 1
 				}
 			}
 		}
-		return -1
+		return -4 // to the right of self
 	}
 	tag_pos: vec2(floor(mod(abs(tag_mesh[].w),256.)), floor(abs(tag_mesh[].w)/256.))
 	
@@ -166,14 +206,13 @@ class TaggedTextImpl extends TextImpl{
 		return i
 	}
 
-	string(text, x, y){
-		if(x !== undefined) add_x = x 
-		if(y !== undefined) add_y = y 
+	string(text, tags){
 		var length = text.length
 		var chars = 0
 		// alright lets convert some text babeh!
+		var isarray = Array.isArray(text)
 		for(var i = 0; i < length; i++){
-			var unicode = text.charCodeAt(i)
+			var unicode = isarray?text[i]:text.charCodeAt(i)
 
 			// parse inline tags
 			if(inline_tags && (unicode == 36||unicode==37)){
@@ -200,6 +239,7 @@ class TaggedTextImpl extends TextImpl{
 			}
 			if(unicode == 9){ // tab
 				chars += tab()
+				continue
 			}
 			var glyph = glyphy_info.glyphs[unicode]
 			if(!glyph){
@@ -209,9 +249,68 @@ class TaggedTextImpl extends TextImpl{
 			// lets add some vertices
 			addChar(glyph)
 			chars++
-			tagChar(1, tag_x, tag_y, unicode)
+			if(tags) tagChar(1, tags[i*2], tags[i*2+1], unicode)
+			else tagChar(1, tag_x, tag_y, unicode)
 		}
 		if(add_y > text_h) text_h = add_y	
 		return chars
+	}
+
+	removeText(start, end, addx, addy){
+		if(!char_count) debugger
+		vec4[] tags = tag_mesh
+		vec4[] mesh = mesh
+
+		var old_len = mesh.quad.length
+		var old_add_y = add_y
+		var old_add_x = add_x
+		add_x = addx!==undefined?addx:charBasecol(start)
+		add_y = addy!==undefined?addy:charBaseline(start)
+
+		// assume a length lowering never deletes the array
+		tags.quad.length = start
+		mesh.quad.length = start
+		if(end < old_len){
+			for(var i = end; i<old_len; i++){
+				var new_i = start + i - end
+				var unicode = tags.quad[i].z
+				var info = glyphy_info.glyphs[unicode]
+				tags.quad[new_i] = tags.quad[i]
+				tags.quad.length++
+				if(unicode<0){ // special folds/inline tags
+				}
+				else if(unicode == 32) TextImpl::space()
+				else if(unicode == 10){
+					TextImpl::newline()
+					if(end == 0){
+						tags.quad.length = old_len
+						mesh.quad.length = old_len
+						add_y = old_add_y
+						add_x = old_add_x
+						break
+					}
+				}
+				else if(unicode == 9) TextImpl::tab()
+				else{
+					addChar(info)
+				}
+			}
+		}
+	}
+
+	insertText(index, text){
+		// lets insert some text!
+		add_x = addx!==undefined?addx:charBasecol(start)
+		add_y = addy!==undefined?addy:charBaseline(start)
+
+		// lets resize
+
+	}
+
+	truncateText(start){
+		add_x = charBasecol(start)
+		add_y = charBaseline(start)
+		vec4[] tag_mesh.quad.length = start
+		vec4[] mesh.quad.length = start
 	}
 }

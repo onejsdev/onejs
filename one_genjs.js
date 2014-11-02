@@ -242,6 +242,7 @@ ONE.genjs_ = function(){
 		globals.arguments = 1
 		globals.isNaN = 1
 		globals.isFinite = 1
+		globals.Infinity = 1
 		globals.parseFloat = 1
 		globals.parseInt = 1
 		globals.decodeURI = 1
