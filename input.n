@@ -179,6 +179,9 @@ class Key extends WorkerProxy{
 			}
 			msg[msg.name] = 1
 			down = msg
+			if(e.keyCode == toCode.y){
+				e.preventDefault()
+			}
 			if(e.keyCode == toCode.tab){
 				press = {
 					repeat: e.repeat

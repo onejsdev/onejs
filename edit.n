@@ -63,15 +63,18 @@ class EditImpl{
 		}
 
 		backspace(){
+			cursors.text_layer.clearRedo()
 			start += cursors.delta
 			end += cursors.delta
 			if(start == end){
 				if(lo == 0) return
+				cursors.text_layer.addUndoInsert(lo -1, hi)
 				cursors.text_layer.removeText(lo - 1, hi)
 				start = end = lo - 1
 				cursors.delta -= 1
 			}
 			else {
+				cursors.text_layer.addUndoInsert(lo, hi)
 				cursors.text_layer.removeText(lo, hi)
 				cursors.delta -= span
 				start = end = lo
@@ -81,6 +84,7 @@ class EditImpl{
 		}
 
 		insert(text){
+			cursors.text_layer.clearRedo()
 			var cdelta = 0
 			if(cursors.text_layer.processInsert){
 				[text, cdelta] = cursors.text_layer.processInsert(lo, hi, text)
@@ -88,12 +92,14 @@ class EditImpl{
 			start += cursors.delta
 			end += cursors.delta
 			if(start != end){
+				cursors.text_layer.addUndoInsert(lo, hi)
 				cursors.text_layer.removeText(lo, hi)
 				cursors.delta -= span
 			}
 			if(text.length){
-				cursors.text_layer.insertText(lo, text)
-				cursors.delta += text.length
+				var len =  cursors.text_layer.insertText(lo, text)
+				cursors.delta += len
+				cursors.text_layer.addUndoDelete(lo, lo + len)
 			}	
 			start = end = lo + text.length + cdelta
 			max = cursors.text_layer.cursorRect(end).x
@@ -112,8 +118,27 @@ class EditImpl{
 	class Cursors{
 		constructor(text_layer){
 			this.text_layer = text_layer
-			list = [Cursor.new(this, 0)]
+			list = [Cursor.new(this)]
 			fusing = true
+		}
+
+		toArray(inp){
+			var out = []
+			for(var cursor from list){
+				out.push(cursor.start, cursor.end)
+			}
+			return out
+		}
+
+		fromArray(inp){
+			list = []
+			for(var i = 0; i < inp.length; i+=2){
+				var cur = Cursor.new(this)
+				list.push(cur)
+				cur.start = inp[i]
+				cur.end = inp[i+1]
+			}
+			update()
 		}
 
 		fuse(){
@@ -200,20 +225,85 @@ class EditImpl{
 				}
 			}
 		}
+
+	}
+
+	addUndoInsert(start, end, stack = undo_stack){
+		// if insert is contiguous merge it too
+		stack.push({
+			group: undo_group
+			type: 'insert'
+			start: start
+			data: serializeTags(start, end)
+			cursors: cursors.toArray()
+		})
+	}
+
+	addUndoDelete(start, end, stack = undo_stack){
+		var last = stack[stack.length - 1]
+		if(last && last.type == 'delete' && 
+			last.offset+last.length == start){
+			last.end += end - start
+			return
+		}
+		stack.push({
+			group: undo_group
+			type: 'delete'
+			start: start
+			end: end
+			cursors: cursors.toArray()
+		})
+	}
+
+	clearRedo(){
+		redo_stack = []
+	}
+
+	undoRedo(stack1, stack2){
+		// aight. lets process em undos
+		if(!stack1.length) return
+		var last_group = stack1[stack1.length - 1].group
+		for(var i = stack1.length - 1;i>=0;i--){
+			var item = stack1[i]
+			var last_cursor
+			if(item.group != last_group) break
+			// lets do what it says
+			if(item.type == 'insert'){
+				addUndoDelete(item.start, item.start + item.data.length, stack2)
+				insertText(item.start, item.data)
+				last_cursor = item.cursors
+			}
+			else{
+				addUndoInsert(item.start, item.end, stack2)
+				removeText(item.start, item.end)
+				last_cursor = item.cursors
+			}
+		}
+		stack1.splice(i+1)
+		cursors.fromArray(last_cursor)
 	}
 
 	constructor(){
 		cursors = Cursors.new(text_layer || this)
+		undo_stack = []
+		redo_stack = []
+		undo_group = 0
 
 		key.press(v)=>{
 			// lets do the inserts.
 			// we have to replace our cursor set start->end with something
+			undo_group++
 			cursors.insert(v.value)
+
 		}
 
 		key.down(v)=>{
 			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
+			undo_group++
 			if(this[name]) this[name](v)
+			if(key.ctrl || key.leftmeta || key.rightmeta){
+				if(this[name+'Cmd']) this[name+'Cmd'](v)
+			}
 		}
 
 		mouse.leftdown(v)=>{
@@ -265,7 +355,18 @@ class EditImpl{
 		cursors.moveDown(1,0)
 		//cursors.moveDown(1, 100)
 	}
-	
+
+
+	// alright so. undo. 
+	keyZCmd(){
+		undoRedo(undo_stack, redo_stack)
+	}
+
+	keyYCmd(){
+		console.log(redo_stack)
+		undoRedo(redo_stack, undo_stack)
+	}
+
 	keyBackspace(){
 		cursors.backspace()
 	}

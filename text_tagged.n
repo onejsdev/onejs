@@ -30,7 +30,7 @@ class TaggedTextImpl extends TextImpl{
 		return vec4[] tag_mesh.quad[off].z
 	}
 
-	serialize(start, end){
+	serializeText(start, end){
 		var s = ''
 		vec4[] buf = tag_mesh
 		for(var i = start?start:0, l = end?end:buf.quad.length; i<l; i++){
@@ -39,22 +39,16 @@ class TaggedTextImpl extends TextImpl{
 		return s
 	}
 	
-	serializeArray(start, end){
-		var s = []
+	serializeTags(start, end, out_buf, out_off = 0){
 		vec4[] buf = tag_mesh
-		for(var i = start?start:0, l = end?end:buf.quad.length; i<l; i++){
-			s.push(buf.quad[i].z)
+		var s = start?start:0, e = end?end:buf.quad.length
+		vec3[] out = out_buf || vec3[e - s]()
+		for(var i = s; i < e; i++){
+			out[i - s + out_off].x = buf.quad[i].x
+			out[i - s + out_off].y = buf.quad[i].y
+			out[i - s + out_off].z = buf.quad[i].z
 		}
-		return s
-	}
-
-	serializeTags(start, end){
-		var s = []
-		vec4[] buf = tag_mesh
-		for(var i = start?start:0, l = end?end:buf.quad.length; i<l; i++){
-			s.push(buf.quad[i].x, buf.quad[i].y)
-		}
-		return s
+		return out
 	}
 
 	// turn a baseline into a an approximate top
@@ -211,13 +205,16 @@ class TaggedTextImpl extends TextImpl{
 		return i
 	}
 
-	string(text, tags){
+	string(text){
 		var length = text.length
 		var chars = 0
+		vec3[] tags = text
+		var istags 
+		if(text._t_) istags = true
 		// alright lets convert some text babeh!
 		var isarray = Array.isArray(text)
 		for(var i = 0; i < length; i++){
-			var unicode = isarray?text[i]:text.charCodeAt(i)
+			var unicode = istags?tags[i].z:text.charCodeAt(i)
 
 			// parse inline tags
 			if(inline_tags && (unicode == 36||unicode==37)){
@@ -254,7 +251,7 @@ class TaggedTextImpl extends TextImpl{
 			// lets add some vertices
 			addChar(glyph)
 			chars++
-			if(tags) tagChar(1, tags[i*2], tags[i*2+1], unicode)
+			if(tags) tagChar(1, tags[i].x, tags[i].y, unicode)
 			else tagChar(1, tag_x, tag_y, unicode)
 		}
 		if(add_y > text_h) text_h = add_y	

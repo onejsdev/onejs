@@ -197,6 +197,19 @@ class ChunkedTextLayerImpl{
 		}
 	}
 
+	serializeTags(start, end){
+		var tags = vec3[end - start]()
+		var off = 0
+		for(var cs = findChunk(start); cs && cs.char_offset < end; cs = chunk_list[cs.chunk_id+1]){
+			// now lets mark it from the right start t oend
+			var cstart = max(start, cs.char_offset) - cs.char_offset
+			var cend = min(end - cs.char_offset, cs.char_count)
+			cs.serializeTags(cstart, cend, tags, off)
+			off += cend - cstart
+		}
+		return tags
+	}
+
 	newline(t){
 		newChunk()
 		var s = append_chunk.newline(t)
@@ -219,13 +232,15 @@ class ChunkedTextLayerImpl{
 		return s
 	}
 
-	string(text, tags){
+	string(text){
 		var length = text.length
 		var chars = 0
-		var isarray = Array.isArray(text)
+		vec3[] tags = text
+		var istags 
+		if(text._t_) istags = true
 		// alright lets convert some text babeh!
 		for(var i = 0; i < length; i++){
-			var unicode = isarray?text[i]:text.charCodeAt(i)
+			var unicode = istags?tags[i].z:text.charCodeAt(i)
 
 			// parse inline tags
 			if(inline_tags && (unicode == 36||unicode==37)){
@@ -263,7 +278,8 @@ class ChunkedTextLayerImpl{
 			newChunk()
 			append_chunk.addChar(glyph)
 			chars++
-			if(tags) append_chunk.tagChar(1, tags[i*2], tags[i*2+1], unicode)
+
+			if(istags) append_chunk.tagChar(1, tags[i].x, tags[i].y, unicode)
 			else append_chunk.tagChar(1, tag_x, tag_y, unicode)
 
 			if(append_chunk.add_y > append_chunk.text_h) append_chunk.text_h = append_chunk.add_y	
@@ -364,12 +380,12 @@ class ChunkedTextLayerImpl{
 		_sortChunks()
 	}
 
-	insertText(index, text, tags){
+	insertText(index, text){
 		// ok we find a chunk, then we figure out where to append
 		var chunk, cs = chunk = findChunk(index)
 		var max_chunk = chunk_list.length
 		var off = 0
-
+		var len 
 		var chunk_off = index - cs.char_offset
 		// split chunk
 		if(chunk_off == cs.char_count || chunk_off == 0){
@@ -381,7 +397,7 @@ class ChunkedTextLayerImpl{
 				append_chunk = cs
 				// go and append
 				off = cs.char_offset + cs.char_count
-				off += string(text, tags)
+				off += len = string(text)
 				cs = chunk_list[cs.chunk_id + 1]
 			} 
 			else{ // insert at the beginning
@@ -390,11 +406,11 @@ class ChunkedTextLayerImpl{
 					cs = chunk
 					append_chunk = undefined
 					newChunk(true)
-					off += string(text, tags)
+					off += len = string(text)
 				}
 				else{
 					append_chunk = chunk
-					off += string(text, tags)
+					off += len = string(text)
 					cs = undefined
 				}
 			}
@@ -403,7 +419,6 @@ class ChunkedTextLayerImpl{
 			// first we end the chunk at the offset
 			var start = index - cs.char_offset
 			var old_len = cs.char_count
-			var split_text = cs.serializeArray(start, old_len)
 			var split_tags = cs.serializeTags(start, old_len)
 			cs.truncateText(start)
 			off = cs.char_offset + cs.char_count
@@ -411,11 +426,11 @@ class ChunkedTextLayerImpl{
 			append_chunk = cs
 			// lets add a new chunk
 			//newChunk(true)
-			off += string(text, tags)
-			if(split_text.length){
+			off += len = string(text)
+			if(split_tags.length){
 				newChunk(true)
 				// now we have to add the last part of what we truncated
-				off += string(split_text,split_tags)
+				off += string(split_tags)
 			}
 			cs = chunk_list[cs.chunk_id + 1]
 		}
@@ -436,5 +451,6 @@ class ChunkedTextLayerImpl{
 			cs = chunk_list[cs.chunk_id + 1]
 		}
 		_sortChunks()
+		return len
 	}
 }
