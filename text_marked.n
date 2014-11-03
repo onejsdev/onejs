@@ -203,7 +203,7 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 				// check if the previous item is on the same r.y
 				// ifso fuse it with this marker
 				var prev = array[array.length -1]
-				if(prev && abs(prev.y-r.y) < 1e-5){ // fuse marker
+				if(prev && abs(prev.y-r.y) < 1e-4){ // fuse marker
 					prev.x2 = r.x2
 					prev.w += r.w
 				}
