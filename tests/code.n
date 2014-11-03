@@ -22,7 +22,7 @@ Scene{
 		u_subpixel_distance = 3.
 		u_boldness =1.0//0.5
 		line_spacing = 1.3
-		source = import('warps.n', 'string')
+		source = import('gl.n', 'string')
 		ast = parse(source)
 	}
 }
