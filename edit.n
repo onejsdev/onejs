@@ -15,6 +15,16 @@ class EditImpl{
 			max = 0
 		}
 		
+		get lo(){
+			return end>start?start:end
+		}
+		get hi(){
+			return end>start?end:start
+		}
+		get span(){
+			return abs(end-start)
+		}
+
 		hideProperties()
 
 		moveLeft(only_end){
@@ -53,33 +63,33 @@ class EditImpl{
 		}
 
 		backspace(){
-			s += cursors.delta
-			e += cursors.delta
-			if(s == e){
-				if(s == 0) return
-				cursors.text_layer.removeText(s - 1, e)
-				start = end = s - 1
+			start += cursors.delta
+			end += cursors.delta
+			if(start == end){
+				if(lo == 0) return
+				cursors.text_layer.removeText(lo - 1, hi)
+				start = end = lo - 1
 				cursors.delta -= 1
 			}
 			else {
-				cursors.text_layer.removeText(s, e)
-				start = end = s
-				cursors.delta -= e - s
+				cursors.text_layer.removeText(lo, hi)
+				start = end = lo
+				cursors.delta -= span
 			}
 			max = cursors.text_layer.cursorRect(end).x
 			// lets update all cursors after us with - delta
 		}
 
 		insert(text){
-			s += cursors.delta
-			e += cursors.delta
-			if(s != e){
-				cursors.text_layer.removeText(s, e)
-				cursors.delta -= e - s
+			start += cursors.delta
+			end += cursors.delta
+			if(start != end){
+				cursors.text_layer.removeText(lo, hi)
+				cursors.delta -= span
 			}
-			cursors.text_layer.insertText(s, text)
+			cursors.text_layer.insertText(lo, text)
 			cursors.delta += text.length
-			start = end = s + text.length
+			start = end = lo + text.length
 			max = cursors.text_layer.cursorRect(end).x
 		}
 
@@ -101,11 +111,8 @@ class EditImpl{
 		}
 
 		fuse(){
-			for(var cur from list){
-				if(cur.start<cur.end) cur.s = cur.start, cur.e = cur.end
-				else cur.s = cur.end, cur.e = cur.start
-			}
-			list.sort(function(a,b){ return a.s < b.s? -1: 1})
+
+			list.sort(function(a,b){ return (a.start<a.end?a.start:a.end) < (b.start<b.end?b.start:b.end)? -1: 1})
 			// lets do single pass
 			for(var i = 0; i<list.length-1;){
 				var cur = list[i]

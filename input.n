@@ -209,8 +209,8 @@ class Key extends WorkerProxy{
 
 		window.addEventListener('keypress') do(e)=>{
 			var code = e.charCode
-			if(code == 13) code = 10 // make newlines unix defaults
-
+			if(code == 13 || e.keyCode == 13) code = 10 // make newlines unix defaults
+			else if(e.charCode == 0) return
 			press = {
 				repeat: e.repeat
 				value: String.fromCharCode(code)

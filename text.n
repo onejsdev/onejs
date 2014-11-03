@@ -307,7 +307,7 @@ class TextImpl{
 		vec4[] mesh.quad.length = len // size up the geometry
 		mesh.length = 0
 	}
-
+	/*
 	charBounds(off){
 		// lets find the bounds rectangle for a char
 		vec4[] mesh = mesh
@@ -324,7 +324,7 @@ class TextImpl{
 			obj.x += obj.w
 		}
 		return obj
-	}
+	}*/
 	
 	// white space
 	space(t){

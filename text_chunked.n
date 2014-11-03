@@ -51,15 +51,6 @@ class ChunkedTextLayerImpl{
 	// todo make this windowed by scroll 
 	drawSelf:(sec){
 		// draw markers
-		/*
-		for(var chunk from chunk_list){
-			marker_mesh = chunk.marker_mesh
-			text_y = chunk.y
-			this{
-				pixel:marker_paint()
-				vertex:marker_vertex
-			}
-		}*/
 		text_y = 0
 		this{
 			pixel:marker_paint()
@@ -73,7 +64,6 @@ class ChunkedTextLayerImpl{
 		 	text_y = chunk.y
 		 	chunk_id = chunk.chunk_id
 			this{
-				//pixel:vec3(mod(chunk_id*.1,1.),mod(chunk_id*.05,1.),mod(chunk_id*.33,1.))
 			}
 		}
 		// lets draw our cursors
@@ -82,15 +72,6 @@ class ChunkedTextLayerImpl{
 			pixel:cursor_paint()
 			vertex:cursor_vertex
 		}
-		/*
-		for(var chunk from chunk_list){
-			cursor_mesh = chunk.cursor_mesh
-		 	text_y = chunk.y
-			this{
-				pixel:cursor_paint()
-				vertex:cursor_vertex
-			}
-		}*/
 		this{
 			pixel:debug_pixel()
 			vertex:debug_vertex
@@ -152,16 +133,17 @@ class ChunkedTextLayerImpl{
 
 	cursorRect(off){
 		var chunk = findChunk(off)
+		console.log
 		var rect = chunk.cursorRect(off - chunk.char_offset)		
 		rect.y += chunk.y
+		console.log(rect)
 		return rect
 	}
 
-	charBounds(off){
+	charCoords(off){
 		var chunk = findChunk(off)
-		var b = chunk.charBounds(off - chunk.char_offset)
+		var b = chunk.charCoords(off - chunk.char_offset)
 		// we need to find the actual baseline for this 
-
 		b.y += chunk.y
 		return b
 	}
@@ -191,7 +173,7 @@ class ChunkedTextLayerImpl{
 		return chunk.charTag_z(off - chunk.char_offset)
 	}
 
-	reserialize(){
+	serialize(){
 		var str = ''
 		for(var chunk from chunk_list){
 			if(chunk.char_offset !== -Infinity)
@@ -200,21 +182,24 @@ class ChunkedTextLayerImpl{
 		return str
 	}
 
-	charBaseline(off){
-		var chunk = findChunk(off)
-		return chunk.charBaseline(off - chunk.char_offset) + chunk.y
-	}
-	
 	allocText(length){}
 
 	splitup(force){
 		if(force || append_chunk.char_count > chunk_count){
 			var new_chunk = chunk_list[0] && chunk_list[0].char_offset === -Infinity?chunk_list[0]:this.Chunk.new(this)
 			// complete last_chunk
-			add_y += append_chunk.block_y
-			new_chunk.char_offset = append_chunk.char_count + append_chunk.char_offset
-			new_chunk.y = add_y// - new_chunk.line_height
-			var addx = append_chunk.add_x
+			var addx
+			if(!append_chunk){
+				new_chunk.char_offset = 0
+				add_y = 0
+				addx = 0
+			}
+			else{
+				add_y += append_chunk.block_y
+				addx = append_chunk.add_x
+				new_chunk.char_offset = append_chunk.char_count + append_chunk.char_offset
+				new_chunk.y = add_y// - new_chunk.line_height
+			}
 			//new_chunk.start_y = 0
 			new_chunk.allocText(chunk_count)
 			new_chunk.first_add_x = new_chunk.add_x = addx
@@ -345,12 +330,12 @@ class ChunkedTextLayerImpl{
 		//console.log('--list--')
 		for(var i, chunk from chunk_list){
 			chunk.chunk_id = i
-			//console.log(i, chunk.char_offset, chunk.char_count, chunk.reserialize())
 			if(chunk.char_offset !== -Infinity){
 				chunk.char_offset = c
 				c += chunk.char_count
 				//addDebug(chunk.first_add_x, chunk.y,1,line_height)
 			}
+			//console.log(i, chunk.char_offset, chunk.char_count, chunk.serialize())
 		}
 		char_count = c
 	}
@@ -376,56 +361,78 @@ class ChunkedTextLayerImpl{
 			addx = cs.add_x
 			addy = cs.y + cs.block_y
 			if(!cs.char_count){ // move chunk to the spare chunkset
-				cs.char_offset = -Infinity
+				// only do it if we arent the last
+				if(chunk_list[cs.chunk_id - 1] && chunk_list[cs.chunk_id - 1].char_offset !== -Infinity ||
+				chunk_list[cs.chunk_id + 1] && chunk_list[cs.chunk_id+1].char_offset!== -Infinity){
+					cs.char_offset = -Infinity
+				}
+				else{
+					cs.add_x = 0
+				}
 			}
 		}
 		_sortChunks()
 	}
 
-	// ok so. what do we do. 
-	// if we are at the end, we append
-
-	// ok insert text is harder
 	insertText(index, text){
 		// ok we find a chunk, then we figure out where to append
-		var cs = findChunk(index)
+		var chunk, cs = chunk = findChunk(index)
 		var max_chunk = chunk_list.length
-		var off
-		// split array
-		if(index - cs.char_offset != 0){
-			// first we end the chunk at the offset
-			var start = index - cs.char_offset
-			var old_len = cs.char_count
-			cs.truncateText(start)
-			off = cs.char_offset + cs.char_count
-			add_y = cs.y
-			append_chunk = cs
-			// lets add a new chunk
-			splitup(true)
-			off += string(text)
-			splitup(true)
-			// now we have to add the last part of what we truncated
-			off += string(cs.serializeArray(start, old_len),
-				cs.serializeTags(start, old_len))
-			// then we update the rest
+		var off = 0
 
-		}
-		// 
-		else if(index - cs.char_offset == 0){
-			cs = chunk_list[cs.chunk_id - 1]
-			if(cs.char_offset !== -Infinity){
+		var chunk_off = index - cs.char_offset
+		// split chunk
+		if(chunk_off == cs.char_count || chunk_off == 0){
+			// what if there is no previous?
+			if(chunk_off == 0) cs = chunk_list[cs.chunk_id - 1]
+			if(cs && cs.char_offset !== -Infinity){
 				// set the local appends
 				add_y = cs.y //+ cs.block_y
 				append_chunk = cs
 				// go and append
 				off = cs.char_offset + cs.char_count
 				off += string(text)
+				cs = chunk_list[cs.chunk_id + 1]
+			} 
+			else{ // insert at the beginning
+				// how do we do it.
+				if(chunk.char_count){
+					cs = chunk
+					append_chunk = undefined
+					splitup(true)
+					off += string(text)
+				}
+				else{
+					append_chunk = chunk
+					off += string(text)
+					cs = undefined
+				}
 			}
 		}
-		// append
+		else if(chunk_off != 0){
+			// first we end the chunk at the offset
+			var start = index - cs.char_offset
+			var old_len = cs.char_count
+			var split_text = cs.serializeArray(start, old_len)
+			var split_tags = cs.serializeTags(start, old_len)
+			cs.truncateText(start)
+			off = cs.char_offset + cs.char_count
+			add_y = cs.y
+			append_chunk = cs
+			// lets add a new chunk
+			//splitup(true)
+			off += string(text)
+			if(split_text.length){
+				splitup(true)
+				// now we have to add the last part of what we truncated
+				off += string(split_text,split_tags)
+			}
+			cs = chunk_list[cs.chunk_id + 1]
+		}
+		// just append
+		// process the rest of the chunks
 		add_y += append_chunk.block_y
 		var addx = append_chunk.add_x, addy = add_y
-		cs = chunk_list[cs.chunk_id + 1]
 		while(cs && cs.chunk_id < max_chunk){
 			cs.char_offset = off
 			cs.y = addy

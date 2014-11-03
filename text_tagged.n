@@ -70,45 +70,50 @@ class TaggedTextImpl extends TextImpl{
 		return y + font_size * cursor_sink
 	}
 
-
-	// fetch the baseline of a character by offset
-	charBaseline(off){
+	// fetch the character coordinates of an offset
+	charCoords(off){
 		var o = off
 		vec4[] tags = tag_mesh
 		vec4[] mesh = mesh
-		if(o >= char_count) o = char_count - 1
-		var info = glyphy_info.glyphs[tags.quad[o].z]
-		if(!info){
-			console.log(this, serialize())
+		var last
+		if(o >= char_count){
+			last = true
+			o = char_count - 1
+			// if we want after a newline, we return 
+			if(o<0){
+				console.log('here')
+				return {
+					x:start_x
+					y:start_y === null?line_height - font_size * cursor_sink:start_y
+					w:0
+					h:line_height
+				}
+			}
+			if(tags.quad[o].z == 10){
+				return {
+					x:start_x
+					y:mesh.quad_tl[o].y + line_height
+					w:0
+					h:line_height
+				}
+			}
 		}
-
-		var base = mesh.quad_tl[o].y + font_size * info.min_y
-		return base
-	}
-	// fetch the baseline of a character by offset
-	charBasecol(off){
-		var o = off
-		vec4[] tags = tag_mesh
-		vec4[] mesh = mesh
-		if(o >= char_count) o = char_count - 1
 		var info = glyphy_info.glyphs[tags.quad[o].z]
-		var base = mesh.quad_tl[o].x - font_size * info.min_x
-		return base
+		var obj =  {
+			x:mesh.quad_tl[o].x - font_size * info.min_x
+			y:mesh.quad_tl[o].y + font_size * info.min_y
+			w:info.advance * font_size
+			h:line_height
+		}
+		if(last) obj.x += obj.w
+		return obj
 	}
-
+	
 	// return the cursor rectangle based on an offset
 	cursorRect(off){
-		var bounds = charBounds(off)
-		var base = charBaseline(off)
-		var height = line_height//font_size * cursor_spacing
-
-		base += font_size * cursor_sink
-		return {
-			x:bounds.x
-			y:base - height
-			w:bounds.w
-			h:height
-		}
+		var coords = charCoords(off)
+		coords.y -= coords.h - font_size * cursor_sink
+		return coords
 	}
 
 	// calculate the cursor offset from mouse position
@@ -125,13 +130,17 @@ class TaggedTextImpl extends TextImpl{
 		//parent.addDebug(100, 0+ this.y)
 		//parent.addDebug(100, text_h + font_size * cursor_sink + this.y)
 		//parent.addDebug(100, block_y + line_height + this.y)
+		parent.clearDebug()
 		if(y < 0) return -2
-		if(y > text_h + font_size * cursor_sink) return -3
+		if(y > text_h + font_size * cursor_sink) return -3 //below
 		// alright. lets scan em 
 		for(var o = tags.quad.length - 1; o >= 0; o--){
 			var info = glyphy_info.glyphs[tags.quad[o].z]
 			var y2 = mesh.quad_tl[o].y + font_size * info.min_y + font_size * cursor_sink
 			var y1 = y2 - line_height
+			//parent.addDebug(100,y1+this.y)
+			//parent.addDebug(100,y2+this.y)
+			//parent.addDebug(100,y+this.y)
 			if(y>=y1 && y<=y2){
 				var hx = (mesh.quad_tl[o].x + mesh.quad_tr[o].x)/2
 				if(tags.quad[o-1].z == 10 && x< mesh.quad_tl[o].x){
@@ -140,20 +149,21 @@ class TaggedTextImpl extends TextImpl{
 				if(x >= mesh.quad_tl[o].x && x < hx){
 					return o
 				}
-				// how shall we do this.
 				if(o == 0 && x < mesh.quad_tl[o].x){
 					return -1 // to the left
 				}
 				if(o == tags.quad.length - 1 && x > mesh.quad_tr[o].x){
-					return -4
+					if(tags.quad[o].z ==10) return o
+					return -4 // to the right of self
 				}
 				if(x > hx){
 					if(tags.quad[o].z == 10) return o
 					return o + 1
 				}
 			}
+			if(y>y2) return -3 // below self
 		}
-		return -4 // to the right of self
+		return -2 // above self
 	}
 	tag_pos: vec2(floor(mod(abs(tag_mesh[].w),256.)), floor(abs(tag_mesh[].w)/256.))
 	
@@ -257,15 +267,16 @@ class TaggedTextImpl extends TextImpl{
 	}
 
 	removeText(start, end, addx, addy){
-		if(!char_count) debugger
+		if(!char_count) return
 		vec4[] tags = tag_mesh
 		vec4[] mesh = mesh
 
 		var old_len = mesh.quad.length
 		var old_add_y = add_y
 		var old_add_x = add_x
-		add_x = addx!==undefined?addx:charBasecol(start)
-		add_y = addy!==undefined?addy:charBaseline(start)
+		var coord = charCoords(start)
+		add_x = addx!==undefined?addx:coord.x
+		add_y = addy!==undefined?addy:coord.y
 
 		// assume a length lowering never deletes the array
 		tags.quad.length = start
@@ -300,16 +311,19 @@ class TaggedTextImpl extends TextImpl{
 
 	insertText(index, text){
 		// lets insert some text!
-		add_x = addx!==undefined?addx:charBasecol(start)
-		add_y = addy!==undefined?addy:charBaseline(start)
+		var coord = charCoords(start)
+
+		add_x = addx!==undefined?addx:coord.x
+		add_y = addy!==undefined?addy:coord.y
 
 		// lets resize
 
 	}
 
 	truncateText(start){
-		add_x = charBasecol(start)
-		add_y = charBaseline(start)
+		var coord = charCoords(start)
+		add_x = coord.x//charBasecol(start)
+		add_y = coord.y//charBaseline(start)
 		vec4[] tag_mesh.quad.length = start
 		vec4[] mesh.quad.length = start
 	}
