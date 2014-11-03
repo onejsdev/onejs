@@ -73,23 +73,29 @@ class EditImpl{
 			}
 			else {
 				cursors.text_layer.removeText(lo, hi)
-				start = end = lo
 				cursors.delta -= span
+				start = end = lo
 			}
 			max = cursors.text_layer.cursorRect(end).x
 			// lets update all cursors after us with - delta
 		}
 
 		insert(text){
+			var cdelta = 0
+			if(cursors.text_layer.processInsert){
+				[text, cdelta] = cursors.text_layer.processInsert(lo, hi, text)
+			}
 			start += cursors.delta
 			end += cursors.delta
 			if(start != end){
 				cursors.text_layer.removeText(lo, hi)
 				cursors.delta -= span
 			}
-			cursors.text_layer.insertText(lo, text)
-			cursors.delta += text.length
-			start = end = lo + text.length
+			if(text.length){
+				cursors.text_layer.insertText(lo, text)
+				cursors.delta += text.length
+			}	
+			start = end = lo + text.length + cdelta
 			max = cursors.text_layer.cursorRect(end).x
 		}
 
@@ -118,15 +124,15 @@ class EditImpl{
 				var cur = list[i]
 				var nxt = list[i+1]
 				// lets figure out the different overlap cases
-				if(cur.e >= nxt.s){
-					if(cur.e <= nxt.e){ // we fuse it [cur<]nxt>
+				if(cur.hi >= nxt.lo){
+					if(cur.hi <= nxt.hi){ // we fuse it [cur<]nxt>
 						if(nxt.end < nxt.start){
-							cur.start = cur.e = nxt.e
-							cur.end = cur.s
+							cur.end = cur.lo
+							cur.start = nxt.hi
 						}
 						else{
-							cur.start = cur.s
-							cur.end = cur.e = nxt.e
+							cur.start = cur.lo
+							cur.end = nxt.hi
 						}
 					}
 					// remove the nxt
@@ -249,6 +255,7 @@ class EditImpl{
 			// normal selection
 			else{
 				// in that case what we need to 
+				cursors.fusing = true
 				cursors.moveTo(mouse.x, mouse.y)
 				mouse.capture(=>{
 					cursors.moveTo(mouse.x, mouse.y, true)

@@ -26,11 +26,7 @@ class TaggedTextImpl extends TextImpl{
 	tag_x = 0
 	tag_y = 0
 
-	charTag(off){
-		return vec4[] tag_mesh.quad[off]
-	}
-	
-	charTag_z(off){
+	charCode(off){
 		return vec4[] tag_mesh.quad[off].z
 	}
 
@@ -81,7 +77,6 @@ class TaggedTextImpl extends TextImpl{
 			o = char_count - 1
 			// if we want after a newline, we return 
 			if(o<0){
-				console.log('here')
 				return {
 					x:start_x
 					y:start_y === null?line_height - font_size * cursor_sink:start_y
@@ -309,15 +304,15 @@ class TaggedTextImpl extends TextImpl{
 		}
 	}
 
-	insertText(index, text){
-		// lets insert some text!
+	insertText(start, text, tags){
+		var split_text = cs.serializeArray(start, char_count)
+		var split_tags = cs.serializeTags(start, char_count)
 		var coord = charCoords(start)
-
-		add_x = addx!==undefined?addx:coord.x
-		add_y = addy!==undefined?addy:coord.y
-
-		// lets resize
-
+		add_x = coord.x
+		add_y = coord.y
+		truncateText(start, tags)
+		string(text)
+		string(split_text, split_tags)
 	}
 
 	truncateText(start){

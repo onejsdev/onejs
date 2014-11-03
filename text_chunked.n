@@ -80,7 +80,6 @@ class ChunkedTextLayerImpl{
 
 	chunk_count = 1000
 
-
 	get char_count(){
 		return __char_count
 	}
@@ -114,11 +113,10 @@ class ChunkedTextLayerImpl{
 			last = prev
 			prev = cache_chunk
 			var ret = cache_chunk.offsetFromPos(x, y - cache_chunk.y)
-
 			if(ret == -1 || ret == -2){ // to the left of self or top
 				cache_chunk = chunk_list[cache_chunk.chunk_id -1]
 				if(!cache_chunk) return 0
-				if(cache_chunk == last) return cache_chunk.char_offset + cache_chunk.char_count - 1
+				if(cache_chunk == last) return cache_chunk.char_offset + cache_chunk.char_count
 			}
 			else if(ret == -3 || ret == -4){ // to the bottom
 				cache_chunk = chunk_list[cache_chunk.chunk_id +1]
@@ -133,10 +131,8 @@ class ChunkedTextLayerImpl{
 
 	cursorRect(off){
 		var chunk = findChunk(off)
-		console.log
 		var rect = chunk.cursorRect(off - chunk.char_offset)		
 		rect.y += chunk.y
-		console.log(rect)
 		return rect
 	}
 
@@ -147,12 +143,11 @@ class ChunkedTextLayerImpl{
 		b.y += chunk.y
 		return b
 	}
-
 	// we expose the Text api onto subchunks
-	charTag(off){
+	charCode(off){
 		// we have to find the right character tag
 		var chunk = findChunk(off)
-		return chunk.charTag_z(off - chunk.char_offset)
+		return chunk.charCode(off - chunk.char_offset)
 	}
 
 	findChunk(off){
@@ -168,23 +163,18 @@ class ChunkedTextLayerImpl{
 		return cache_chunk
 	}
 
-	charTag_z(off){
-		var chunk = findChunk(off)
-		return chunk.charTag_z(off - chunk.char_offset)
-	}
-
 	serialize(){
 		var str = ''
 		for(var chunk from chunk_list){
 			if(chunk.char_offset !== -Infinity)
-				str += chunk.reserialize()
+				str += chunk.serialize()
 		}
 		return str
 	}
 
 	allocText(length){}
 
-	splitup(force){
+	newChunk(force){
 		if(force || append_chunk.char_count > chunk_count){
 			var new_chunk = chunk_list[0] && chunk_list[0].char_offset === -Infinity?chunk_list[0]:this.Chunk.new(this)
 			// complete last_chunk
@@ -208,7 +198,7 @@ class ChunkedTextLayerImpl{
 	}
 
 	newline(t){
-		splitup()
+		newChunk()
 		var s = append_chunk.newline(t)
 		char_count += s
 		append_chunk.text_h += append_chunk.line_height
@@ -216,14 +206,14 @@ class ChunkedTextLayerImpl{
 	}
 
 	tab(t){
-		splitup()
+		newChunk()
 		var s = append_chunk.tab(t)
 		char_count += s
 		return s
 	}
 
 	space(t){
-		splitup()
+		newChunk()
 		var s = append_chunk.space(t)
 		char_count += s
 		return s
@@ -270,7 +260,7 @@ class ChunkedTextLayerImpl{
 				continue
 			}
 			// lets add some vertices
-			splitup()
+			newChunk()
 			append_chunk.addChar(glyph)
 			chars++
 			if(tags) append_chunk.tagChar(1, tags[i*2], tags[i*2+1], unicode)
@@ -374,7 +364,7 @@ class ChunkedTextLayerImpl{
 		_sortChunks()
 	}
 
-	insertText(index, text){
+	insertText(index, text, tags){
 		// ok we find a chunk, then we figure out where to append
 		var chunk, cs = chunk = findChunk(index)
 		var max_chunk = chunk_list.length
@@ -391,7 +381,7 @@ class ChunkedTextLayerImpl{
 				append_chunk = cs
 				// go and append
 				off = cs.char_offset + cs.char_count
-				off += string(text)
+				off += string(text, tags)
 				cs = chunk_list[cs.chunk_id + 1]
 			} 
 			else{ // insert at the beginning
@@ -399,12 +389,12 @@ class ChunkedTextLayerImpl{
 				if(chunk.char_count){
 					cs = chunk
 					append_chunk = undefined
-					splitup(true)
-					off += string(text)
+					newChunk(true)
+					off += string(text, tags)
 				}
 				else{
 					append_chunk = chunk
-					off += string(text)
+					off += string(text, tags)
 					cs = undefined
 				}
 			}
@@ -420,10 +410,10 @@ class ChunkedTextLayerImpl{
 			add_y = cs.y
 			append_chunk = cs
 			// lets add a new chunk
-			//splitup(true)
-			off += string(text)
+			//newChunk(true)
+			off += string(text, tags)
 			if(split_text.length){
-				splitup(true)
+				newChunk(true)
 				// now we have to add the last part of what we truncated
 				off += string(split_text,split_tags)
 			}
