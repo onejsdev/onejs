@@ -63,7 +63,6 @@ class EditImpl{
 		}
 
 		backspace(){
-			cursors.text_layer.clearRedo()
 			start += cursors.delta
 			end += cursors.delta
 			if(start == end){
@@ -79,12 +78,12 @@ class EditImpl{
 				cursors.delta -= span
 				start = end = lo
 			}
+			cursors.text_layer.forkRedo()
 			max = cursors.text_layer.cursorRect(end).x
 			// lets update all cursors after us with - delta
 		}
 
 		insert(text){
-			cursors.text_layer.clearRedo()
 			var cdelta = 0
 			if(cursors.text_layer.processInsert){
 				[text, cdelta] = cursors.text_layer.processInsert(lo, hi, text)
@@ -101,6 +100,7 @@ class EditImpl{
 				cursors.delta += len
 				cursors.text_layer.addUndoDelete(lo, lo + len)
 			}	
+			cursors.text_layer.forkRedo()
 			start = end = lo + text.length + cdelta
 			max = cursors.text_layer.cursorRect(end).x
 		}
@@ -255,7 +255,10 @@ class EditImpl{
 		})
 	}
 
-	clearRedo(){
+	forkRedo(){
+		if(undo_stack.length){
+			undo_stack[undo_stack.length - 1].redo = redo_stack
+		}
 		redo_stack = []
 	}
 
