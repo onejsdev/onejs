@@ -230,6 +230,15 @@ class EditImpl{
 
 	addUndoInsert(start, end, stack = undo_stack){
 		// if insert is contiguous merge it too
+		var last = stack[stack.length - 1]
+		if(last && last.type == 'insert' && 
+			last.start == end){
+			var group = last.group
+			last.group = undo_group
+			for(var i = stack.length - 2;i>=0;i--){
+				if(stack[i].group == group) stack[i].group = undo_group
+			}
+		}		
 		stack.push({
 			group: undo_group
 			type: 'insert'
@@ -242,7 +251,7 @@ class EditImpl{
 	addUndoDelete(start, end, stack = undo_stack){
 		var last = stack[stack.length - 1]
 		if(last && last.type == 'delete' && 
-			last.offset+last.length == start){
+			last.end == start){
 			last.end += end - start
 			return
 		}
@@ -366,7 +375,6 @@ class EditImpl{
 	}
 
 	keyYCmd(){
-		console.log(redo_stack)
 		undoRedo(redo_stack, undo_stack)
 	}
 
