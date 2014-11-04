@@ -2168,7 +2168,7 @@ ONE.parser_strict_ = function(){
 				node.prio = this.tokType.binop
 				var op = this.tokType.replaceOp || this.tokType
 				this.next()
-				if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
+				if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start expression on a newline in snapToAST mode') 
 				node.right = this.parseExprOp(this.parseMaybeUnary(), prec, noIn)
 				var exprNode = this.finishNode(node, op.logic ? "Logic" : "Binary")
 				return this.parseExprOp(exprNode, minPrec, noIn)

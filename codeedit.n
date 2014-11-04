@@ -121,8 +121,16 @@ class CodeEdit extends Layer{
 		var range = diffTags(code_formatter.output)
 		if(range){ // remove a range, and insert a range
 			var delta = 0
+			// if what we do is essentially undo the last action, dont do it
+			var last = undo_stack[undo_stack.length-1]
+			
+			if(last.type == 'delete' && last.end == range.my_end+1) return
+			if(last.type == 'insert' && last.start == range.my_end+1) return
+			//console.log(last.type, last, range)
+			//if(last.type == 'delete' && last.end == range.my_start)
+
 			if(range.my_start<=range.my_end){
-				delta = -(range.my_end+1-range.my_start)
+				delta -= range.my_end + 1-range.my_start
 				undo_group++
 				addUndoInsert(range.my_start, range.my_end+1)
 				removeText(range.my_start, range.my_end+1)
