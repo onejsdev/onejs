@@ -24,16 +24,25 @@ ONE.init_ast = function(){
 ONE.ast_ = function(){
 
 	// include the parser
-	var parser = {}
-	ONE.parser_strict_.call( parser )
+	var parser_normal = {}
+	ONE.parser_strict_.call( parser_normal )
+
+	var parser_live = Object.create(parser_normal)
+	parser_live.snapToAST = true
+
+	this.parseLive = function( source, filename ){
+		return this._parse(source, undefined, undefined, undefined, filename, true, parser_live)
+	}
 
 	// external parse api
 	this.parse = function( source, filename ){
-		return this._parse(source, undefined, undefined, undefined, filename, true)
+		return this._parse(source, undefined, undefined, undefined, filename, true, parser_normal)
 	}
 
 	// internal parse api used by compiler
-	this._parse = function( source, module, locals, template, filename, noclone ){
+	this._parse = function( source, module, locals, template, filename, noclone, parser){
+		if(!parser) parser = parser_normal
+
 		parser.sourceFile = filename || ''
         //console.log('parsing', source)
 		var node = module && module.parser_cache[source]
@@ -297,7 +306,7 @@ ONE.ast_ = function(){
 			console.log(stack[i].getThis())
 		}
 	}
-	parser.Node = Object.create(null)
+	parser_live.Node = parser_normal.Node = Object.create(null)
 
 	// AST node
 	this.AST = this.Base.extend(function(outer){
@@ -1147,7 +1156,7 @@ ONE.ast_ = function(){
 			this.Call = function( n ){
 				var fn = this.expand(n.fn, n)
 				var fn_t = n.fn.type
-				if(fn_t == 'List' || fn_t == 'Logic' || fn_t == 'Condition') 
+				if(fn_t == 'Function' || fn_t == 'List' || fn_t == 'Logic' || fn_t == 'Condition') 
 					fn = '(' + fn + ')'
 				var arg = ''
 				if(n.first_args) arg += this.list(n.first_args, n)

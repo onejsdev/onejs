@@ -570,7 +570,7 @@ ONE.base_ = function(){
 		var sig =  this[signalStore]
 		if(!sig){ 
 			sig = this[signalStore] = this.propSignal(key, setter)
-			Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
+			//Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 			// make a getter/setter pair
 			Object.defineProperty(this, 'on_' + key, {
 				configurable:true,
@@ -580,7 +580,7 @@ ONE.base_ = function(){
 					// make an instance copy if needed
 					if(sig.parent != this){
 						sig = this[signalStore] = this.forkSignal(sig)
-						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
+						//Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
 					return sig
 				},
@@ -600,7 +600,7 @@ ONE.base_ = function(){
 					// make instance copy if needed
 					if(sig.parent != this){
 						sig = this[signalStore] = this.forkSignal(sig)
-						Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
+						//Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 					}
 					sig.set(value)
 				}
@@ -608,7 +608,7 @@ ONE.base_ = function(){
 		}
 		else if(sig.parent != this){
 			sig = this[signalStore] = this.forkSignal(sig)
-			Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
+			//Object.defineProperty(this, signalStore, { enumerable:false, configurable:true })
 		}
 		if(value !== undefined) sig.set(value)
 		return sig

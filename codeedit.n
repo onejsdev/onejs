@@ -6,11 +6,25 @@ import text_chunked
 
 class CodeEdit extends Layer{
 
+	class CodeFormatter{
+		load(MemoryTaggedTextImpl)
+		load(CodeViewTypes)
+		load(CodeViewImpl)
+		constructor(){
+			text_initialized = true
+			MemoryTaggedTextImpl::constructor()
+			CodeViewImpl::constructor()
+		}
+		format(ast){
+			this.ast = ast
+		}
+	}
+
 	load(ChunkedTextLayerImpl)
 	load(CodeViewTypes)
 	load(CodeViewImpl)
 	load(EditImpl)
-
+	
 	processInsert(lo, hi, text){
 		var cdelta = 0
 		if(text == ')'){
@@ -22,15 +36,18 @@ class CodeEdit extends Layer{
 		else if(text == '}'){
 			if(charCode(lo) == 125) text = '', cdelta = 1
 		}
-		else if(text == '('){ // insert a 
+		else if(text == '('){
 			cdelta = -1
 			text += ')'
 		}
-		else if(text == '['){ // insert a 
+		else if(text == '['){
 			cdelta = -1
 			text += ']'
 		}
-		else if(text == '{'){ // insert a 
+		else if(text == '{'){
+			if(lo != hi){
+				// do something special
+			}
 			cdelta = -1
 			text += '}'
 		}
@@ -48,6 +65,7 @@ class CodeEdit extends Layer{
 			}
 			while(i<char_count){
 				var code = charCode(i)
+				if(state == 0 && code == 123) indent--
 				if(state == 1){
 					if(code == 9 || code == 125) indent++
 					else break
@@ -67,6 +85,71 @@ class CodeEdit extends Layer{
 		}
 		return [text, cdelta]
 	}
+	
+	change(){
+		if(change == 1){
+			if(step_timeout) clearTimeout(step_timeout)
+			step_timeout = thisTimeout(parseStep,0)
+		}
+	}
+
+	parseStep(){
+		var dt = Date.now()
+		step_serialized = serializeText()
+		// okay.. so we parse it, we get an error. now what.
+		step_ast = parseLive(step_serialized)
+		//console.log('----parseStep! '+(Date.now()-dt))
+		step_timeout = thisTimeout(astgenStep,0)
+	}
+
+	astgenStep(){
+		var dt = Date.now()
+		code_formatter.setSize(step_serialized.length)
+		code_formatter.clear()
+		code_formatter.ast = step_ast
+		//console.log(code_formatter.serializeText())
+		//console.log('astgenStep! '+(Date.now()-dt))
+		step_timeout = thisTimeout(diffStep,0)
+	}
+
+	diffStep(){
+		var dt = Date.now()
+		// lets diff our code_formatter.output
+		// against our textbuffer, whilst updating colors
+		// and then we remove/insert the delta.
+		// ok lets first try to do it wholesale
+		var range = diffTags(code_formatter.output)
+		if(range){ // remove a range, and insert a range
+			var delta = 0
+			if(range.my_start<=range.my_end){
+				delta = -(range.my_end+1-range.my_start)
+				undo_group++
+				addUndoInsert(range.my_start, range.my_end+1)
+				removeText(range.my_start, range.my_end+1)
+			}
+			//console.log(range.my_start, range.my_end)
+			if(range.other_start <= range.other_end){
+				var inslice = code_formatter.output.slice(range.other_start, range.other_end+1)
+				delta += range.other_end + 1 - range.other_start
+				code_formatter.output = inslice
+				//console.log('delta',code_formatter.serializeText())
+				insertText(range.my_start, inslice)
+				addUndoDelete(range.my_start, range.my_start+inslice.length)
+			}
+			// we should now move all cursors > x by delta
+			cursors.moveAll(range.my_start-1, delta)
+		}
+		//console.log(range)
+		//console.log('diffStep! '+(Date.now()-dt))
+		step_timeout  = thisTimeout(applyStep,0)
+	}
+
+	applyStep(){
+		// and now we update it.
+
+		//console.log('applyStep!')
+		step_timeout = 0
+	}
 
 	constructor(){
 		Layer::constructor()
@@ -74,5 +157,7 @@ class CodeEdit extends Layer{
 		CodeViewImpl::constructor()
 		EditImpl::constructor()
 		_sortChunks()
+
+		code_formatter = CodeFormatter.new()
 	}
 }

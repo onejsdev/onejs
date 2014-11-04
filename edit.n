@@ -5,6 +5,7 @@ import text_chunked
 import distfield2d
 
 class EditImpl{
+	signal change
 
 	// single cursor
 	class Cursor{
@@ -63,6 +64,8 @@ class EditImpl{
 		}
 
 		backspace(){
+			if(cursors.text_layer.processDelete) cursors.text_layer.processDelete()
+
 			start += cursors.delta
 			end += cursors.delta
 			if(start == end){
@@ -165,6 +168,16 @@ class EditImpl{
 				}
 				else i++
 			}
+		}
+
+		moveAll(beyond, delta){
+			for(var cursor from list){
+				if(cursor.lo >= beyond){
+					cursor.start += delta
+					cursor.end += delta
+				}
+			}
+			update()
 		}
 
 		update(){
@@ -307,6 +320,7 @@ class EditImpl{
 			// we have to replace our cursor set start->end with something
 			undo_group++
 			cursors.insert(v.value)
+			change = 1
 		}
 
 		key.down(v)=>{
@@ -368,18 +382,20 @@ class EditImpl{
 		//cursors.moveDown(1, 100)
 	}
 
-
 	// alright so. undo. 
 	keyZCmd(){
 		undoRedo(undo_stack, redo_stack)
+		change = 2
 	}
 
 	keyYCmd(){
 		undoRedo(redo_stack, undo_stack)
+		change = 2
 	}
 
 	keyBackspace(){
 		cursors.backspace()
+		change = 1
 	}
 
 	keyLeftarrow(){

@@ -2828,11 +2828,11 @@ ONE.genjs_compat_ = function(){
 	Float32Array.prototype.__defineSetter__('p', function(v){ this[2] = v })
 	Float32Array.prototype.__defineSetter__('q', function(v){ this[3] = v })
 
-	function _Float32Vector(dim, type){
+	function _Float32Vector(dim, type, other){
 		this._t_ = Object.create(type || null)
 		this._t_.dim = dim
 		this.__length = dim
-		this._array_ = new Float32Array(dim * type.slots)
+		this._array_ = other || new Float32Array(dim * type.slots)
 	}
 
 	_Float32Vector.prototype.__defineGetter__('length', function(){ return this.__length })
@@ -2860,7 +2860,11 @@ ONE.genjs_compat_ = function(){
 		}
 		this.__length = length
 	})
-
+	
+	_Float32Vector.prototype.slice = function(start, end){
+		return new _Float32Vector(end - start, this._t_, 
+			new Float32Array(this._array_.buffer.slice(start * this._t_.slots * 4, end * this._t_.slots * 4)))
+	}
 	// create a compacted transferable
 	_Float32Vector.prototype._transfer_ = function(host, name){
 		this._clean_ = true

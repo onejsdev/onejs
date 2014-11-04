@@ -119,7 +119,6 @@ class TaggedTextImpl extends TextImpl{
 		//parent.addDebug(100, 0+ this.y)
 		//parent.addDebug(100, text_h + font_size * cursor_sink + this.y)
 		//parent.addDebug(100, block_y + line_height + this.y)
-		parent.clearDebug()
 		if(y < 0) return -2
 		if(y > text_h + font_size * cursor_sink) return -3 //below
 		// alright. lets scan em 
@@ -135,7 +134,7 @@ class TaggedTextImpl extends TextImpl{
 				if(tags.quad[o-1].z == 10 && x< mesh.quad_tl[o].x){
 					return o 
 				}
-				if(x >= mesh.quad_tl[o].x && x < hx){
+				if(x >= mesh.quad_tl[o].x && x <= hx){
 					return o
 				}
 				if(o == 0 && x < mesh.quad_tl[o].x){
@@ -150,7 +149,9 @@ class TaggedTextImpl extends TextImpl{
 					return o + 1
 				}
 			}
-			if(y>y2) return -3 // below self
+			if(y>y2){
+				return -3 // below self
+			}
 		}
 		return -2 // above self
 	}

@@ -14,7 +14,7 @@
 // ONEJS boot up fabric for webbrowser
 
 // toggle fake worker on or off
-ONE.fake_worker = false
+ONE.fake_worker = true
 ONE.ignore_cache = false
 ONE.prototype_mode = true
 ONE.compress_cache = false
@@ -256,8 +256,26 @@ ONE.worker_boot_ = function(host){
 
 	ONE.init()
 	ONE.init_ast()
+
+	ONE.Base.thisInterval = function(cb, time){
+		var pthis = this
+		return __setInterval(function(){
+			cb.call(pthis)
+			host.postProcess()
+		}, time)
+	}
+
+	ONE.Base.thisTimeout = function(cb, time){
+		var pthis = this
+		return __setTimeout(function(){
+			cb.call(pthis)
+			host.postProcess()
+		}, time)
+	}
+
 	ONE.root = ONE.Base.new()
 	ONE.root.__class__ = 'Root'
+
 }
 
 ONE.proxy_ = function(){
@@ -406,6 +424,7 @@ ONE.proxy_ = function(){
 					(name.charCodeAt(name.length - 1) != 95 || 
 					   name.charCodeAt(name.length - 2) != 95)){
 					name = name.slice(2), ch = 0
+					if(this['on_' + name]) continue // skip signal storage
 				}
 
 				if(ch == 36){ //$

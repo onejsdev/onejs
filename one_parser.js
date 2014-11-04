@@ -146,6 +146,9 @@ ONE.parser_strict_ = function(){
 	// allows multiline strings
 	this.multilineStrings = true
 
+	// snap to AST features
+	this.snapToAST = false
+
 	// allow string templating
 	this.stringTemplating = true
 
@@ -1465,6 +1468,7 @@ ONE.parser_strict_ = function(){
 				def = this.startNode()
 				def.id = this.parseArray()
 				if(this.eat(this._eq)){
+					if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 					def.init = this.parseNoCommaExpression(noIn)
 				}
 			} 
@@ -1472,6 +1476,7 @@ ONE.parser_strict_ = function(){
 				def = this.startNode()
 				def.id = this.parseObj()
 				if(this.eat(this._eq)){
+					if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 					def.init = this.parseNoCommaExpression(noIn)
 				}
 			} 
@@ -1505,6 +1510,7 @@ ONE.parser_strict_ = function(){
 				else {
 					//this.parseDims(def, node)
 					if(this.eat(this._eq)){
+						if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 						def.init = this.parseNoCommaExpression(noIn)
 					}
 				}
@@ -2115,6 +2121,7 @@ ONE.parser_strict_ = function(){
 			node.op = this.tokVal
 			node.left = left
 			this.next()
+			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 			node.right = this.parseMaybeQuote(noIn)
 			if(node.op != '=') this.checkLVal(left)
 			return this.finishNode(node, "Assign")
@@ -2161,6 +2168,7 @@ ONE.parser_strict_ = function(){
 				node.prio = this.tokType.binop
 				var op = this.tokType.replaceOp || this.tokType
 				this.next()
+				if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 				node.right = this.parseExprOp(this.parseMaybeUnary(), prec, noIn)
 				var exprNode = this.finishNode(node, op.logic ? "Logic" : "Binary")
 				return this.parseExprOp(exprNode, minPrec, noIn)
@@ -2230,7 +2238,9 @@ ONE.parser_strict_ = function(){
 
 		case this._dot:
 			var probe = this.probe_flag
+			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start dot on a newline in snapToAST mode') 
 			this.eat(this._dot)
+			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start dot on a newline in snapToAST mode') 
 			probe = probe || this.probe_flag
 			var node = this.startNodeFrom(base)
 			if(probe) node.store = 8

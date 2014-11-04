@@ -9,8 +9,7 @@ Scene{
 		ax = 0
 		ay = 0
 
-		sx = 
-		sy = 1.//:2.1 + 0.5cos(time.sec)
+		sx = sy = 1.//:2.1 + 0.5cos(time.sec)
 
 		font_size = 13
 		u_bgcolor = #002041
@@ -21,6 +20,7 @@ Scene{
 		u_contrast = 1.2
 		u_subpixel_distance = 3.
 		u_boldness =1.0//0.5
+		u_boldness = 1.0
 		line_spacing = 1.3
 		source = import('warps.n', 'string')
 		ast = parse(source)

@@ -138,7 +138,7 @@ class CodeViewImpl{
 	}
 
 	SemiColon(type, group){
-		syntaxText(':', group, type, _SemiColon)
+		syntaxText(';', group, type, _SemiColon)
 	}
 
 	Comma(type, group){
@@ -168,34 +168,36 @@ class CodeViewImpl{
 		syntaxText(']', group, base, _Bracket, _BracketR )
 	}
 
-	Operator(op, type, group){
-		var col
-		if(op == '++') col = _Plusplus
-		if(op == '--') col = _Minmin
-		if(op == '+') col = _Plus
-		if(op == '-') col = _Min
-		if(op == '/') col = _Div
-		if(op == '*') col = _Mul
-		if(op == '**') col = _Pow
-		if(op == '==') col = _EQ
-		if(op == '!=') col = _NEQ
-		if(op == '>') col = _GT
-		if(op == '<') col = _LT
-		if(op == '=>') col = _GTE
-		if(op == '<=') col = _LTE
-		if(op == '<<') col = _Shl
-		if(op == '>>') col = _Shr
-		if(op == '=') col = _Assign
-		if(op == ':=') col = _Signal
-		if(op == '+=') col = _PlusAssign
-		if(op == '-=') col = _MinAssign
-		if(op == '/=') col = _DivAssign
-		if(op == '*=') col = _MulAssign
-		if(op == '<<=') col = _ShlAssign
-		if(op == '>>=') col = _ShrAssign
-		if(op == '?') col = _TerniaryQ
-		if(op == ':') col = _TerniaryC
+	var op_lut = {
+		'++':_Plusplus
+		'--':_Minmin
+		'+':_Plus
+		'-':_Min
+		'/':_Div
+		'*':_Mul
+		'**':_Pow
+		'==':_EQ
+		'!=':_NEQ
+		'>':_GT
+		'<':_LT
+		'=>':_GTE
+		'<=':_LTE
+		'<<':_Shl
+		'>>':_Shr
+		'=':_Assign
+		':=':_Signal
+		'+=':_PlusAssign
+		'-=':_MinAssign
+		'/=':_DivAssign
+		'*=':_MulAssign
+		'<<=':_ShlAssign
+		'>>=':_ShrAssign
+		'?':_TerniaryQ
+		':':_TerniaryC
+	}
 
+	Operator(op, type, group){
+		var col = op_lut[op]
 		syntaxText(op, group, type, _Operator, col)
 	}
 
@@ -212,7 +214,7 @@ class CodeViewImpl{
 	}
 
 	Program(n){
-		Block(n)
+		Block(n, true)
 	}
 
 	Empty(n){}
@@ -259,7 +261,8 @@ class CodeViewImpl{
 	Object(n){//: { keys:3 },
 		var mygroup = group++
 		BraceL(_Object, mygroup)
-		for(var prop from n.keys){
+		for(var i, prop from n.keys){
+			if(i) Comma(_Object, group++)
 			expand(prop.key)
 			Colon(_Object)
 			expand(prop.value)
@@ -297,13 +300,15 @@ class CodeViewImpl{
 		}
 	}
 
-	Block(n){//:{ steps:2 },
+	Block(n, skipbrace){//:{ steps:2 },
 
 		var mygroup = group++
-		BraceL(_Block, mygroup)
-		var old_indent = indent
-		indent++
-		newline()
+		if(!skipbrace){
+			BraceL(_Block, mygroup)
+			var old_indent = indent
+			indent++
+			newline()
+		}
 		if(n.steps.length) tab(indent)
 		else tab(old_indent)
 		for(var len, i, step from n.steps){
@@ -326,8 +331,10 @@ class CodeViewImpl{
 			if(i == len - 1) tab(old_indent)
 			else tab(indent)
 		}
-		indent = old_indent
-		BraceR(_Block, mygroup)
+		if(!skipbrace){
+			indent = old_indent
+			BraceR(_Block, mygroup)
+		}
 	}
 	List(n){//: { items:2 },
 		for(var i, item from n.items){
@@ -422,6 +429,8 @@ class CodeViewImpl{
 	}
 	For(n){//: { init:1, test:1, update:1, loop:1, compr:0 },
 		Keyword('for', _For)
+		var mygroup = group++
+		ParenL(_For, mygroup)
 		expand(n.init)
 		SemiColon(_For)
 		space()
@@ -429,6 +438,7 @@ class CodeViewImpl{
 		SemiColon(_For)
 		space()
 		expand(n.update)
+		ParenR(_For, mygroup)
 		expand(n.loop)
 	}
 	ForIn(n){//: { left:1, right:1, loop:1, compr:0 },
@@ -637,7 +647,14 @@ class CodeViewImpl{
 
 	Call(n){//: { fn:1, args:2 },
 		var mygroup = group++
-		expand(n.fn)
+		var fn_t = n.fn.type
+		if(fn_t == 'Function' || fn_t == 'List' || fn_t == 'Logic' || fn_t == 'Condition') {
+			ParenL(_Call, mygroup)
+			expand(n.fn)
+			ParenR(_Call, mygroup)
+		}
+		else expand(n.fn)
+		mygroup = group++
 		ParenL(_Call, mygroup)
 		var hasout = 0 
 		var post, type
@@ -717,6 +734,7 @@ class CodeViewImpl{
 			indent = 0
 			group = 0
 			expand(v)
+			if(done)done()
 		}
 	}
 

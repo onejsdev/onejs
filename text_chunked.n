@@ -13,6 +13,66 @@
 import math
 import text_marked
 import glscene
+
+// Memory output for text buffer 
+class MemoryTaggedTextImpl{
+	constructor(){
+		char_count = 0
+	}
+
+	setSize(size){
+		if(!output || output.length < size*1.5){
+			console.log('here')
+			output = vec3[size*2]()
+		}
+	}
+
+	space(t){
+		if(t === undefined) return string(' ')
+		return string(Array(t+1).join(' '))
+	}
+	tab(t){
+		if(t === undefined) return string('\t')
+		return string(Array(t+1).join('\t'))
+	}
+	newline(t){
+		if(t === undefined) return string('\n')
+		return string(Array(t+1).join('\n'))
+	}
+	code(c){}
+
+	allocText(){}
+
+	clear(){
+		char_count = 0
+	}
+	
+	serializeText(){
+		var s = ''
+		vec3[] out = output
+		for(var i = 0;i<char_count;i++){
+			s += String.fromCharCode(out[i].z)
+		}
+		return s
+	}
+
+	done(){
+		if(output)output.length = char_count
+	}
+
+	string(text){
+		var length = text.length
+		vec3[] out = output
+		var o = char_count
+		for(var i = 0; i < length; i++){
+			var unicode = text.charCodeAt(i)
+			out[o + i] = vec3(tag_x,tag_y,unicode)
+		}
+		char_count += length
+		return length
+	}
+}
+
 // chunked text behaves like text
 class ChunkedTextLayerImpl{
 	// use layer matrices
@@ -62,9 +122,7 @@ class ChunkedTextLayerImpl{
 			mesh = chunk.mesh
 			tag_mesh = chunk.tag_mesh
 		 	text_y = chunk.y
-		 	chunk_id = chunk.chunk_id
-			this{
-			}
+			this{}
 		}
 		// lets draw our cursors
 		text_y = 0
@@ -105,6 +163,7 @@ class ChunkedTextLayerImpl{
 		if(!cache_chunk) cache_chunk = chunk_list[0]
 		var last, prev
 		var ct = 0
+		
 		while(last != cache_chunk){
 			if(ct++>1000){
 				console.log(cache_chunk.y)
@@ -113,6 +172,7 @@ class ChunkedTextLayerImpl{
 			last = prev
 			prev = cache_chunk
 			var ret = cache_chunk.offsetFromPos(x, y - cache_chunk.y)
+			//console.log(ret)
 			if(ret == -1 || ret == -2){ // to the left of self or top
 				cache_chunk = chunk_list[cache_chunk.chunk_id -1]
 				if(!cache_chunk) return 0
@@ -163,11 +223,12 @@ class ChunkedTextLayerImpl{
 		return cache_chunk
 	}
 
-	serialize(){
+	serializeText(){
 		var str = ''
 		for(var chunk from chunk_list){
-			if(chunk.char_offset !== -Infinity)
-				str += chunk.serialize()
+			if(chunk.char_offset !== -Infinity){
+				str += chunk.serializeText()
+			}
 		}
 		return str
 	}
@@ -344,6 +405,51 @@ class ChunkedTextLayerImpl{
 			//console.log(i, chunk.char_offset, chunk.char_count, chunk.serialize())
 		}
 		char_count = c
+	}
+
+	diffTags(tags){
+		// lets first scan from the top
+		vec3[] other_tags = tags
+		var other_start = 0
+		var other_end = tags.length - 1
+		var my_start = 0
+		var my_end = char_count - 1
+ 		
+		for(cs = findChunk(0); cs && cs.char_offset < my_end; cs = chunk_list[cs.chunk_id+1]){
+			// now lets mark it from the right start 
+			vec4[] my_tags = cs.tag_mesh
+			// lets process the chunk
+			for(var i = 0, l = my_tags.quad.length; i<l; i++, my_start++, other_start++){
+				if(my_tags.quad[i].z != other_tags[other_start].z){
+					break
+				}
+				if(my_tags.quad[i].x != other_tags[other_start].x || 
+					my_tags.quad[i].y = other_tags[other_start].y){
+					my_tags.quad[i].x = other_tags[other_start].x
+					my_tags.quad[i].y = other_tags[other_start].y
+					my_tags.length += 0
+				}
+			}
+			if(i<l) break
+		}
+		if(my_start == my_end+1) return
+		// now lets start at the end
+		for(var cs = chunk_list[chunk_list.length - 1]; cs && cs.char_offset+cs.char_count>=my_start; cs = chunk_list[cs.chunk_id-1]){
+			vec4[] my_tags = cs.tag_mesh
+			for(var i = my_tags.quad.length - 1; i>=0 && my_end>=my_start; i--, my_end--, other_end--){
+				if(my_tags.quad[i].z != other_tags[other_end].z){
+					break
+				}
+				if(my_tags.quad[i].x != other_tags[other_end].x || 
+					my_tags.quad[i].y = other_tags[other_end].y){
+					my_tags.quad[i].x = other_tags[other_end].x
+					my_tags.quad[i].y = other_tags[other_end].y
+					my_tags.length += 0
+				}
+			}
+			if(i>=0) break
+		}
+		return {my_start:my_start, my_end:my_end, other_start:other_start, other_end:other_end}
 	}
 
 	// lets start with removeText
