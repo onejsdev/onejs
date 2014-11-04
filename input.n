@@ -168,49 +168,58 @@ class Key extends WorkerProxy{
 	signal down, up, press
 
 	$constructor:(){
+		fireFoxTable = {
+			93:91, // left mete
+			224:92 // right meta
+		}
+
 		window.addEventListener('keydown') do(e)=>{
-			var k = toKey[ e.keyCode ]
-			if( k ) this[ k ] = 1
+			var code = fireFoxTable[e.keyCode] || e.keyCode
+			var keyname = toKey[ code ]
+			if( keyname ) this[ keyname ] = 1
 			//console.log(e)
 			var msg = {	
 				repeat: e.repeat
-				code: e.keyCode
-				name: toKey[e.keyCode]
+				code: code
+				name: keyname
 			}
 			msg[msg.name] = 1
 			down = msg
-			if(e.keyCode == toCode.y){
+			if(code == toCode.y){
 				e.preventDefault()
 			}
-			if(e.keyCode == toCode.tab){
+			if(code == toCode.tab){
 				press = {
 					repeat: e.repeat
+					name: 'tab'
 					value: '\t'
 					char: 9
 				}
 				e.preventDefault()
 			}
-			else if(e.keyCode == toCode.backspace){
+			else if(code == toCode.backspace){
 				e.preventDefault()
 			}
 		}
 
 		window.addEventListener('keyup') do(e)=>{
-			var k = toKey[ e.keyCode ]
-			if( k ) this[ k ] = 0
+			var code = fireFoxTable[e.keyCode] || e.keyCode
+			var keyname = toKey[ code ]
+			if( keyname ) this[ keyname ] = 0
 			var msg = {
 				repeat: e.repeat
-				code: e.keyCode
-				name: toKey[e.keyCode]
+				code: code
+				name: keyname
 			}
 			msg[msg.name] = 1
 			up = msg
-			if(e.keyCode == toCode.tab || e.keyCode == toCode.backspace){
+			if(code == toCode.tab || code == toCode.backspace){
 				e.preventDefault()
 			}
 		}
 
 		window.addEventListener('keypress') do(e)=>{
+			if(this.ctrl || this.alt || this.leftmeta || this.rightmeta) return
 			var code = e.charCode
 			if(code == 13 || e.keyCode == 13) code = 10 // make newlines unix defaults
 			else if(e.charCode == 0) return
@@ -244,7 +253,7 @@ class Key extends WorkerProxy{
 		118:'f7',119:'f8',120:'f9',121:'f10',122:'f11',123:'f12',
 		144:'numlock',145:'scrollock',186:'semicolon',187:'equals',188:'comma',
 		189:'dash',190:'period',191:'slash',192:'accent',219:'openbracket',
-		220:'backslash',221:'closebracket',222:'singlequote'
+		220:'backslash',221:'closebracket',222:'singlequote',
 	}
 	toCode = {
 		_t_:1
