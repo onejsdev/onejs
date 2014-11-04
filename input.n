@@ -185,7 +185,7 @@ class Key extends WorkerProxy{
 			}
 			msg[msg.name] = 1
 			down = msg
-			if(code == toCode.y){
+			if((e.ctrlKey || e.metaKey) && code == toCode.y){
 				e.preventDefault()
 			}
 			if(code == toCode.tab){
@@ -219,7 +219,7 @@ class Key extends WorkerProxy{
 		}
 
 		window.addEventListener('keypress') do(e)=>{
-			if(this.ctrl || this.alt || this.leftmeta || this.rightmeta) return
+			if(e.metaKey || e.altKey || e.ctrlKey) return
 			var code = e.charCode
 			if(code == 13 || e.keyCode == 13) code = 10 // make newlines unix defaults
 			else if(e.charCode == 0) return

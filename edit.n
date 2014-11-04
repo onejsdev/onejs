@@ -229,7 +229,7 @@ class EditImpl{
 	}
 
 	addUndoInsert(start, end, stack = undo_stack){
-		// if insert is contiguous merge it too
+		// merge undo groups if it merges
 		var last = stack[stack.length - 1]
 		if(last && last.type == 'insert' && 
 			last.start == end){
@@ -249,6 +249,7 @@ class EditImpl{
 	}
 
 	addUndoDelete(start, end, stack = undo_stack){
+		// merge undo objects if it merges
 		var last = stack[stack.length - 1]
 		if(last && last.type == 'delete' && 
 			last.end == start){
@@ -306,7 +307,6 @@ class EditImpl{
 			// we have to replace our cursor set start->end with something
 			undo_group++
 			cursors.insert(v.value)
-
 		}
 
 		key.down(v)=>{
