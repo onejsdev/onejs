@@ -185,6 +185,7 @@ class EditImpl{
 			if(pos + delta >= count) pos = count - 1
 			if(pos < 0) pos = 0
 			if(pos > count) pos = count
+			// ignore markers that are volatile
 			if(mark != 32 && mark != 9 && mark != 10 && mark != 59) while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
 				pos--
 			}
