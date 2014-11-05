@@ -374,6 +374,7 @@ class CodeViewImpl{
 	If(n){//: { test:1, then:1, else:1, postfix:0, compr:0 },
 		Keyword('if', _If)
 		var mygroup = group++
+		space()
 		ParenL(_If, mygroup)
 		expand(n.test)
 		ParenR(_If, mygroup)
