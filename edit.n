@@ -187,7 +187,7 @@ class EditImpl{
 			if(pos > count) pos = count
 			var start = pos
 			while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
-				if(start-pos>3){ // limit scan
+				if(start-pos>2){ // limit scan
 					pos = start
 					break
 				}
