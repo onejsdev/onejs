@@ -27,14 +27,22 @@ class CodeEdit extends Layer{
 	
 	processInsert(lo, hi, text){
 		var cdelta = 0
-		if(text == ')'){
-			if(charCode(lo) == 41) text = '', cdelta = 1
+		if(text == '"'){
+			if(charCodeAt(lo) == 34) text = '', cdelta = 1
+			else text +='"', cdelta=-1
+		}
+		else if(text == "'"){
+			if(charCodeAt(lo) == 39) text = '', cdelta = 1
+			else text +="'", cdelta=-1
+		}
+		else if(text == ')'){
+			if(charCodeAt(lo) == 41) text = '', cdelta = 1
 		}
 		else if(text == ']'){
-			if(charCode(lo) == 93) text = '', cdelta = 1
+			if(charCodeAt(lo) == 93) text = '', cdelta = 1
 		}
 		else if(text == '}'){
-			if(charCode(lo) == 125) text = '', cdelta = 1
+			if(charCodeAt(lo) == 125) text = '', cdelta = 1
 		}
 		else if(text == '('){
 			cdelta = -1
@@ -56,15 +64,15 @@ class CodeEdit extends Layer{
 			var state = 0
 			var indent = 0
 			var split = 0
-			while(charCode(i) == 9){
+			while(charCodeAt(i) == 9){
 				i++
 				indent--
 			}
-			if(charCode(i) == 125 && charCode(i-1) == 123){
+			if(charCodeAt(i) == 125 && charCodeAt(i-1) == 123){
 				i++, split = 1
 			}
 			while(i<char_count){
-				var code = charCode(i)
+				var code = charCodeAt(i)
 				if(state == 0 && code == 123) indent--
 				if(state == 1){
 					if(code == 9 || code == 125) indent++
@@ -87,9 +95,22 @@ class CodeEdit extends Layer{
 	}
 	
 	change(){
+		delay_ignore = false
 		if(change == 1){
+			delay_update = 0
 			if(step_timeout) clearTimeout(step_timeout)
 			step_timeout = thisTimeout(parseStep,0)
+		}
+		if(change == 2){
+			delay_update = parseStep
+		}
+	}
+
+	cursor(){
+		if(delay_update){
+			delay_ignore = true
+			delay_update()
+			delay_update = 0
 		}
 	}
 
@@ -124,28 +145,34 @@ class CodeEdit extends Layer{
 			// if what we do is essentially undo the last action, dont do it
 			var last = undo_stack[undo_stack.length-1]
 			
-			if(last.type == 'delete' && last.end == range.my_end+1) return
-			if(last.type == 'insert' && last.start == range.my_end+1) return
-			//console.log(last.type, last, range)
-			//if(last.type == 'delete' && last.end == range.my_start)
-
-			if(range.my_start<=range.my_end){
-				delta -= range.my_end + 1-range.my_start
-				undo_group++
-				addUndoInsert(range.my_start, range.my_end+1)
-				removeText(range.my_start, range.my_end+1)
+			// lets check if we inserted a space, and now its being removed
+			function next(){
+				if(range.my_start<=range.my_end){
+					delta -= range.my_end + 1-range.my_start
+					undo_group++
+					addUndoInsert(range.my_start, range.my_end+1)
+					removeText(range.my_start, range.my_end+1)
+				}
+				//console.log(range.my_start, range.my_end)
+				if(range.other_start <= range.other_end){
+					var inslice = code_formatter.output.slice(range.other_start, range.other_end+1)
+					delta += range.other_end + 1 - range.other_start
+					//code_formatter.output = inslice
+					//console.log('delta',code_formatter.serializeText())
+					insertText(range.my_start, inslice)
+					addUndoDelete(range.my_start, range.my_start+inslice.length)
+				}
+				// we should now move all cursors > x by delta
+				cursors.moveAll(range.my_start-1, delta)
 			}
-			//console.log(range.my_start, range.my_end)
-			if(range.other_start <= range.other_end){
-				var inslice = code_formatter.output.slice(range.other_start, range.other_end+1)
-				delta += range.other_end + 1 - range.other_start
-				code_formatter.output = inslice
-				//console.log('delta',code_formatter.serializeText())
-				insertText(range.my_start, inslice)
-				addUndoDelete(range.my_start, range.my_start+inslice.length)
+			if(!delay_ignore && last.type == 'delete' && charCodeAt(last.end-1) == 32){
+				delay_ignore = false
+				delay_update = parseStep
 			}
-			// we should now move all cursors > x by delta
-			cursors.moveAll(range.my_start-1, delta)
+			else if(last.type == 'insert'){
+				delay_update = next
+			}
+			else next()
 		}
 		//console.log(range)
 		//console.log('diffStep! '+(Date.now()-dt))

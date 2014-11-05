@@ -229,6 +229,10 @@ class CodeViewImpl{
 	}
 
 	Id(n){//{ name:0, flag:0, typing:1 },
+		if(n.typing){
+			expand(n.typing)
+			space()
+		}
 		if(n.flag){
 			syntaxText('#'+n.name, group++, _Id, _Color)
 		}

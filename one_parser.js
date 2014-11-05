@@ -1643,6 +1643,7 @@ ONE.parser_strict_ = function(){
 		case this._if:
 			this.next()
 			node.test = this.parseParenExpression()
+			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start if on a newline in snapToAST mode') 
 			node.then = this.parseStatementBlock()
 			node.else = this.eat(this._else) ? this.parseStatementBlock() : null
 			return this.finishNode(node, "If")

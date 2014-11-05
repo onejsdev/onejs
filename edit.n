@@ -5,7 +5,7 @@ import text_chunked
 import distfield2d
 
 class EditImpl{
-	signal change
+	signal change, cursor
 
 	// single cursor
 	class Cursor{
@@ -400,18 +400,22 @@ class EditImpl{
 
 	keyLeftarrow(){
 		cursors.moveLeft(key.shift)
+		cursor =1
 	}
 
 	keyRightarrow(){
 		cursors.moveRight(key.shift)
+		cursor =1
 	}
 
 	keyUparrow(){
 		cursors.moveUp(key.shift)
+		cursor =1
 	}
 
 	keyDownarrow(){
 		cursors.moveDown(key.shift)
+		cursor =1
 	}
 }
 
