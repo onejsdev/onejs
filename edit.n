@@ -198,8 +198,11 @@ class EditImpl{
 
 		moveDelta(beyond, delta){
 			for(var cursor from list){
-				cursor.start = markSeek(cursor.start, delta, cursor.mark_start)
-				cursor.end = markSeek(cursor.end, delta, cursor.mark_end)
+				if(cursor.start>beyond)
+					cursor.start = markSeek(cursor.start, delta, cursor.mark_start)
+				if(cursor.end>beyond)
+					cursor.end = markSeek(cursor.end, delta, cursor.mark_end)
+
 			}
 			update()
 		}
