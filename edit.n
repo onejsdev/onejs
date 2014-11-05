@@ -173,8 +173,14 @@ class EditImpl{
 		moveAll(beyond, delta){
 			for(var cursor from list){
 				if(cursor.lo >= beyond){
+					var count = text_layer.char_count
+					if(cursor.end+delta>=count) delta-=1
 					cursor.start += delta
 					cursor.end += delta
+					if(cursor.start<0) cursor.start = 0
+					if(cursor.end<0) cursor.end = 0
+					if(cursor.start>=count) curstor.start = count
+					if(cursor.end>=count) end.start = count
 				}
 			}
 			update()

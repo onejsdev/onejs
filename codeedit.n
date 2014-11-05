@@ -151,30 +151,35 @@ class CodeEdit extends Layer{
 				// first we remove
 				var rem_delta =  0
 				if(range.my_start<=range.my_end){
-					rem_delta += range.my_end + 1-range.my_start
+					rem_delta += range.my_end + 1 - range.my_start
 				}
 				var add_delta = 0
 				if(range.other_start <= range.other_end){
 					add_delta += range.other_end + 1 - range.other_start
 				}
 				// if we are input driven, we only accept positive add
-				if(was_cursor || add_delta - rem_delta >= 0){
+				if(was_cursor || add_delta - rem_delta > 0){
+					undo_group++
 					if(rem_delta){
-						undo_group++
 						addUndoInsert(range.my_start, range.my_end+1)
 						removeText(range.my_start, range.my_end+1)
 					}
 					if(add_delta){
-						// then we add
 						var inslice = code_formatter.output.slice(range.other_start, range.other_end+1)
-
-						if(delta>=0) 
+						var i = range.other_end
+						var j = range.other_start + 1
+						while(1){
+							if(code_formatter.charCodeAt(i) == 10) rem_delta++
+							else if(code_formatter.charCodeAt(i) != 9)break
+							i--
+						}
 						//code_formatter.output = inslice
 						//console.log('delta',code_formatter.serializeText())
+						if(inslice)
 						insertText(range.my_start, inslice)
 						addUndoDelete(range.my_start, range.my_start+inslice.length)
 					}
-					cursors.moveAll(range.my_start-1, add_delta - rem_delta)
+					cursors.moveAll(range.my_start, add_delta - rem_delta)
 				}
 				else if(!was_cursor){
 					delay_update = next

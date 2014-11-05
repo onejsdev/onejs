@@ -48,6 +48,11 @@ class MemoryTaggedTextImpl{
 	clear(){
 		char_count = 0
 	}
+
+	charCodeAt(off){
+		vec3[] out = output
+		return out[off].z
+	}
 	
 	serializeText(){
 		var s = ''
@@ -244,6 +249,7 @@ class ChunkedTextLayerImpl{
 			var addx
 			if(!append_chunk){
 				new_chunk.char_offset = 0
+				new_chunk.y = 0
 				add_y = 0
 				addx = 0
 			}
@@ -404,7 +410,7 @@ class ChunkedTextLayerImpl{
 				c += chunk.char_count
 				//addDebug(chunk.first_add_x, chunk.y,1,line_height)
 			}
-			//console.log(i, chunk.char_offset, chunk.char_count, chunk.serialize())
+			//console.log(i, chunk.y, chunk.char_offset, chunk.char_count, chunk.serializeText())
 		}
 		char_count = c
 	}
@@ -438,7 +444,7 @@ class ChunkedTextLayerImpl{
 		// now lets start at the end
 		for(var cs = chunk_list[chunk_list.length - 1]; cs && cs.char_offset+cs.char_count>=my_start; cs = chunk_list[cs.chunk_id-1]){
 			vec4[] my_tags = cs.tag_mesh
-			for(var i = my_tags.quad.length - 1; i>=0 && my_end>my_start && other_end>other_start; i--, my_end--, other_end--){
+			for(var i = my_tags.quad.length - 1; i>=0 && my_end>=my_start && other_end>=other_start; i--, my_end--, other_end--){
 				if(my_tags.quad[i].z != other_tags[other_end].z){
 					break
 				}
@@ -481,6 +487,11 @@ class ChunkedTextLayerImpl{
 				if(chunk_list[cs.chunk_id - 1] && chunk_list[cs.chunk_id - 1].char_offset !== -Infinity ||
 				chunk_list[cs.chunk_id + 1] && chunk_list[cs.chunk_id+1].char_offset!== -Infinity){
 					cs.char_offset = -Infinity
+					// we are the first
+					var first = false
+					var i = cs.chunk_id - 1
+					while(chunk_list[i] && chunk_list[i].char_offset === -Infinity)i--;
+					if(i<0) addy = 0
 				}
 				else{
 					cs.add_x = 0
