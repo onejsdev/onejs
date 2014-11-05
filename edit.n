@@ -169,18 +169,28 @@ class EditImpl{
 				else i++
 			}
 		}
-
-		moveAll(beyond, delta){
+		
+		markDelta(){
 			for(var cursor from list){
-				if(cursor.lo >= beyond){
+				cursor.mark = text_layer.charCodeAt(cursor.lo - 1)
+			}
+		}
+
+
+		moveDelta(beyond, delta){
+			for(var cursor from list){
+				var pos = cursor.lo
+				if(pos >= beyond){
+					pos += delta
 					var count = text_layer.char_count
-					if(cursor.end+delta>=count) delta-=1
-					cursor.start += delta
-					cursor.end += delta
-					if(cursor.start<0) cursor.start = 0
-					if(cursor.end<0) cursor.end = 0
-					if(cursor.start>=count) curstor.start = count
-					if(cursor.end>=count) end.start = count
+					if(pos+delta >= count) pos = count - 1
+					if(pos<0) pos = 0
+					if(pos> count) pos = count
+					while(pos>=1 && text_layer.charCodeAt(pos-1) != cursor.mark){
+						pos--
+					}
+					cursor.start = pos
+					cursor.end = pos
 				}
 			}
 			update()
