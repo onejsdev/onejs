@@ -1937,6 +1937,7 @@ ONE.parser_strict_ = function(){
 		this.expect(this._semi)
 		node.update = this.tokType === this._parenR ? null : this.parseExpression()
 		this.expect(this._parenR)
+		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr) node.loop = this.parseComprBlock()
 		else node.loop = this.parseStatementBlock()
 		this.labels.pop()
@@ -1949,6 +1950,7 @@ ONE.parser_strict_ = function(){
 		node.left = init
 		node.right = this.parseExpression()
 		this.expect(this._parenR)
+		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr) node.loop = this.parseComprBlock()
 		else node.loop = this.parseStatementBlock()
 		return this.finishNode(node, "ForIn")
@@ -1964,6 +1966,7 @@ ONE.parser_strict_ = function(){
 			node.in = this.parseNoCommaExpression(true)
 		}
 		this.expect(this._parenR)
+		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr){
 			node.loop = this.parseComprBlock()
 		}
@@ -1980,6 +1983,7 @@ ONE.parser_strict_ = function(){
 		node.left = init
 		node.right = this.parseExpression()
 		this.expect(this._parenR)
+		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr){	
 			node.loop = this.parseComprBlock()
 		}
@@ -1995,6 +1999,7 @@ ONE.parser_strict_ = function(){
 		node.left = init
 		node.right = this.parseExpression()
 		this.expect(this._parenR)
+		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr) node.loop = this.parseComprBlock()
 		else {
 			node.loop = this.parseStatementBlock()

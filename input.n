@@ -171,6 +171,9 @@ class Key extends WorkerProxy{
 		fireFoxTable = {
 			93:91, // left mete
 			224:92 // right meta
+			61:187 // equals
+			173:189 // minus
+			59:186 // semicolon
 		}
 
 		window.addEventListener('keydown') do(e)=>{
@@ -219,6 +222,7 @@ class Key extends WorkerProxy{
 		}
 
 		window.addEventListener('keypress') do(e)=>{
+
 			if(e.metaKey || e.altKey || e.ctrlKey) return
 			var code = e.charCode
 			if(code == 13 || e.keyCode == 13) code = 10 // make newlines unix defaults

@@ -215,6 +215,7 @@ class CodeViewImpl{
 
 	Program(n){
 		Block(n, true)
+
 	}
 
 	Empty(n){}
@@ -307,9 +308,10 @@ class CodeViewImpl{
 	Block(n, skipbrace){//:{ steps:2 },
 
 		var mygroup = group++
+		var old_indent = 0
 		if(!skipbrace){
 			BraceL(_Block, mygroup)
-			var old_indent = indent
+			old_indent = indent
 			indent++
 			newline()
 		}
@@ -322,6 +324,7 @@ class CodeViewImpl{
 			var comments = CollectComments.output = []
 			CollectComments.run(step)
 			var skipped = false
+
 			for(var comment from comments){
 				if(comment == -1 && last == -1 && !skipped){
 					newline()
@@ -331,9 +334,15 @@ class CodeViewImpl{
 				if(comment !== -1) Comment(comment)
 				last = comment
 			}
+
 			newline()
-			if(i == len - 1) tab(old_indent)
-			else tab(indent)
+			if(i == len - 1){
+				tab(old_indent)
+			}
+			else {
+
+				tab(indent)
+			}
 		}
 		if(!skipbrace){
 			indent = old_indent
@@ -495,13 +504,19 @@ class CodeViewImpl{
 	}
 	Var(n){//: { defs:2, const:0 },
 		Keyword('var', _Var)
-		space()
-		for(var i, def from n.defs){
-			if(i) Comma(_Var), space()
-			expand(def)
+		if(n.defs && n.defs.length){
+			space()
+			for(var i, def from n.defs){
+				if(i) Comma(_Var), space()
+				expand(def)
+			}
 		}
 	}
 	TypeVar(n){//: { typing:1, defs:2, dim:1 },
+		if(n.typing.typing){
+			expand(n.typing.typing)
+			space()
+		}
 		Keyword(n.typing.name, _TypeVar)
 		space()
 		for(var i, def from n.defs){
@@ -519,8 +534,10 @@ class CodeViewImpl{
 		Keyword('define', _Define)
 		space()
 		expand(n.id)
-		space()
-		expand(n.value)
+		if(n.value){
+			space()
+			expand(n.value)
+		}
 	}
 	Enum(n){//: { id:1, enums:2 }, 
 		Keyword('enum', _Enum)
@@ -546,9 +563,9 @@ class CodeViewImpl{
 
 	Function(n){//: { id:1, name:1, params:2, rest:1, body:1, arrow:0, gen:0, def:0 },
 		if(n.arrow){
-
 		}
 		if(n.name) expand(n.name)
+		else Keyword('function',_Function)
 		//else Keyword('function', _Function)
 		if(n.id) space(), expand(n.id)
 		var mygroup = group++

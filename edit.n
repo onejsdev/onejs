@@ -385,17 +385,17 @@ class EditImpl{
 	// alright so. undo. 
 	keyZCmd(){
 		undoRedo(undo_stack, redo_stack)
-		change = 2
+		change = 3
 	}
 
 	keyYCmd(){
 		undoRedo(redo_stack, undo_stack)
-		change = 2
+		change = 3
 	}
 
 	keyBackspace(){
 		cursors.backspace()
-		change = 1
+		change = 2
 	}
 
 	keyLeftarrow(){
