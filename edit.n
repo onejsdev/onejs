@@ -186,8 +186,11 @@ class EditImpl{
 			if(pos < 0) pos = 0
 			if(pos > count) pos = count
 			// ignore markers that are volatile
-			if(mark != 32 && mark != 9 && mark != 10 && mark != 59) while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
-				pos--
+			if(mark != 32 && mark != 9 && mark != 10 && mark != 59){
+				pos++
+				while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
+					pos--
+				}
 			}
 			return pos
 			//}
@@ -196,7 +199,7 @@ class EditImpl{
 		moveDelta(beyond, delta){
 			for(var cursor from list){
 				cursor.start = markSeek(cursor.start, delta, cursor.mark_start)
-				cursor.end = markSeek(cursor.end+1, delta, cursor.mark_end)
+				cursor.end = markSeek(cursor.end, delta, cursor.mark_end)
 			}
 			update()
 		}
