@@ -172,26 +172,35 @@ class EditImpl{
 		
 		markDelta(){
 			for(var cursor from list){
-				cursor.mark = text_layer.charCodeAt(cursor.lo - 1)
+				cursor.mark_start = text_layer.charCodeAt(cursor.start - 1)
+				cursor.mark_end = text_layer.charCodeAt(cursor.end - 1)
 			}
 		}
 
+		markSeek(pos, delta, mark){
+			//var pos = cursor.end
+			//if(pos >= beyond){
+			pos += delta
+			var count = text_layer.char_count
+			if(pos + delta >= count) pos = count - 1
+			if(pos < 0) pos = 0
+			if(pos > count) pos = count
+			var start = pos
+			while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
+				if(start-pos>3){ // limit scan
+					pos = start
+					break
+				}
+				pos--
+			}
+			return pos
+			//}
+		}
 
 		moveDelta(beyond, delta){
 			for(var cursor from list){
-				var pos = cursor.lo
-				if(pos >= beyond){
-					pos += delta
-					var count = text_layer.char_count
-					if(pos+delta >= count) pos = count - 1
-					if(pos<0) pos = 0
-					if(pos> count) pos = count
-					while(pos>=1 && text_layer.charCodeAt(pos-1) != cursor.mark){
-						pos--
-					}
-					cursor.start = pos
-					cursor.end = pos
-				}
+				cursor.start = markSeek(cursor.start, delta, cursor.mark_start)
+				cursor.end = markSeek(cursor.end, delta, cursor.mark_end)
 			}
 			update()
 		}

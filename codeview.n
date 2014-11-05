@@ -229,6 +229,10 @@ class CodeViewImpl{
 		string(text)
 	}
 
+	debug(){
+		syntaxText('@')
+	}
+
 	Id(n){//{ name:0, flag:0, typing:1 },
 		if(n.typing){
 			expand(n.typing)
@@ -378,6 +382,7 @@ class CodeViewImpl{
 		ParenL(_If, mygroup)
 		expand(n.test)
 		ParenR(_If, mygroup)
+		space()
 		expand(n.then)
 		if(n.else){
 			newline()
@@ -385,6 +390,7 @@ class CodeViewImpl{
 			Keyword('else', _If)
 			space()
 			expand(n.else)
+			//debug()
 		}
 	}
 	Switch(n){//: { on:1, cases:2 },
