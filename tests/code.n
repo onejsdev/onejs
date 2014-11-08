@@ -11,7 +11,7 @@ Scene{
 
 		sx = sy = 1.//:2.1 + 0.5cos(time.sec)
 
-		font_size = 13
+		font_size = 11
 		u_bgcolor = #002041
 
 		//u_bgcolor = undefined
@@ -20,9 +20,10 @@ Scene{
 		u_contrast = 1.2
 		u_subpixel_distance = 3.
 		u_boldness =1.0//0.5
-		u_boldness = 1.0
+		u_boldness = 0.7
 		line_spacing = 1.3
-		source = import('warps.n', 'string')
-		ast = parse(source)
+		source = import('tests/trash.n', 'string')
+		ast = parseLive(source)
+		console.log(AST.toDump(ast))
 	}
 }

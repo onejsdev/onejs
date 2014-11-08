@@ -178,31 +178,31 @@ class EditImpl{
 		}
 
 		markSeek(pos, delta, mark){
-			//var pos = cursor.end
-			//if(pos >= beyond){
 			pos += delta
 			var count = text_layer.char_count
-			if(pos + delta >= count) pos = count - 1
 			if(pos < 0) pos = 0
-			if(pos > count) pos = count
+			if(pos >= count) pos = count - 1
 			// ignore markers that are volatile
 			if(mark != 32 && mark != 9 && mark != 10 && mark != 59){
 				pos++
+				var start = pos
+				var max = abs(delta)
 				while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
+					if(start-pos>max)break
 					pos--
 				}
 			}
 			return pos
-			//}
 		}
 
 		moveDelta(beyond, delta){
 			for(var cursor from list){
 				if(cursor.start>=beyond)
 					cursor.start = markSeek(cursor.start, delta, cursor.mark_start)
-				if(cursor.end>=beyond)
+				if(cursor.end>=beyond){
 					cursor.end = markSeek(cursor.end, delta, cursor.mark_end)
-
+				//	cursor.max = text_layer.cursorRect(cursor.end).x
+				}
 			}
 			update()
 		}

@@ -44,10 +44,10 @@
 // ES6   Shorthand object intialization {x,y} == {x:x,y:y} 
 // ES6	 class x extends y{} notation
 
-// ONE   use of : to signify lazy/signal assigns (label syntax)
+// Microsoft research use of the @ 'probe' operator anywhere
+// ONE   use of : to signify symbolic assignment
 // ONE   Create instance object with block args x{}
 // ONE   function defs can drop the identifier 'x = (param){}'
-// ONE   two arrow function types: => .bind(this) ~> unbound
 // ONE   for To 'for(x = 0 to 10 in 3){}'
 // ONE   ! is postfixable,  % * & are prefixable 
 // ONE   do catch for promise-then: 'v(x) do y catch z' -> 'v(x,y,z)' 'v do x' -> 'v(x)'
@@ -60,11 +60,10 @@
 // GLSL  struct support 'struct x{float y}'
 // Dart  tempvar/cascade operator (..)  'selectElement()..prop1=1 \n..prop2 = 10, ..prop3 = 20'
 // Coco  multiline regex / /\n\n\n/ /g
-// CSS   @, # are prefix flags for identifiers
+// CSS   # is a prefix flag that the compiler uses for colors
 // CSS   automatic * insertion in '2px' -> '2*px' for units or math
 
 // CS    commas are optional when you have newlines '[1\n2] {x:1\x:2}'
-// CS    logic words 'if x and y', 'if x or y' 'if not x'
 // CS    existential object traverse  'x?.y?.z for no exception-traverse
 // CS    existential assignments '?=' if(lhs===undefined)lhs = rhs
 // CS    existential prefix operator ?x -> (x===undefined)
@@ -72,7 +71,7 @@
 
 // CS    pow '**'
 // CS    Mathematical modulus '%%'
-// CS    Integer divide '%/' ( cant parse // )
+// CS    Integer divide '%/' ( cant parse // since thats a comment)
 
 // The following JS parser bugs/features have been fixed/changed:
 
@@ -546,12 +545,17 @@ ONE.parser_strict_ = function(){
 	// the next one's `this.tokStart` will point at the right position.
 
 	this.finishToken = function(type, val) {
+		if(this.storeComments) this.lastComments.push(type)
 		this.tokEnd = this.tokPos
 		this.tokType = type
 		//this.tokIsType = this.typeKeywords[val]
+		//if(this.snapToAST){console.log('finishToken', type, val)
+			//if(type.type == '}') throw new Error(1)
+		//}
 		this.skipSpace()
 		if(type.preIdent){
-			if(!this.isIdentifierStart(this.input.charCodeAt(this.tokPos))){
+			var next = this.input.charCodeAt(this.tokPos)
+			if(!this.isIdentifierStart(next) && (next<48 || next>57)){
 				this.tokType = type.preIdent
 			}
 		}
@@ -566,16 +570,18 @@ ONE.parser_strict_ = function(){
 		this.tokPos = end + 2
 		
 		if(this.storeComments){
+		
 			var block = this.input.slice(start + 2, end).split("\n")
 			for( var i = 0;i<block.length;i++){
-				this.lastComments.push( start, block[ i ] )
-				if(i < block.length - 1) this.lastComments.push( start, -1 )
+				this.lastComments.push( /*start,*/ block[ i ] )
+				if(i < block.length - 1) this.lastComments.push( /*start,*/ 1 )
 			}
-			this.lastComments.push( start, -1)
+			this.lastComments.push( /*start,*/ 1)
 		}
 	}
 
 	this.skipLineComment = function() {
+
 		var start = this.tokPos
 		var ch = this.input.charCodeAt(this.tokPos+=2)
 		while (this.tokPos < this.inputLen && ch !== 10 && ch !== 13 && ch !== 8232 && ch !== 8233) {
@@ -590,7 +596,9 @@ ONE.parser_strict_ = function(){
 				 ch = this.input.charCodeAt(++strip)
 			}
 			var cmt = this.input.slice(strip, this.tokPos)
-			this.lastComments.push( start, cmt )
+			this.lastComments.push( /*start,*/ cmt )
+			//if(this.snapToAST) console.log(this.lastComments)
+			//if(this.snapToAST)console.log('skipLineComment', cmt)
 		}
 	}
 
@@ -598,6 +606,7 @@ ONE.parser_strict_ = function(){
 	// whitespace and comments, and.
 
 	this.skipSpace = function() {
+
 		this.lastSkippedNewlines = this.skippedNewlines
 		this.skippedNewlines = 0
 		if( this.templateNext ) return
@@ -613,12 +622,12 @@ ONE.parser_strict_ = function(){
 					++this.tokPos
 				}
 				this.skippedNewlines++
-				if(this.storeComments) this.lastComments.push(this.tokPos-2, -1)
+				if(this.storeComments) this.lastComments.push(/*this.tokPos-2,*/ 1)
 			} 
 			else if (ch === 10 || ch === 8232 || ch === 8233) {
 				++this.tokPos
 				this.skippedNewlines++
-				if(this.storeComments) this.lastComments.push(this.tokPos-1, -1)
+				if(this.storeComments) this.lastComments.push(/*this.tokPos-1,*/ 1)
 			} 
 			else if (ch > 8 && ch < 14) {
 				++this.tokPos
@@ -1317,10 +1326,10 @@ ONE.parser_strict_ = function(){
 		}
 
 		// lets process lastNodes against lastComments
-		if(this.storeComments && this.lastComments.length){
-			this.lastNodes.push(node)
-			this.finishComments()
-		}
+		//if(this.storeComments && this.lastComments.length){
+		//	this.lastNodes.push(node)
+			//this.finishComments()
+		//}
 
 		return node
 	}
@@ -1421,18 +1430,93 @@ ONE.parser_strict_ = function(){
 		this.inFunction = this.strict = null
 		this.labels = []
 		this.readToken()
-
 		var node = this.startNode(), first = true
+
 		node.steps = []
 		while (this.tokType !== this._eof) {
+			//if(this.snapToAST)console.log('parseTopLevel1', this.lastComments)
+			if(this.storeComments) var cmt = this.commentBegin()
 			var stmt = this.parseStatement( true )
+			if(this.storeComments) this.commentEnd(stmt, cmt)
+			//if(this.snapToAST)console.log('parseTopLevel2', this.lastComments)
+
 			node.steps.push(stmt)
 			if (first && this.isUseStrict(stmt)) this.setStrict(true)
 			first = false
 		}
+		// if we have end comments , put them on Program
+		//if(this.snapToAST)console.log('parseTopLevel3', this.lastComments)
+
+		// alright so. how do we recognise these things
+		if(this.storeComments) this.commentTail(node, this._braceR)
 		var ret = this.finishNode(node, "Program")
-		this.finishComments()
+		//this.finishComments()
 		return ret
+	}
+
+	this.commentBegin = function(){
+		var cmt = this.lastComments
+		this.lastComments = []
+		return cmt
+	}
+	
+	this.commentEnd = function(node, prefix){
+		// we iterate over prefix
+		// then if we run into -1 or text
+		// we push it into node.comments
+		// then we iterate over comments
+		// if we run into text we add it
+		// if we run into -1 we split it
+		var out = node.comments = []
+		for(var i = 0, l = prefix.length; i < l; i++){
+			var item = prefix[i]
+			if(typeof item != 'object'){
+				out.push(item)
+			}
+		}
+		out.push(2) // mark up comments from right comment
+		var cmt = this.lastComments
+		for(var i = 0, l = cmt.length; i < l; i++){
+			var item = cmt[i]
+			if(typeof item != 'object'){
+				out.push(item)
+				if(item === 1){
+					cmt.splice(0, i + 1)
+					break
+				}
+			}
+		}
+	}
+	// called on the head of a block
+	this.commentHead = function(node){
+		var out = node.comments = []
+		var cmt = this.lastComments
+		for(var i = 0, l = cmt.length;i<l;i++){
+			var item = cmt[i]
+			if(typeof item != 'object'){
+				out.push(item)
+				if(item === 1){
+					cmt.splice(0, i + 1)
+					break
+				}
+			}
+		}
+	}
+	// this is called at a } we run to it then splice and leave that for the next layer up
+	this.commentTail = function(node, tail){
+		var out = node.comments
+		if(!out)out = node.comments = []
+		var cmt = this.lastComments
+		for(var i = 0, l = cmt.length;i<l;i++){
+			var item = cmt[i]
+			if(item === tail){
+				cmt.splice(0, i + 1)
+				break
+			}
+			if(typeof item !== 'object'){
+				out.push(item)
+			}
+		}
 	}
 
 	this.loopLabel = {kind: "loop"} 
@@ -1842,11 +1926,16 @@ ONE.parser_strict_ = function(){
 	this.parseBlock = function(allowStrict) {
 		var node = this.startNode(), first = true, strict = false, oldStrict
 		node.steps = []
+		// this pops the comment we need to store on the body
+		if(this.storeComments) this.commentHead(node)
 		this.expect(this._braceL)
 
 		while (!this.eat(this._braceR)) {
+			// first we see if we have any comments
+			if(this.storeComments) var cmt = this.commentBegin()
 			var stmt = this.parseStatement()
 
+			if(this.storeComments) this.commentEnd(stmt, cmt)
 			node.steps.push(stmt)
 			if (first && allowStrict && this.isUseStrict(stmt)) {
 				oldStrict = strict
@@ -1855,6 +1944,8 @@ ONE.parser_strict_ = function(){
 			first = false
 		}
 		if (this.strict && !oldStrict) this.setStrict(false)
+		if(this.storeComments) this.commentTail(node, this._braceR)
+		//if(this.snapToAST)console.log('parseBlock3', this.lastComments)
 
 		return this.finishNode(node, "Block", true)
 	}

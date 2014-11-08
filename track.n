@@ -15,9 +15,8 @@ import math
 class Time extends WorkerProxy{
 	// The Time object manages the playback of your tracks.
 	sec = 0
-
+	
 	$init:(){
-
 		sec_anim(time)=>{
 			sec = time
 			//console.log(this.sec)
@@ -210,9 +209,6 @@ class Easing{
 	back = inOutBack
 	bounce = outBounce
 }
-
-
-
 
 // ONEJS Track, Time and animation
 class Track{

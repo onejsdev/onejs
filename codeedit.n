@@ -173,7 +173,7 @@ class CodeEdit extends Layer{
 						insertText(range.my_start, inslice)
 						addUndoDelete(range.my_start, range.my_start+inslice.length)
 					}
-					cursors.moveDelta(range.my_start+1, add_delta - rem_delta)
+					cursors.moveDelta(range.my_start, add_delta - rem_delta)
 				}
 				else if(!was_cursor){
 					delay_update = next

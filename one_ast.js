@@ -1292,14 +1292,19 @@ ONE.ast_ = function(){
 			var keys = Object.keys(n)
 			for( var i = 0;i < keys.length; i++){
 				var k = keys[i]
-				if(k == 'parent' || k == 'tokens' || k == 'start' || k == 'end' || k == 'module' || k == 'locals'
+				if(k == '_ast_' || k == 'parent' || k == 'tokens' || k == 'start' || k == 'end' || k == 'module' || k == 'locals'
 					|| k == 'loc' || k == 'type' || k == 'pthis' || k=='source') continue;
 				var v = n[k]
 				// decode type inference a bit
+				if(k == 'comments'){
+					ret += '\n'+tab+'comments('+n.type+'):['+v.join(',')+']'
+					continue
+				}
 				if(k == 'infer'){
 					ret += '\n' + tab + k + ':' + (v?v.name:'undefined')
 					continue
 				}
+				 
 				if(typeof v !== 'function'){
 					if(typeof v == 'object'){
 						if(v !== null && Object.keys(v).length > 0)

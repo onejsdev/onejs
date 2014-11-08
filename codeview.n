@@ -206,10 +206,10 @@ class CodeViewImpl{
 	}
 
 	// AST Expander
-	expand(n){
+	expand(n, arg){
 		if(n){
 			if(!this[n.type]) throw new Error('type '+n.type+' not in codeview')
-			else this[n.type](n)
+			else this[n.type](n, arg)
 		}
 	}
 
@@ -233,16 +233,21 @@ class CodeViewImpl{
 		syntaxText('@')
 	}
 
-	Id(n){//{ name:0, flag:0, typing:1 },
+	Id(n, is_type){//{ name:0, flag:0, typing:1 },
 		if(n.typing){
-			expand(n.typing)
+			expand(n.typing, true)
 			space()
 		}
 		if(n.flag){
 			syntaxText('#'+n.name, group++, _Id, _Color)
 		}
-		else
-			syntaxText(n.name, group++, _Id, _Id)
+		else {
+			if(is_type){
+				syntaxText(n.name, group++, _TypeVar, _TypeVar)
+			}
+			else
+				syntaxText(n.name, group++, _Id, _Id)
+		}
 	}
 
 	Value(n){//: { value:0, raw:0, kind:0, multi:0 },
@@ -271,18 +276,23 @@ class CodeViewImpl{
 		var mygroup = group++
 		BraceL(_Object, mygroup)
 		for(var i, prop from n.keys){
-			if(i) Comma(_Object, group++)
+			if(i){
+				Comma(_Object, group++)
+				space()
+			}
 			expand(prop.key)
-			Colon(_Object)
-			expand(prop.value)
+			if(prop.value){
+				Colon(_Object)
+				expand(prop.value)
+			}
 		}
 		BraceR(_Object, mygroup)
 	}
-	Index(n){//: { object:1, index:1 },
-		expand(n.object)
+	Index(n, istype){//: { object:1, index:1 },
+		expand(n.object, istype)
 		var mygroup = group++
 		BracketL(_Index, mygroup)
-		expand(n.index)
+		if(n.index) expand(n.index)
 		BracketR(_Index, mygroup)
 	}
 	Key(n){//: { object:1, key:1, exist:0 },
@@ -450,6 +460,7 @@ class CodeViewImpl{
 	For(n){//: { init:1, test:1, update:1, loop:1, compr:0 },
 		Keyword('for', _For)
 		var mygroup = group++
+		space()
 		ParenL(_For, mygroup)
 		expand(n.init)
 		SemiColon(_For)
@@ -459,11 +470,13 @@ class CodeViewImpl{
 		space()
 		expand(n.update)
 		ParenR(_For, mygroup)
+		if(n.loop.type != 'Block') space()
 		expand(n.loop)
 	}
 	ForIn(n){//: { left:1, right:1, loop:1, compr:0 },
 		Keyword('for', _For)
 		var mygroup = group++
+		space()
 		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
@@ -471,11 +484,13 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
+		if(n.loop.type != 'Block') space()
 		expand(n.loop)
 	}
 	ForOf(n){//: { left:1, right:1, loop:1, compr:0 },
 		Keyword('for', _For)
 		var mygroup = group++
+		space()
 		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
@@ -483,11 +498,13 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
+		if(n.loop.type != 'Block') space()
 		expand(n.loop)
 	}
 	ForFrom(n){//: { right:1, left:1, loop:1, compr:0 }, // right comes first for type inference
 		Keyword('for', _For)
 		var mygroup = group++
+		space()
 		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
@@ -495,11 +512,13 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
+		if(n.loop.type != 'Block') space()
 		expand(n.loop)
 	}
 	ForTo(n){//: { left:1, right:1, loop:1, in:1, compr:0 },
 		Keyword('for', _For)
 		var mygroup = group++
+		space()
 		ParenL(_For, mygroup)
 		expand(n.left)
 		space()
@@ -507,6 +526,7 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
+		if(n.loop.type != 'Block') space()
 		expand(n.loop)
 	}
 	Var(n){//: { defs:2, const:0 },
@@ -520,11 +540,12 @@ class CodeViewImpl{
 		}
 	}
 	TypeVar(n){//: { typing:1, defs:2, dim:1 },
-		if(n.typing.typing){
-			expand(n.typing.typing)
-			space()
-		}
-		Keyword(n.typing.name, _TypeVar)
+		//if(n.typing.typing){
+		//	expand(n.typing.typing)
+		//	space()
+		//}
+		//Keyword(n.typing.name, _TypeVar)
+		expand(n.typing, true)
 		space()
 		for(var i, def from n.defs){
 			if(i) Comma(_Var), space()
@@ -569,12 +590,15 @@ class CodeViewImpl{
 	}
 
 	Function(n){//: { id:1, name:1, params:2, rest:1, body:1, arrow:0, gen:0, def:0 },
-		if(n.arrow){
+		if(!n.arrow){
+			if(n.name) expand(n.name)
+			else if(n.id){
+				Keyword('function',_Function)
+				space()
+				expand(n.id)
+			}
 		}
-		if(n.name) expand(n.name)
-		else Keyword('function',_Function)
 		//else Keyword('function', _Function)
-		if(n.id) space(), expand(n.id)
 		var mygroup = group++
 		ParenL(_Function,mygroup)
 		if(n.params) for(var i, param from n.params){
@@ -586,6 +610,7 @@ class CodeViewImpl{
 			expand(n.rest)
 		}
 		ParenR(_Function,mygroup)
+		if(n.arrow=='=>') Operator('=>',_Function)
 		expand(n.body)
 	}
 	Return(n){//: { arg:1 },
@@ -770,11 +795,6 @@ class CodeViewImpl{
 		ast = __ast
 	}
 
-	toInt:(float v){
-		int t = floor(v)
-		return t
-	}
-
 	paint:(vec2 p, dpdx, dpdy, edge){
 		//var edge = min(length(dpx))
 		int m = tag_mesh[].z
@@ -820,27 +840,6 @@ class CodeViewImpl{
 		}
 		return vec4(-1.)
 	}
-
-/*
-	customDistance:(){
-		vec4 m = pixel tags[]
-		if(m.z == 9.){
-			u_outline = true
-			return true
-		}
-		return false
-	}
-
-	sampleDistance:(vec2 mypos){
-		vec4 m = tags[]
-		if(m.z == 9.){
-			return vec2(
-				abs(mypos.x-.1)*2.,
-				.15+.5*sin(1.5*pixel mesh[].y + y)
-			)
-		}
-	}
-*/
 
 	style:(vec4 pos){
 		//vec4 dtags = vec4(tags[].x, floor(tags[].y / 65536.), mod(floor(tags[].y/256.), 256.), mod(tags[].y, 256.))

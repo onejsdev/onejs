@@ -252,7 +252,7 @@ class TaggedTextImpl extends TextImpl{
 			// lets add some vertices
 			addChar(glyph)
 			chars++
-			if(tags) tagChar(1, tags[i].x, tags[i].y, unicode)
+			if(istags) tagChar(1, tags[i].x, tags[i].y, unicode)
 			else tagChar(1, tag_x, tag_y, unicode)
 		}
 		if(add_y > text_h) text_h = add_y	
