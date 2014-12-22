@@ -460,11 +460,21 @@ ONE.parser_strict_ = function(){
 		this.tokTypes = {}
 		for( var k in this ){
 			var v = this[ k ]
-			if(k[0] == '_' && (v.binop || v.type || v.keyword)){ // its a token
-				this.tokTypes[ k.slice(1) ] = v
-				if(v.keyword){
-					this.keywordTypes[ v.keyword ] = v
-					isKeyword += (isKeyword.length?' ':'') + v.keyword
+
+			if(k[0] == '_'){
+				if(typeof v === 'object'){
+					v.toString = (function(k){
+						return function(){
+							return 'Token:'+k
+						}
+					})(k)
+				}
+				if((v.binop || v.type || v.keyword)){ // its a token
+					this.tokTypes[ k.slice(1) ] = v
+					if(v.keyword){
+						this.keywordTypes[ v.keyword ] = v
+						isKeyword += (isKeyword.length?' ':'') + v.keyword
+					}
 				}
 			}
 		}
@@ -545,6 +555,7 @@ ONE.parser_strict_ = function(){
 	// the next one's `this.tokStart` will point at the right position.
 
 	this.finishToken = function(type, val) {
+		//console.log('FINISH TOKEN',type)
 		if(this.storeComments) this.lastComments.push(type)
 		this.tokEnd = this.tokPos
 		this.tokType = type
@@ -597,6 +608,8 @@ ONE.parser_strict_ = function(){
 			}
 			var cmt = this.input.slice(strip, this.tokPos)
 			this.lastComments.push( /*start,*/ cmt )
+			//console.log('COMMENT',cmt)
+
 			//if(this.snapToAST) console.log(this.lastComments)
 			//if(this.snapToAST)console.log('skipLineComment', cmt)
 		}
@@ -1437,7 +1450,8 @@ ONE.parser_strict_ = function(){
 			//if(this.snapToAST)console.log('parseTopLevel1', this.lastComments)
 			if(this.storeComments) var cmt = this.commentBegin()
 			var stmt = this.parseStatement( true )
-			if(this.storeComments) this.commentEnd(stmt, cmt)
+			if(this.storeComments) this.commentEnd(stmt, cmt, this._braceR)
+
 			//if(this.snapToAST)console.log('parseTopLevel2', this.lastComments)
 
 			node.steps.push(stmt)
@@ -1460,7 +1474,7 @@ ONE.parser_strict_ = function(){
 		return cmt
 	}
 	
-	this.commentEnd = function(node, prefix){
+	this.commentEnd = function(node, prefix, tail){
 		// we iterate over prefix
 		// then if we run into -1 or text
 		// we push it into node.comments
@@ -1468,30 +1482,53 @@ ONE.parser_strict_ = function(){
 		// if we run into text we add it
 		// if we run into -1 we split it
 		var out = node.comments = []
+		var split = true
 		for(var i = 0, l = prefix.length; i < l; i++){
 			var item = prefix[i]
-			if(typeof item != 'object'){
-				out.push(item)
+			if(typeof item == 'object'){
+				split = true 
+				break
 			}
+			out.push(item)
 		}
 		out.push(2) // mark up comments from right comment
+		//console.log(split, i, tail, prefix.join(','), this.lastComments.join(','))
+		if(split){
+			for(i++; i < l; i++){ // push the rest of comments as things next to the item
+				split = false
+				var item = prefix[i]
+				if(typeof item == 'object') break
+				out.push(item)
+			}
+			if(!split) return
+		}
 		var cmt = this.lastComments
+
 		for(var i = 0, l = cmt.length; i < l; i++){
 			var item = cmt[i]
-			if(typeof item != 'object'){
-				out.push(item)
-				if(item === 1){
-					cmt.splice(0, i + 1)
-					break
-				}
+			if(item === tail) break
+ 			if(typeof item !== 'object') break
+		}
+
+		for(; i < l; i++){
+			var item = cmt[i]
+			if(typeof item == 'object'){
+				cmt.splice(0, i)
+				return
+			}
+			out.push(item)
+			if(item === 1){
+				cmt.splice(0, i + 1)
+				return
 			}
 		}
+		cmt.length = 0
 	}
 	// called on the head of a block
 	this.commentHead = function(node){
 		var out = node.comments = []
 		var cmt = this.lastComments
-		for(var i = 0, l = cmt.length;i<l;i++){
+		for(var i = 0, l = cmt.length; i < l; i++){
 			var item = cmt[i]
 			if(typeof item != 'object'){
 				out.push(item)
@@ -1505,8 +1542,9 @@ ONE.parser_strict_ = function(){
 	// this is called at a } we run to it then splice and leave that for the next layer up
 	this.commentTail = function(node, tail){
 		var out = node.comments
-		if(!out)out = node.comments = []
+		if(!out) out = node.comments = []
 		var cmt = this.lastComments
+		//console.log('tail',cmt.join(','))
 		for(var i = 0, l = cmt.length;i<l;i++){
 			var item = cmt[i]
 			if(item === tail){
@@ -1517,6 +1555,20 @@ ONE.parser_strict_ = function(){
 				out.push(item)
 			}
 		}
+	}
+
+	this.commentInline = function(node){
+		// ok so, we find all newlines and comments
+		var out = node.inline
+		if(!out) out = node.inline = []
+		var cmt = this.lastComments
+		for(var i = 0, l = cmt.length; i<l; i++){
+			var item = cmt[i]
+			if(typeof item !== 'object'){
+				out.push(item)
+			}
+		}
+		this.lastComments = []
 	}
 
 	this.loopLabel = {kind: "loop"} 
@@ -1934,8 +1986,8 @@ ONE.parser_strict_ = function(){
 			// first we see if we have any comments
 			if(this.storeComments) var cmt = this.commentBegin()
 			var stmt = this.parseStatement()
-
-			if(this.storeComments) this.commentEnd(stmt, cmt)
+			//console.log("HERE", stmt)
+			if(this.storeComments) this.commentEnd(stmt, cmt, this._braceR)
 			node.steps.push(stmt)
 			if (first && allowStrict && this.isUseStrict(stmt)) {
 				oldStrict = strict
@@ -2260,11 +2312,15 @@ ONE.parser_strict_ = function(){
 			if (prec > minPrec) {
  				var node = this.startNodeFrom(left)
 				if(this.probe_flag) node.store = 8
+				// ok lets annotate newlines/comments
+				// allright this is the only point we can annotate comments/newlines 
+				if(this.storeComments) this.commentInline(node)
 				node.left = left
 				node.op = this.tokType.replace || this.tokVal
 				node.prio = this.tokType.binop
 				var op = this.tokType.replaceOp || this.tokType
 				this.next()
+
 				if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start expression on a newline in snapToAST mode') 
 				node.right = this.parseExprOp(this.parseMaybeUnary(), prec, noIn)
 				var exprNode = this.finishNode(node, op.logic ? "Logic" : "Binary")
@@ -2720,8 +2776,14 @@ ONE.parser_strict_ = function(){
 	this.parseObj = function() {
 		var node = this.startNode(), first = true, sawGetSet = false
 		node.keys = []
+
+		if(this.storeComments) this.commentHead(node)
+
 		this.next()
 		while (!this.eat(this._braceR)) {
+
+			if(this.storeComments) var cmt = this.commentBegin()
+
 			if (!first) {
 				this.canInjectComma( this.tokType ) || this.expect(this._comma)
 				if (this.allowTrailingCommas && this.eat(this._braceR)) break
@@ -2760,8 +2822,10 @@ ONE.parser_strict_ = function(){
 					}
 				}
 			}
+			if(this.storeComments) this.commentEnd(prop, cmt, this._braceR)
 			node.keys.push(prop)
 		}
+		if(this.storeComments) this.commentTail(node, this._braceR)
 		return this.finishNode(node, "Object")
 	}
 
