@@ -120,7 +120,10 @@ class TaggedTextImpl extends TextImpl{
 		//parent.addDebug(100, text_h + font_size * cursor_sink + this.y)
 		//parent.addDebug(100, block_y + line_height + this.y)
 		if(y < 0) return -2
-		if(y > text_h + font_size * cursor_sink) return -3 //below
+		//if(y > text_h + font_size * cursor_sink){
+		//	console.log(y, text_h , '#'+serializeText()+'#')
+		//	return -3 //below
+		//}
 		// alright. lets scan em 
 		for(var o = tags.quad.length - 1; o >= 0; o--){
 			var info = glyphy_info.glyphs[tags.quad[o].z]
@@ -150,6 +153,7 @@ class TaggedTextImpl extends TextImpl{
 				}
 			}
 			if(y>y2){
+				//console.log(y, y2, '#'+serializeText()+'#')
 				return -3 // below self
 			}
 		}

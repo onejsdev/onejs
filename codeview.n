@@ -306,8 +306,13 @@ class CodeViewImpl{
 		expand(n.key)
 	}
 
-	Comment(text){
-		syntaxText(' // '+text, group++, _Comment)
+	lastIsNewline(){
+		return charCodeAt(char_count - 1) === 10
+	}
+
+	Comment(text, pre){
+		if(lastIsNewline()) tab(indent), pre = ''
+		syntaxText((pre||'')+'// '+text, group++, _Comment)
 	}
 
 	class CollectComments extends AST.Walk{
@@ -319,47 +324,114 @@ class CodeViewImpl{
 		}
 	}
 
-	Block(n, skipbrace){//:{ steps:2 },
+	// processes comments up until 2
+	CommentsAbove(n){
+		if(!n.comments) return
+		for(var i = 0; i < n.comments.length; i++){
+			var comment = n.comments[i]
+			if(comment === 2) return
+			if(comment === 1){
+				if(lastIsNewline()) tab(indent)
+				newline()
+			}
+			else Comment(comment)
+		}
+	}
 
+	// processes comments starting from 2
+	CommentsSide(n){
+		if(!n.comments) return
+		for(var i = 0; i < n.comments.length; i++){
+			var comment = n.comments[i]
+			if(comment === 2) break
+		}
+		for(i++; i < n.comments.length; i++){
+			var comment = n.comments[i]
+			if(comment === 1){
+				if(lastIsNewline()) tab(indent)
+				newline()
+			}
+			else Comment(comment,' ')
+		}
+	}
+
+	// process comments 
+	CommentsHead(n){
+		// we have to process the first 2 comments
+		if(!n.comments) return
+		for(var i = 0; i < n.comments.length; i++){
+			var comment = n.comments[i]
+			if(comment === 1){
+				if(lastIsNewline()) tab(indent)
+				newline()
+				break
+			}
+			else Comment(comment,' ')
+		}
+	}
+
+	CommentsTail(n){
+		// we process he last 2 comments
+		if(!n.comments) return
+		for(var i = 0; i < n.comments.length; i++){
+			var comment = n.comments[i]
+			if(comment === 1) break
+		}
+		for(i++; i < n.comments.length; i++){
+			var comment = n.comments[i]
+			if(comment === 1){
+				if(lastIsNewline()) tab(indent)
+				newline()
+			}
+			else Comment(comment)
+		}
+	}
+
+	CommentsInline(n){
+		// we process he last 2 comments
+		var has_newline = false
+		if(!n.inline) return
+		for(var i = 0; i < n.inline.length; i++){
+			var comment = n.inline[i]
+			if(comment === 1){
+				if(lastIsNewline()) tab(indent)
+				newline()
+				has_newline = true
+			}
+			else Comment(comment)
+		}
+		return has_newline
+	}
+	// process tail comments
+
+	Block(n, skipbrace){//:{ steps:2 },
 		var mygroup = group++
 		var old_indent = 0
 		if(!skipbrace){
 			BraceL(_Block, mygroup)
 			old_indent = indent
 			indent++
-			newline()
+			// lets output our immediate follow comments
+			CommentsHead(n)
+			if(!lastIsNewline()) newline()
 		}
-		if(n.steps.length) tab(indent)
-		else tab(old_indent)
+
 		for(var len, i, step from n.steps){
+			// if we have comments above, insert them
+			CommentsAbove(step)
+			if(lastIsNewline()) tab(indent)
 			expand(step)
-			var last = undefined
-			// we need to collect the comments
-			var comments = CollectComments.output = []
-			CollectComments.run(step)
-			var skipped = false
-
-			for(var comment from comments){
-				if(comment == -1 && last == -1 && !skipped){
-					newline()
-					tab(indent)
-					skipped = true // dont skip more than one line
-				}
-				if(comment !== -1) Comment(comment)
-				last = comment
-			}
-
-			newline()
-			if(i == len - 1){
-				tab(old_indent)
-			}
-			else {
-
-				tab(indent)
-			}
+			CommentsSide(step)
+			if(!lastIsNewline()) newline()
 		}
 		if(!skipbrace){
+			// lets add our tail comments
+			CommentsTail(n)
 			indent = old_indent
+			if(!lastIsNewline()){
+				newline()
+			}
+			tab(old_indent)
 			BraceR(_Block, mygroup)
 		}
 	}
@@ -647,7 +719,14 @@ class CodeViewImpl{
 		if(paren_l) ParenR(_Binary,mygroup)
 		space()
 		Operator(n.op, _Binary, group++)
-		space()
+		if(n.inline){ // comment inline of expression
+			// we need to add a newline, and indent accordingly
+			if(CommentsInline(n)){
+				tab(indent)
+			}
+			else space()
+		}
+		else space()
 		if(paren_r) ParenL(_Binary,mygroup)
 		expand(n.right)
 		if(paren_r) ParenR(_Binary,mygroup)

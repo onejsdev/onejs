@@ -8,7 +8,7 @@ Scene{
 	//fill = vec3(65/256,0,0)
 	fill = #002041
 	perspective = 70deg
-	m_view = mat4.ST(1,-1,-1,-300,400,500)//180deg,0,0,-200,300,300)
+	m_view = mat4.ST(1,-1,-1,-300,40,500)//180deg,0,0,-200,300,300)
 	CodeEdit{
 		ax = 3
 		ry: PI-sin(0.25*time.sec)*PI

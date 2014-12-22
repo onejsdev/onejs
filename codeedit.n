@@ -121,7 +121,12 @@ class CodeEdit extends Layer{
 		var dt = Date.now()
 		step_serialized = serializeText()
 		// okay.. so we parse it, we get an error. now what.
+		var dump = step_serialized.replace(/[\s\r\n]/g,function(f){
+			return '\\'+f.charCodeAt(0)
+		})
+		//console.log(dump)
 		step_ast = parseLive(step_serialized)
+		//console.log(AST.toDump(step_ast))
 		//console.log('----parseStep! '+(Date.now()-dt))
 		step_timeout = thisTimeout(astgenStep,0)
 	}
@@ -167,11 +172,14 @@ class CodeEdit extends Layer{
 					if(rem_delta){
 						addUndoInsert(range.my_start, range.my_end+1)
 						removeText(range.my_start, range.my_end+1)
+						// lets fetch what we are removing
 					}
 					if(add_delta){
 						var inslice = code_formatter.output.slice(range.other_start, range.other_end+1)
+
+						// lets see what we are inserting
 						insertText(range.my_start, inslice)
-						addUndoDelete(range.my_start, range.my_start+inslice.length)
+						addUndoDelete(range.my_start, range.my_start + inslice.length)
 					}
 					cursors.moveDelta(range.my_start, add_delta - rem_delta)
 				}

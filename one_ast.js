@@ -28,8 +28,8 @@ ONE.ast_ = function(){
 	ONE.parser_strict_.call( parser_normal )
 
 	var parser_live = Object.create(parser_normal)
-	parser_live.snapToAST = true
-
+	//parser_live.snapToAST = true
+	parser_live.debugging = true
 	this.parseLive = function( source, filename ){
 		return this._parse(source, undefined, undefined, undefined, filename, true, parser_live)
 	}
@@ -421,6 +421,7 @@ ONE.ast_ = function(){
 							'\tif(n.store) c.store = n.store\n'+
 							'\tif(n.parens) c.parens = n.parens\n'+
 							'\tif(n.comments) c.comments = n.comments\n'+
+							'\tif(n.inline) c.inline = n.inline\n'+
 							'\tc.start = n.start\n'+
 							'\tc.end = n.end\n'
 
@@ -430,6 +431,7 @@ ONE.ast_ = function(){
 							'\tif(n.store) c.store = n.store\n'+
 							'\tif(n.parens) c.parens = n.parens\n'+
 							'\tif(n.comments) c.comments = n.comments\n'+
+							'\tif(n.inline) c.inline = n.inline\n'+
 							'\tc.start = n.start\n'+
 							'\tc.end = n.end\n'
 				var v = 0
@@ -1296,8 +1298,12 @@ ONE.ast_ = function(){
 					|| k == 'loc' || k == 'type' || k == 'pthis' || k=='source') continue;
 				var v = n[k]
 				// decode type inference a bit
-				if(k == 'comments'){
-					ret += '\n'+tab+'comments('+n.type+'):['+v.join(',')+']'
+				if(k == 'comments' || k == 'inline'){
+					ret += '\n'+tab+k+'('+n.type+'):['
+					for(var c = 0; c < v.length; c++){
+						ret += (c?',':'') + (typeof v[c] == 'string' ? '"'+v[c]+'"' : v[c])
+					}
+					ret += ']'
 					continue
 				}
 				if(k == 'infer'){

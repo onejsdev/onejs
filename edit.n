@@ -44,6 +44,10 @@ class EditImpl{
 
 		moveUp(only_end, lines = 1){
 			var rect = cursors.text_layer.cursorRect(end)
+
+			//console.log(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
+			//cursors.text_layer.debugChunks()
+
 			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
 			if(!only_end) start = end
 		}

@@ -179,6 +179,7 @@ class ChunkedTextLayerImpl{
 			last = prev
 			prev = cache_chunk
 			var ret = cache_chunk.offsetFromPos(x, y - cache_chunk.y)
+			//console.log(cache_chunk, ret)
 			//console.log(ret)
 			if(ret == -1 || ret == -2){ // to the left of self or top
 				cache_chunk = chunk_list[cache_chunk.chunk_id -1]
@@ -249,6 +250,7 @@ class ChunkedTextLayerImpl{
 			var addx
 			if(!append_chunk){
 				new_chunk.char_offset = 0
+				new_chunk.text_h = 0
 				new_chunk.y = 0
 				add_y = 0
 				addx = 0
@@ -326,21 +328,30 @@ class ChunkedTextLayerImpl{
 					continue
 				}
 			}
-			if(unicode == 32){
-				chars += space()
+			if(unicode == 32){ //space
+				newChunk()
+				var s = append_chunk.space(t)
+				chars += s
 				continue
 			}
 			if(unicode == 10){ // newline
-				chars += newline()
+				newChunk()
+				var s = append_chunk.newline(t)
+				append_chunk.text_h += append_chunk.line_height
+				chars += s
 				continue
 			}
 			if(unicode == 9){ // tab
-				chars += tab()
+				newChunk()
+				var s = append_chunk.tab(t)
+				chars += s
 				continue
 			}
 			var glyph = glyphy_info.glyphs[unicode]
 			if(!glyph){
-				chars += space()
+				newChunk()
+				var s = append_chunk.space(t)
+				chars += s
 				continue
 			}
 			// lets add some vertices
@@ -506,7 +517,7 @@ class ChunkedTextLayerImpl{
 		var chunk, cs = chunk = findChunk(index)
 		var max_chunk = chunk_list.length
 		var off = 0
-		var len 
+		var len
 		var chunk_off = index - cs.char_offset
 		// split chunk
 		if(chunk_off == cs.char_count || chunk_off == 0){
@@ -546,7 +557,6 @@ class ChunkedTextLayerImpl{
 			add_y = cs.y
 			append_chunk = cs
 			// lets add a new chunk
-			//newChunk(true)
 			off += len = string(text)
 			if(split_tags.length){
 				newChunk(true)
@@ -573,5 +583,12 @@ class ChunkedTextLayerImpl{
 		}
 		_sortChunks()
 		return len
+	}
+
+	// lets spit out all the chunks we have
+	debugChunks(){
+		for(var i, chunk from chunk_list){
+			console.log(i, chunk.y, chunk.text_h, chunk.char_offset, chunk.char_count, chunk.serializeText())
+		}
 	}
 }
