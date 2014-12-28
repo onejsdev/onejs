@@ -91,17 +91,18 @@ class EditImpl{
 			end += cursors.delta
 
 			// help the cursor eating whitespace
-			var t
-			if(is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
-				while(t = is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
-					lo = lo - 1
-					if(t == 2) break
+			if(start == end){
+				var t
+				if(is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
+					while(t = is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
+						lo = lo - 1
+						if(t == 2) break
+					}
+				}
+				else if(is_white_space[cursors.text_layer.charCodeAt(lo - 2)] == 1){
+					lo = lo - 2
 				}
 			}
-			else if(is_white_space[cursors.text_layer.charCodeAt(lo - 2)] == 1){
-				lo = lo - 2
-			}
-
 			if(start == end){
 				if(lo == 0) return
 				cursors.text_layer.addUndoInsert(lo -1, hi)
