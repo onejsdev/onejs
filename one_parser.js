@@ -145,9 +145,6 @@ ONE.parser_strict_ = function(){
 	// allows multiline strings
 	this.multilineStrings = true
 
-	// snap to AST features
-	this.snapToAST = false
-
 	// allow string templating
 	this.stringTemplating = true
 
@@ -560,9 +557,6 @@ ONE.parser_strict_ = function(){
 		this.tokEnd = this.tokPos
 		this.tokType = type
 		//this.tokIsType = this.typeKeywords[val]
-		//if(this.snapToAST){console.log('finishToken', type, val)
-			//if(type.type == '}') throw new Error(1)
-		//}
 		this.skipSpace()
 		if(type.preIdent){
 			var next = this.input.charCodeAt(this.tokPos)
@@ -610,8 +604,6 @@ ONE.parser_strict_ = function(){
 			this.lastComments.push( /*start,*/ cmt )
 			//console.log('COMMENT',cmt)
 
-			//if(this.snapToAST) console.log(this.lastComments)
-			//if(this.snapToAST)console.log('skipLineComment', cmt)
 		}
 	}
 
@@ -1447,19 +1439,15 @@ ONE.parser_strict_ = function(){
 
 		node.steps = []
 		while (this.tokType !== this._eof) {
-			//if(this.snapToAST)console.log('parseTopLevel1', this.lastComments)
 			if(this.storeComments) var cmt = this.commentBegin()
 			var stmt = this.parseStatement( true )
 			if(this.storeComments) this.commentEnd(stmt, cmt, this._braceR)
-
-			//if(this.snapToAST)console.log('parseTopLevel2', this.lastComments)
 
 			node.steps.push(stmt)
 			if (first && this.isUseStrict(stmt)) this.setStrict(true)
 			first = false
 		}
 		// if we have end comments , put them on Program
-		//if(this.snapToAST)console.log('parseTopLevel3', this.lastComments)
 
 		// alright so. how do we recognise these things
 		if(this.storeComments) this.commentTail(node, this._braceR)
@@ -1468,21 +1456,28 @@ ONE.parser_strict_ = function(){
 		return ret
 	}
 
-	this.commentBegin = function(){
-		var cmt = this.lastComments
-		this.lastComments = []
-		return cmt
+	this.commentBegin = function(node){
+		var comments = this.lastComments
+		// we have to return the comments 'above' where we are. so
+		// we cant just eat it all. 
+		// what does that mean
+		var out = []
+		for(var i = 0, l = comments.length; i < l; i++){
+			var item = comments[i]
+			if(typeof item == 'object'){
+				comments.splice(0, i + 1)
+				break
+			}
+			out.push(item)
+		}
+		if(i == l) this.lastComments = []
+		return out
 	}
 	
 	this.commentEnd = function(node, prefix, tail){
-		// we iterate over prefix
-		// then if we run into -1 or text
-		// we push it into node.comments
-		// then we iterate over comments
-		// if we run into text we add it
-		// if we run into -1 we split it
-		var out = node.comments = []
-		var split = true
+		// process the prefix comments
+		var out = []
+		var split = false
 		for(var i = 0, l = prefix.length; i < l; i++){
 			var item = prefix[i]
 			if(typeof item == 'object'){
@@ -1491,8 +1486,9 @@ ONE.parser_strict_ = function(){
 			}
 			out.push(item)
 		}
-		out.push(2) // mark up comments from right comment
-		//console.log(split, i, tail, prefix.join(','), this.lastComments.join(','))
+		// assign to up comments
+		if(out.length) node.cmu = out
+		var out = []
 		if(split){
 			for(i++; i < l; i++){ // push the rest of comments as things next to the item
 				split = false
@@ -1500,75 +1496,135 @@ ONE.parser_strict_ = function(){
 				if(typeof item == 'object') break
 				out.push(item)
 			}
-			if(!split) return
+			if(!split){
+				if(out.length) node.cmr = out
+				return
+			}
 		}
-		var cmt = this.lastComments
+		var comments = this.lastComments
 
-		for(var i = 0, l = cmt.length; i < l; i++){
-			var item = cmt[i]
+		for(var i = 0, l = comments.length; i < l; i++){
+			var item = comments[i]
 			if(item === tail) break
  			if(typeof item !== 'object') break
 		}
 
 		for(; i < l; i++){
-			var item = cmt[i]
+			var item = comments[i]
 			if(typeof item == 'object'){
-				cmt.splice(0, i)
+				comments.splice(0, i)
+				if(out.length) node.cmr = out
 				return
 			}
 			out.push(item)
 			if(item === 1){
-				cmt.splice(0, i + 1)
+				comments.splice(0, i + 1)
+				if(out.length) node.cmr = out
 				return
 			}
 		}
-		cmt.length = 0
+		if(out.length) node.cmr = out
+		comments.length = 0
 	}
 	// called on the head of a block
 	this.commentHead = function(node){
-		var out = node.comments = []
-		var cmt = this.lastComments
-		for(var i = 0, l = cmt.length; i < l; i++){
-			var item = cmt[i]
+		var out = []
+		var comments = this.lastComments
+		for(var i = 0, l = comments.length; i < l; i++){
+			var item = comments[i]
 			if(typeof item != 'object'){
 				out.push(item)
 				if(item === 1){
-					cmt.splice(0, i + 1)
+					comments.splice(0, i + 1)
 					break
 				}
 			}
 		}
+		if(out.length) node.cm1 = out
 	}
 	// this is called at a } we run to it then splice and leave that for the next layer up
 	this.commentTail = function(node, tail){
-		var out = node.comments
-		if(!out) out = node.comments = []
-		var cmt = this.lastComments
+		var out = []
+		var comments = this.lastComments
 		//console.log('tail',cmt.join(','))
-		for(var i = 0, l = cmt.length;i<l;i++){
-			var item = cmt[i]
+		for(var i = 0, l = comments.length;i<l;i++){
+			var item = comments[i]
 			if(item === tail){
-				cmt.splice(0, i + 1)
+				comments.splice(0, i + 1)
 				break
 			}
 			if(typeof item !== 'object'){
 				out.push(item)
 			}
 		}
+		if(out.length) node.cm2 = out
 	}
 
-	this.commentInline = function(node){
+	this.commentInline = function(term){
 		// ok so, we find all newlines and comments
-		var out = node.inline
-		if(!out) out = node.inline = []
-		var cmt = this.lastComments
-		for(var i = 0, l = cmt.length; i<l; i++){
-			var item = cmt[i]
+		var out = []
+		var any = false
+		var comments = this.lastComments
+		for(var i = 0, l = comments.length; i<l; i++){
+			var item = comments[i]
 			if(typeof item !== 'object'){
 				out.push(item)
+				any = true
+			}
+			else if(any || item === term){
+				comments.splice(0, i + 1)
+				return out
 			}
 		}
 		this.lastComments = []
+		return out
+	}
+
+	this.commentAround = function(node, token){
+		var comments = this.lastComments
+		for(var i = comments.length - 1;i>=0;i--){
+			if(comments[i] == token){
+				var out = []
+				// scan backwards for the comments before
+				for(var j = i - 1;j>=0;j++){
+					var item = comments[j]
+					if(typeof item === 'object') break
+					out.unshift(item)
+				}
+				if(out.length) node.cm1 = out
+				var out = []
+				// scan forward for the comments after
+				for(var j = i + 1; j < comments.length; j++){
+					var item = comments[j]
+					if(typeof item === 'object') break
+					out.push(item)
+				}
+				if(out.length) node.cm2 = out
+				comments.splice(0, j)
+			}
+		}
+	}
+
+	this.commentAfter = function(){
+		// ok so, we find all newlines and comments
+		var out = []
+		var any = false
+		var comments = this.lastComments
+		var args = arguments, arglen = args.length
+		for(var i = comments.length - 1;i>=0 ;i--){
+			var brk = false
+			for(var j = 0; j < arglen; j++) if(comments[i] === args[j]) brk = true
+			if(brk) break
+		}
+		for(i++;i<comments.length;i++){
+			var item = comments[i]
+			if(typeof item === 'object'){
+				comments.splice(0, i + 1)
+				break
+			}
+			out.push(item)
+		}
+		return out
 	}
 
 	this.loopLabel = {kind: "loop"} 
@@ -1604,7 +1660,6 @@ ONE.parser_strict_ = function(){
 				def = this.startNode()
 				def.id = this.parseArray()
 				if(this.eat(this._eq)){
-					if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 					def.init = this.parseNoCommaExpression(noIn)
 				}
 			} 
@@ -1612,7 +1667,6 @@ ONE.parser_strict_ = function(){
 				def = this.startNode()
 				def.id = this.parseObj()
 				if(this.eat(this._eq)){
-					if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 					def.init = this.parseNoCommaExpression(noIn)
 				}
 			} 
@@ -1646,7 +1700,6 @@ ONE.parser_strict_ = function(){
 				else {
 					//this.parseDims(def, node)
 					if(this.eat(this._eq)){
-						if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 						def.init = this.parseNoCommaExpression(noIn)
 					}
 				}
@@ -1662,7 +1715,10 @@ ONE.parser_strict_ = function(){
 		if(this.tokType == this._braceL){
 			return this.parseBlock()
 		}
-		return this.parseStatement()
+		var comment = this.commentAfter(this._parenR, this._else)
+		var node = this.parseStatement()
+		if(comment.length) node.cmu = comment
+		return node
 	}
 
 	// Parse a single statement.
@@ -1779,9 +1835,15 @@ ONE.parser_strict_ = function(){
 		case this._if:
 			this.next()
 			node.test = this.parseParenExpression()
-			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start if on a newline in snapToAST mode') 
 			node.then = this.parseStatementBlock()
-			node.else = this.eat(this._else) ? this.parseStatementBlock() : null
+			if(this.tokType == this._else){
+
+				if(this.storeComments){
+					node.cm1 = this.commentInline()//this._else)
+				}
+				this.eat(this._else)
+				node.else = this.parseStatementBlock()
+			}
 			return this.finishNode(node, "If")
 
 		case this._return:
@@ -1984,7 +2046,9 @@ ONE.parser_strict_ = function(){
 
 		while (!this.eat(this._braceR)) {
 			// first we see if we have any comments
-			if(this.storeComments) var cmt = this.commentBegin()
+			if(this.storeComments){
+				var cmt = this.commentBegin()
+			}
 			var stmt = this.parseStatement()
 			//console.log("HERE", stmt)
 			if(this.storeComments) this.commentEnd(stmt, cmt, this._braceR)
@@ -1997,7 +2061,6 @@ ONE.parser_strict_ = function(){
 		}
 		if (this.strict && !oldStrict) this.setStrict(false)
 		if(this.storeComments) this.commentTail(node, this._braceR)
-		//if(this.snapToAST)console.log('parseBlock3', this.lastComments)
 
 		return this.finishNode(node, "Block", true)
 	}
@@ -2080,7 +2143,6 @@ ONE.parser_strict_ = function(){
 		this.expect(this._semi)
 		node.update = this.tokType === this._parenR ? null : this.parseExpression()
 		this.expect(this._parenR)
-		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr) node.loop = this.parseComprBlock()
 		else node.loop = this.parseStatementBlock()
 		this.labels.pop()
@@ -2093,7 +2155,6 @@ ONE.parser_strict_ = function(){
 		node.left = init
 		node.right = this.parseExpression()
 		this.expect(this._parenR)
-		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr) node.loop = this.parseComprBlock()
 		else node.loop = this.parseStatementBlock()
 		return this.finishNode(node, "ForIn")
@@ -2109,7 +2170,6 @@ ONE.parser_strict_ = function(){
 			node.in = this.parseNoCommaExpression(true)
 		}
 		this.expect(this._parenR)
-		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr){
 			node.loop = this.parseComprBlock()
 		}
@@ -2126,7 +2186,6 @@ ONE.parser_strict_ = function(){
 		node.left = init
 		node.right = this.parseExpression()
 		this.expect(this._parenR)
-		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr){	
 			node.loop = this.parseComprBlock()
 		}
@@ -2142,7 +2201,6 @@ ONE.parser_strict_ = function(){
 		node.left = init
 		node.right = this.parseExpression()
 		this.expect(this._parenR)
-		if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start for on a newline in snapToAST mode') 
 		if(compr) node.loop = this.parseComprBlock()
 		else {
 			node.loop = this.parseStatementBlock()
@@ -2236,6 +2294,7 @@ ONE.parser_strict_ = function(){
 			node.items = [expr]
 
 			while(this.eat(this._comma)){
+
 				if(this.tokType === this._else) break
 				node.items.push(this.parseMaybeQuote(noIn, termColon))
 			}
@@ -2270,7 +2329,6 @@ ONE.parser_strict_ = function(){
 			node.op = this.tokVal
 			node.left = left
 			this.next()
-			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start assignment on a newline in snapToAST mode') 
 			node.right = this.parseMaybeQuote(noIn)
 			if(node.op != '=') this.checkLVal(left)
 			return this.finishNode(node, "Assign")
@@ -2314,14 +2372,18 @@ ONE.parser_strict_ = function(){
 				if(this.probe_flag) node.store = 8
 				// ok lets annotate newlines/comments
 				// allright this is the only point we can annotate comments/newlines 
-				if(this.storeComments) this.commentInline(node)
+
+				// ok so. either we are object, 1
+				// or we are 1, object
+				if(this.storeComments){
+					this.commentAround(node, this.tokType)
+				}
 				node.left = left
 				node.op = this.tokType.replace || this.tokVal
 				node.prio = this.tokType.binop
 				var op = this.tokType.replaceOp || this.tokType
 				this.next()
 
-				if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start expression on a newline in snapToAST mode') 
 				node.right = this.parseExprOp(this.parseMaybeUnary(), prec, noIn)
 				var exprNode = this.finishNode(node, op.logic ? "Logic" : "Binary")
 				return this.parseExprOp(exprNode, minPrec, noIn)
@@ -2391,11 +2453,15 @@ ONE.parser_strict_ = function(){
 
 		case this._dot:
 			var probe = this.probe_flag
-			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start dot on a newline in snapToAST mode') 
-			this.eat(this._dot)
-			if(this.snapToAST && this.lastSkippedNewlines) this.raise(this.tokStart,'Cannot start dot on a newline in snapToAST mode') 
-			probe = probe || this.probe_flag
+
 			var node = this.startNodeFrom(base)
+
+			this.commentAround(node, this._dot)
+
+			this.eat(this._dot)
+
+			probe = probe || this.probe_flag
+
 			if(probe) node.store = 8
 			node.object = base
 			node.key = this.parseIdent(true)
@@ -2716,12 +2782,12 @@ ONE.parser_strict_ = function(){
 				node.id = this.parseIdent(true)
 			}
 			return this.finishNode(node, "Rest")
-		case this._dot: // a flagged identifier
-			var node = this.startNode()
-			this.next()
-			node.name = this.parseIdent(true)
-			node.flag = 46
-			return this.finishNode(node, "Id")
+		//case this._dot: // a flagged identifier
+		//	var node = this.startNode()
+		//	this.next()
+		//	node.name = this.parseIdent(true)
+		//	node.flag = 46
+		//	return this.finishNode(node, "Id")
 		case this._dotdot:
 			var base = this.startNode()
 			base.name = ''

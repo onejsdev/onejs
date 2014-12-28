@@ -30,6 +30,7 @@ ONE.ast_ = function(){
 	var parser_live = Object.create(parser_normal)
 	//parser_live.snapToAST = true
 	parser_live.debugging = true
+	parser_live.dont_strip = true
 	this.parseLive = function( source, filename ){
 		return this._parse(source, undefined, undefined, undefined, filename, true, parser_live)
 	}
@@ -48,9 +49,12 @@ ONE.ast_ = function(){
 		var node = module && module.parser_cache[source]
 		if(! node ){
 			node = parser.parse_strict( source )
-			if(node.steps.length == 1){
-				node = node.steps[0]
-			}
+
+			if(!parser.dont_strip){
+				if(node.steps.length == 1){
+					node = node.steps[0]
+				}
+			}	
 			if(module) module.parser_cache[source] = node
 		}
 
@@ -420,8 +424,11 @@ ONE.ast_ = function(){
 				var copy = '\tc.type = n.type\n'+
 							'\tif(n.store) c.store = n.store\n'+
 							'\tif(n.parens) c.parens = n.parens\n'+
-							'\tif(n.comments) c.comments = n.comments\n'+
-							'\tif(n.inline) c.inline = n.inline\n'+
+							'\tif(n.cmu) c.cmu = n.cmu\n'+
+							'\tif(n.cmr) c.cmr = n.cmr\n'+
+							'\tif(n.cm1) c.cm1 = n.cm1\n'+
+							'\tif(n.cm2) c.cm2 = n.cm2\n'+
+
 							'\tc.start = n.start\n'+
 							'\tc.end = n.end\n'
 
@@ -430,8 +437,10 @@ ONE.ast_ = function(){
 							'\tc.type = n.type\n'+
 							'\tif(n.store) c.store = n.store\n'+
 							'\tif(n.parens) c.parens = n.parens\n'+
-							'\tif(n.comments) c.comments = n.comments\n'+
-							'\tif(n.inline) c.inline = n.inline\n'+
+							'\tif(n.cmu) c.cmu = n.cmu\n'+
+							'\tif(n.cmr) c.cmr = n.cmr\n'+
+							'\tif(n.cm1) c.cm1 = n.cm1\n'+
+							'\tif(n.cm2) c.cm2 = n.cm2\n'+
 							'\tc.start = n.start\n'+
 							'\tc.end = n.end\n'
 				var v = 0
@@ -578,12 +587,14 @@ ONE.ast_ = function(){
 			}
 		},"DepFinder")
 
-		this.needsParens = function(n, other){
+		this.needsParens = function(n, other, isleft){
 			var other_t = other.type
 
 			if(other_t == 'Assign' || other_t == 'List' || other_t == 'Condition' || 
-				(other_t == 'Binary' || other_t == 'Logic') && other.prio <= n.prio) 
+				(other_t == 'Binary' || other_t == 'Logic') && other.prio <= n.prio){
+				if(other.prio == n.prio && isleft) return false
 				return true
+			}
 		}
 
 		this.clone = function(node, template){
@@ -1298,7 +1309,7 @@ ONE.ast_ = function(){
 					|| k == 'loc' || k == 'type' || k == 'pthis' || k=='source') continue;
 				var v = n[k]
 				// decode type inference a bit
-				if(k == 'comments' || k == 'inline'){
+				if(k == 'cmu' || k == 'cmr' || k == 'cm1' || k == 'cm2'){
 					ret += '\n'+tab+k+'('+n.type+'):['
 					for(var c = 0; c < v.length; c++){
 						ret += (c?',':'') + (typeof v[c] == 'string' ? '"'+v[c]+'"' : v[c])

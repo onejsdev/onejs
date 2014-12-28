@@ -120,6 +120,7 @@ class TaggedTextImpl extends TextImpl{
 		//parent.addDebug(100, text_h + font_size * cursor_sink + this.y)
 		//parent.addDebug(100, block_y + line_height + this.y)
 		if(y < 0) return -2
+		// text_h is not always accurate
 		//if(y > text_h + font_size * cursor_sink){
 		//	console.log(y, text_h , '#'+serializeText()+'#')
 		//	return -3 //below

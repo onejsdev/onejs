@@ -1,2 +1,6 @@
-var t
-var y
+var see=10
+if(you){
+	can()
+	type+something
+	auto(formatting).works!
+}

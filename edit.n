@@ -15,13 +15,24 @@ class EditImpl{
 			end = 0
 			max = 0
 		}
-		
+
+		set lo(v){
+			if(end>start) start = v
+			else end = v
+		}
+
 		get lo(){
 			return end>start?start:end
 		}
 		get hi(){
 			return end>start?end:start
 		}
+
+		set hi(v){
+			if(end>start) end = v
+			else start = v
+		}
+
 		get span(){
 			return abs(end-start)
 		}
@@ -67,17 +78,36 @@ class EditImpl{
 			max = r.x
 		}
 
+		var is_white_space = {
+			9:3
+			10:2
+			32:1
+		}
+
 		backspace(){
 			if(cursors.text_layer.processDelete) cursors.text_layer.processDelete()
 
 			start += cursors.delta
 			end += cursors.delta
+
+			// help the cursor eating whitespace
+			var t
+			if(is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
+				while(t = is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
+					lo = lo - 1
+					if(t == 2) break
+				}
+			}
+			else if(is_white_space[cursors.text_layer.charCodeAt(lo - 2)] == 1){
+				lo = lo - 2
+			}
+
 			if(start == end){
 				if(lo == 0) return
 				cursors.text_layer.addUndoInsert(lo -1, hi)
 				cursors.text_layer.removeText(lo - 1, hi)
 				start = end = lo - 1
-				cursors.delta -= 1
+				cursors.delta -= span
 			}
 			else {
 				cursors.text_layer.addUndoInsert(lo, hi)
