@@ -84,6 +84,10 @@ class EditImpl{
 			32:1
 		}
 
+		function not_word(ch){
+			return ch < 48 || ch > 57 && ch < 65 || ch > 90 && ch <97 || ch > 122
+		}
+
 		backspace(){
 			if(cursors.text_layer.processDelete) cursors.text_layer.processDelete()
 
@@ -100,7 +104,11 @@ class EditImpl{
 					}
 				}
 				else if(is_white_space[cursors.text_layer.charCodeAt(lo - 2)] == 1){
-					lo = lo - 2
+					var my_ch = cursors.text_layer.charCodeAt(lo - 1)
+					var prev_ch = cursors.text_layer.charCodeAt(lo - 3)
+
+					if( not_word(my_ch) || not_word(prev_ch) )
+						lo = lo - 2
 				}
 			}
 			if(start == end){
