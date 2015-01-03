@@ -1,6 +1,12 @@
-var see=10
-if(you){
-	can()
-	type+something
-	auto(formatting).works!
+if(split){
+	for(i++; i < l; i++){ // push the rest of comments as things next to the item
+		split = false
+		var item = prefix[i]
+		if(typeof item == 'object') break
+		out.push(item)
+	}
+	if(!split){
+		if(out.length) node.cmr = out
+		return
+	}
 }

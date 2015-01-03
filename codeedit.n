@@ -124,7 +124,6 @@ class CodeEdit extends Layer{
 		var dump = step_serialized.replace(/[\s\r\n]/g,function(f){
 			return '\\'+f.charCodeAt(0)
 		})
-		//console.log(dump)
 		step_ast = parseLive(step_serialized)
 		//console.log(AST.toDump(step_ast))
 		//console.log('----parseStep! '+(Date.now()-dt))

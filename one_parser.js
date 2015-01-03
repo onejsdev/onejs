@@ -1557,6 +1557,9 @@ ONE.parser_strict_ = function(){
 				out.push(item)
 			}
 		}
+		if(i==l){
+			comments.length = 0
+		}
 		if(out.length) node.cm2 = out
 	}
 
@@ -2825,6 +2828,8 @@ ONE.parser_strict_ = function(){
 	// parseArray
 	this.parseArray = function(){
 		var node = this.startNode()
+
+		if(this.storeComments) this.commentHead(node)
 		this.next()
 		if(this.tokType == this._for){
 			this.next()
@@ -2835,6 +2840,7 @@ ONE.parser_strict_ = function(){
 			return this.finishNode(node, 'Comprehension')
 		}
 		node.elems = this.parseExprList(this._bracketR, true, true)
+		if(this.storeComments) this.commentTail(node, this._bracketR)
 		return this.finishNode(node, "Array")
 	}
 
@@ -3003,13 +3009,19 @@ ONE.parser_strict_ = function(){
 	this.parseExprList = function(close, allowTrailingComma, allowEmpty) {
 		var elts = [], first = true
 		while (!this.eat(close)) {
+			if(this.storeComments){
+				var cmt = this.commentBegin()
+			}
 			if (!first) {
 				this.canInjectComma( this.tokType ) || this.expect(this._comma)
-				
 				if (allowTrailingComma && this.allowTrailingCommas && this.eat(close)) break
 			} else first = false
 			if (allowEmpty && this.tokType === this._comma) elts.push(null)
-			else elts.push(this.parseNoCommaExpression())
+			else{
+				var sub = this.parseNoCommaExpression()
+				elts.push(sub)
+				this.commentEnd(sub, cmt, close)
+			}
 		}
 		return elts
 	}

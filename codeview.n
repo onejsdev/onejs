@@ -266,26 +266,55 @@ class CodeViewImpl{
 	Array(n){//: { elems:2 },
 		var mygroup = group++
 		BracketL(_Array, mygroup)
+
+		var has_newlines = false
+		if(Comments(n.cm1)) has_newlines = true
+		var old_indent = indent
+		indent++
+
 		for(var i, elem from n.elems){
-			if(i) Comma(_Array, group++)
+			if(!has_newlines && i) Comma(_Array, group++)
+			Comments(elem.cmu)
+			if(lastIsNewline()) tab(indent)
 			expand(elem)
+			if(has_newlines && !Comments(elem.cmr))
+				newline()
 		}
+		if(has_newlines && Comments(n.cm2)) tab(indent-1)
+	
+		indent = old_indent
 		BracketR(_Array, mygroup)
 	}
 	Object(n){//: { keys:3 },
 		var mygroup = group++
 		BraceL(_Object, mygroup)
+		// allright so
+		var has_newlines = false
+		if(Comments(n.cm1)) has_newlines = true
+		var old_indent = indent
+		indent++
+
 		for(var i, prop from n.keys){
-			if(i){
+			if(!has_newlines && i){
 				Comma(_Object, group++)
 				space()
 			}
+			if(lastIsNewline()) tab(indent)
+			if(has_newlines) Comments(prop.cmu)
+			if(lastIsNewline()) tab(indent)
+
 			expand(prop.key)
 			if(prop.value){
 				Colon(_Object)
 				expand(prop.value)
 			}
+			if(has_newlines && !Comments(prop.cmr)){
+				newline()
+			}
+
 		}
+		if(has_newlines && Comments(n.cm2)) tab(old_indent)
+		indent = old_indent
 		BraceR(_Object, mygroup)
 	}
 	Index(n, istype){//: { object:1, index:1 },
@@ -318,7 +347,7 @@ class CodeViewImpl{
 
 	Comment(text, pre){
 		if(lastIsNewline()) tab(indent), pre = ''
-		syntaxText((pre||'')+'// '+text, group++, _Comment)
+		syntaxText((pre||'')+'//'+text, group++, _Comment)
 	}
 
 	class CollectComments extends AST.Walk{
@@ -498,7 +527,10 @@ class CodeViewImpl{
 		space()
 		expand(n.update)
 		ParenR(_For, mygroup)
-		if(n.loop.type != 'Block') space()
+		if(n.loop.cmu){
+			if(Comments(n.loop.cmu)) tab(indent+1)
+		}
+		else if(n.loop.type != 'Block') space()
 		expand(n.loop)
 	}
 	ForIn(n){//: { left:1, right:1, loop:1, compr:0 },
@@ -512,7 +544,11 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
-		if(n.loop.type != 'Block') space()
+		if(n.loop.cmu){
+			if(Comments(n.loop.cmu)) tab(indent+1)
+		}
+		else if(n.loop.type != 'Block') space()
+
 		expand(n.loop)
 	}
 	ForOf(n){//: { left:1, right:1, loop:1, compr:0 },
@@ -526,7 +562,11 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
-		if(n.loop.type != 'Block') space()
+		if(n.loop.cmu){
+			if(Comments(n.loop.cmu)) tab(indent+1)
+		}
+		else if(n.loop.type != 'Block') space()
+
 		expand(n.loop)
 	}
 	ForFrom(n){//: { right:1, left:1, loop:1, compr:0 }, // right comes first for type inference
@@ -540,7 +580,11 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
-		if(n.loop.type != 'Block') space()
+		if(n.loop.cmu){
+			if(Comments(n.loop.cmu)) tab(indent+1)
+		}
+		else if(n.loop.type != 'Block') space()
+
 		expand(n.loop)
 	}
 	ForTo(n){//: { left:1, right:1, loop:1, in:1, compr:0 },
@@ -554,7 +598,11 @@ class CodeViewImpl{
 		space()
 		expand(n.right)
 		ParenR(_For, mygroup)
-		if(n.loop.type != 'Block') space()
+		if(n.loop.cmu){
+			if(Comments(n.loop.cmu)) tab(indent+1)
+		}
+		else if(n.loop.type != 'Block') space()
+
 		expand(n.loop)
 	}
 	Var(n){//: { defs:2, const:0 },
