@@ -2345,9 +2345,15 @@ ONE.parser_strict_ = function(){
 		if (this.tokType.isAssign) {
 			var node = this.startNodeFrom(left)
 			if(this.probe_flag) node.store = 8
+
+			if(this.storeComments){
+				this.commentAround(node, this.tokType)
+			}				
 			node.op = this.tokVal
 			node.left = left
 			this.next()
+			// lets parse shit in the middle
+
 			node.right = this.parseMaybeQuote(noIn)
 			if(node.op != '=') this.checkLVal(left)
 			return this.finishNode(node, "Assign")

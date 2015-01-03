@@ -498,12 +498,15 @@ class CodeViewImpl{
 		expand(n.test)
 		Colon(_Case)
 		Comments(n.cmr)
-		if(!lastIsNewline()) newline()
-		var old_indent = indent
-		indent++
-		tab(indent)
-		Block(n, true)
-		indent = old_indent
+
+		if(n.steps && n.steps.length){
+			if(!lastIsNewline()) newline()
+			var old_indent = indent
+			indent++
+			tab(indent)
+			Block(n, true)
+			indent = old_indent
+		}
 		//expand(n.then)
 	}
 	Throw(n){//: { arg:1 },
@@ -749,18 +752,21 @@ class CodeViewImpl{
 		if(paren_l) ParenL(_Binary,mygroup)
 		expand(n.left)
 		if(paren_l) ParenR(_Binary,mygroup)
+		var old_indent = indent
+		indent++
 		if(n.cm1 && Comments(n.cm1,' ')){
-			tab(indent+1)
+			tab(indent)
 		}
 		else space()
 		Operator(n.op, _Binary, group++)
 		if(n.cm2 && Comments(n.cm2,' ')){
-			tab(indent+1)
+			tab(indent)
 		}
 		else space()
 		if(paren_r) ParenL(_Binary,mygroup)
 		expand(n.right)
 		if(paren_r) ParenR(_Binary,mygroup)
+		indent = old_indent
 	}
 	Logic(n){//: { op:0, prio:0, left:1, right:1 },
 		var paren_l = AST.needsParens(n, n.left, true)
@@ -769,25 +775,37 @@ class CodeViewImpl{
 		if(paren_l) ParenL(_Logic,mygroup)
 		expand(n.left)
 		if(paren_l) ParenR(_Logic,mygroup)
+		var old_indent = indent
+		indent++
 		if(n.cm1 && Comments(n.cm1,' ')){
-			tab(indent+1)
+			tab(indent)
 		}
 		else space()
 		Operator(n.op, _Logic, group++)
 		if(n.cm2 && Comments(n.cm2,' ')){
-			tab(indent+1)
+			tab(indent)
 		}
 		else space()
 		if(paren_r) ParenL(_Logic,mygroup)
 		expand(n.right)
 		if(paren_r) ParenR(_Logic,mygroup)
+		indent = old_indent
 	}
 	Assign(n){//: { op:0, prio:0, left:1, right:1 },
 		expand(n.left)
-		space()
+		var old_indent = indent
+		indent++
+		if(n.cm1 && Comments(n.cm1,' ')){
+			tab(indent)
+		}
+		else space()
 		Operator(n.op, _Assign, group++)
-		space()
+		if(n.cm2 && Comments(n.cm2,' ')){
+			tab(indent)
+		}
+		else space()
 		expand(n.right)
+		indent = old_indent
 	}
 	Update(n){//: { op:0, prio:0, arg:1, prefix:0 },
 		if(prefix)

@@ -943,14 +943,14 @@ ONE.ast_ = function(){
 
 			this.Case = function( n ){
 				if(!n.test){
-					return 'default:' + (n.then.length? this.newline+this.block(n.then, n): this.newline)
+					return 'default:' + (n.steps.length? this.newline+this.block(n.steps, n): this.newline)
 				}
 				var ret = 'case '
 
 				ret += this.expand(n.test, n) + ':' 
 				ret += this.newline
 
-				if(n.then.length) ret += this.block(n.then, n)
+				if(n.steps.length) ret += this.block(n.steps, n)
 
 				return ret
 			}
