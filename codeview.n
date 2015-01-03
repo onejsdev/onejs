@@ -281,7 +281,7 @@ class CodeViewImpl{
 				newline()
 		}
 		if(has_newlines && Comments(n.cm2)) tab(indent-1)
-	
+
 		indent = old_indent
 		BracketR(_Array, mygroup)
 	}
@@ -313,7 +313,10 @@ class CodeViewImpl{
 			}
 
 		}
-		if(has_newlines && Comments(n.cm2)) tab(old_indent)
+		if(has_newlines){
+		 	Comments(n.cm2)
+			if(lastIsNewline()) tab(old_indent)
+		}
 		indent = old_indent
 		BraceR(_Object, mygroup)
 	}
