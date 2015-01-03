@@ -347,7 +347,7 @@ ONE.ast_ = function(){
 
 			If: { test:1, then:1, else:1, postfix:0, compr:0 },
 			Switch: { on:1, cases:2 },
-			Case: { test:1, then:2 },
+			Case: { test:1, steps:2 },
 
 			Throw: { arg:1 },
 			Try: { try:1, arg:1, catch:1, finally:1 },

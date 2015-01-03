@@ -465,21 +465,46 @@ class CodeViewImpl{
 	}
 	Switch(n){//: { on:1, cases:2 },
 		Keyword('switch', _Switch)
+		space()
 		var mygroup = group++
 		ParenL(_Switch, mygroup)
 		expand(n.on)
 		ParenR(_Switch, mygroup)
+		space()
 		BraceL(_Switch, mygroup)
+
+		//var old_indent = indent
+		//indent++
+
+		if(!Comments(n.cm1)){
+			newline()
+			tab(indent)
+		}
+
 		for(var c from n.cases){
 			expand(c)
 		}
+		Comments(n.cm2)
+		//indent = old_indent
+		if(lastIsNewline()) tab(indent)
 		BraceR(_Switch, mygroup)
 	}
 	Case(n){//: { test:1, then:2 },
+		Comments(n.cmu)
+		if(!lastIsNewline()) newline()
+		tab(indent)
 		Keyword('case', _Case)
+		space()
 		expand(n.test)
 		Colon(_Case)
-		expand(n.then)
+		Comments(n.cmr)
+		if(!lastIsNewline()) newline()
+		var old_indent = indent
+		indent++
+		tab(indent)
+		Block(n, true)
+		indent = old_indent
+		//expand(n.then)
 	}
 	Throw(n){//: { arg:1 },
 		Keyword('throw', _Throw)

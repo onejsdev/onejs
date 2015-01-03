@@ -1873,6 +1873,9 @@ ONE.parser_strict_ = function(){
 			this.next()
 			node.on = this.parseParenExpression()
 			node.cases = []
+
+			if(this.storeComments) this.commentHead(node)
+
 			this.expect(this._braceL)
 			this.labels.push(this.switchLabel)
 			// Statements under must be grouped (by label) in SwitchCase
@@ -1880,11 +1883,15 @@ ONE.parser_strict_ = function(){
 			// adding statements to.
 
 			for (var cur, sawDefault; this.tokType != this._braceR;) {
+
+				if(this.storeComments){
+					var cmt = this.commentBegin()
+				}
 				if (this.tokType === this._case || this.tokType === this._default) {
 					var isCase = this.tokType === this._case
 					if (cur) this.finishNode(cur, "Case")
 					node.cases.push(cur = this.startNode())
-					cur.then = []
+					cur.steps = []
 					this.next()
 					if (isCase) cur.test = this.parseExpression(false, true)
 					else {
@@ -1892,15 +1899,24 @@ ONE.parser_strict_ = function(){
 						cur.test = null
 					}
 					this.expect(this._colon)
-				} else {
+					if(this.storeComments)this.commentEnd(cur, cmt)
+				} 
+				else {
 					if (!cur) this.unexpected()
-					cur.then.push(this.parseStatementBlock())
+					var step = this.parseStatement()
+					cur.steps.push(step)
+					if(this.storeComments){
+						this.commentEnd(step, cmt)
+					}
 				}
 			}
 
 			if (cur) this.finishNode(cur, "Case")
 			this.next(); // Closing brace
 			this.labels.pop()
+
+			if(this.storeComments) this.commentTail(node, this._braceR)
+
 			return this.finishNode(node, "Switch")
 
 		case this._throw:
