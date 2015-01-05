@@ -181,6 +181,14 @@ class Clipboard extends WorkerProxy{
 		callHost('value', v)
 	}
 
+	focus(){
+		callHost('focus')
+	}
+
+	$focus:(){
+		text.focus()
+	}
+
 	$value:(v){
 		text.value = v
 		text.select()

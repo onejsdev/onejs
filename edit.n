@@ -400,6 +400,7 @@ class EditImpl{
 		}
 
 		key.down(v)=>{
+			clipboard.focus()
 			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
 			undo_group++
 			if(this[name]) this[name](v)
