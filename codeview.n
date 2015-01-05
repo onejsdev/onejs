@@ -450,10 +450,10 @@ class CodeViewImpl{
 		expand(n.then)
 		if(n.else){
 			// we have to end the if expression properly
-			if(!Comments(n.cm1,' ')){
-				newline()
-				tab(indent)
-			}
+			if(!Comments(n.cm1,' ')) newline()
+			
+			if(lastIsNewline()) tab(indent)
+
 			Keyword('else', _If)
 			space()
 			if(n.else.cmu){

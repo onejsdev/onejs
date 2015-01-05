@@ -117,9 +117,7 @@ class Touch extends WorkerProxy{
 	signal start, move, x1, y1, x2, y2, x3, y3, x4, y4, x5, y5, x6, y6, end,
 		swipeleft, swiperight
 
-
 	$constructor:(){
-
 		function update(e){
 			if(e.touches.length>0) x1 = e.touches[0].clientX, y1 = e.touches[0].clientY
 			if(e.touches.length>1) x2 = e.touches[1].clientX, y2 = e.touches[1].clientY
@@ -159,7 +157,34 @@ class Touch extends WorkerProxy{
 			if(swiped == 1) swiperight = 1
 			update(e)
 		}
+	}
+}
 
+class Clipboard extends WorkerProxy{
+	$constructor:(){
+		// we have to create a textnode
+		text = document.createElement('textarea')
+		text.style.width = '100%'
+		text.style.height = '100%'
+		text.style.position = 'absolute'
+		text.style.zIndex = -10000000
+		document.body.appendChild(text)
+		text.onpaste = (e)=>{
+			var text = e.clipboardData.getData('text/plain')
+			paste = text
+		}
+	}
+
+	signal paste
+
+	set value(v){
+		callHost('value', v)
+	}
+
+	$value:(v){
+		text.value = v
+		text.select()
+		text.focus()
 	}
 }
 
@@ -283,7 +308,7 @@ class Midi extends WorkerProxy{
 	$constructor:(){
 		var pthis = this
 		if(navigator.requestMIDIAccess){
-			navigator.requestMIDIAccess({sysex:true}).then do(_midi)=>{
+			navigator.requestMIDIAccess({sysex:false}).then do(_midi)=>{
 				midi = _midi
 				for(var input from midi.inputs()){
 					input.onmidimessage(m)=>{

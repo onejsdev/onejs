@@ -308,7 +308,6 @@ class EditImpl{
 				}
 			}
 		}
-
 	}
 
 	addUndoInsert(start, end, stack = undo_stack){
@@ -384,6 +383,13 @@ class EditImpl{
 		undo_stack = []
 		redo_stack = []
 		undo_group = 0
+
+		clipboard.paste(v)=>{
+			// ok ! we shalt dosomething
+			undo_group++
+			cursors.insert(v)
+			change = 4
+		}
 
 		key.press(v)=>{
 			// lets do the inserts.

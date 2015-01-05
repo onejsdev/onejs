@@ -96,8 +96,9 @@ class CodeEdit extends Layer{
 	
 	change(){
 		was_cursor = false
-		if(change == 1 ||  change == 2){
+		if(change == 1 ||  change == 2 || change == 4){
 			was_delete = change ==2
+			was_cursor = change == 4
 			delay_update = 0
 			if(step_timeout) clearTimeout(step_timeout)
 			step_timeout = thisTimeout(parseStep,0)
