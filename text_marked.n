@@ -116,6 +116,7 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 		*/
 		field = marker_style(field, pos)
 		var alpha = smoothstep(edge,-edge,field)
+
 		if(alpha<0.001) discard;
 
 		return vec4(u_markcolor, alpha)
@@ -153,7 +154,7 @@ class MarkedTextLayerImpl extends TaggedTextImpl{
 		mrk.quad[o].data = data
 		mrk.quad[o].rect = vec4(self.x, self.y, self.w, self.h)
 		mrk.quad[o].other = vec4(px1, px2, nx1, nx2)
-		mrk.quad_tl[o].pos = vec2(self.x - font_size, self.y)
+		mrk.quad_tl[o].pos = vec2(self.x - font_size * 3, self.y)
 		mrk.quad_tl[o].corner = 0
 		mrk.quad_tr[o].pos = vec2(self.x2 + font_size * 3, self.y)
 		mrk.quad_tr[o].corner = 1

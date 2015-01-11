@@ -29,17 +29,21 @@ ONE.ast_ = function(){
 
 	var parser_live = Object.create(parser_normal)
 	//parser_live.snapToAST = true
-	parser_live.debugging = true
-	parser_live.dont_strip = true
+	//parser_live.debugging = true
+	//parser_live.dont_strip = true
 	this.parseLive = function( source, filename ){
 		return this._parse(source, undefined, undefined, undefined, filename, true, parser_live)
 	}
+	this.parseLive.parser = parser_live
 
 	// external parse api
 	this.parse = function( source, filename ){
 		return this._parse(source, undefined, undefined, undefined, filename, true, parser_normal)
 	}
 
+	// expose the parser object
+	this.parse.parser = parser_normal
+	
 	// internal parse api used by compiler
 	this._parse = function( source, module, locals, template, filename, noclone, parser){
 		if(!parser) parser = parser_normal

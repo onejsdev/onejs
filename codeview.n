@@ -718,6 +718,7 @@ class CodeViewImpl{
 		}
 		ParenR(_Function,mygroup)
 		if(n.arrow=='=>') Operator('=>',_Function)
+		else space()
 		expand(n.body)
 	}
 	Return(n){//: { arg:1 },

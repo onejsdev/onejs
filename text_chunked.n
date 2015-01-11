@@ -13,8 +13,6 @@
 import math
 import text_marked
 import glscene
-BCAAED
-BCAED
 
 // Memory output for text buffer 
 class MemoryTaggedTextImpl{
@@ -231,16 +229,6 @@ class ChunkedTextLayerImpl{
 		return cache_chunk
 	}
 
-	serializeText(){
-		var str = ''
-		for(var chunk from chunk_list){
-			if(chunk.char_offset !== -Infinity){
-				str += chunk.serializeText()
-			}
-		}
-		return str
-	}
-
 	allocText(length){}
 
 	newChunk(force){
@@ -266,6 +254,17 @@ class ChunkedTextLayerImpl{
 			new_chunk.first_add_x = new_chunk.add_x = addx
 			append_chunk = new_chunk
 		}
+	}
+
+	serializeText(start = 0, end = char_count){
+		var str = ''
+		for(var cs = findChunk(start); cs && cs.char_offset < end; cs = chunk_list[cs.chunk_id+1]){
+			// now lets mark it from the right start t oend
+			var cstart = max(start, cs.char_offset) - cs.char_offset
+			var cend = min(end - cs.char_offset, cs.char_count)
+			str += cs.serializeText(cstart, cend)
+		}
+		return str
 	}
 
 	serializeTags(start, end){

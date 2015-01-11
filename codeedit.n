@@ -96,15 +96,15 @@ class CodeEdit extends Layer{
 	
 	change(){
 		was_cursor = false
-		if(change == 1 ||  change == 2 || change == 4){
-			was_delete = change ==2
-			was_cursor = change == 4
+		if(change == Change.keyPress || change == Change.delete || change == Change.clipboard){
+			was_delete = change == Change.delete
+			was_cursor = change == Change.clipboard // dont delay reformat on paste
 			delay_update = 0
 			if(step_timeout) clearTimeout(step_timeout)
 			step_timeout = thisTimeout(parseStep,0)
 		}
-		// if its a delete, lets not touch it
-		if(change == 3){ //
+		// if its an undo, 
+		if(change == Change.undoRedo){ // set delay to cursor press
 			delay_update = parseStep
 		}
 	}
@@ -209,5 +209,6 @@ class CodeEdit extends Layer{
 		_sortChunks()
 
 		code_formatter = CodeFormatter.new()
+		
 	}
 }

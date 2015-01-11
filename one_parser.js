@@ -530,6 +530,16 @@ ONE.parser_strict_ = function(){
 		return code >= 0xaa && this.nonASCIIidentifier.test(String.fromCharCode(code))
 	}
 
+	this.isNewLine = function(code){
+		return this.newline.test(String.fromCharCode(code))
+	}
+
+	this.isNonNewlineWhiteSpace = function(code) {
+		if(code == 32) return true
+		if(code == 9) return true
+		return code >= 0xaa && this.nonASCIIwhitespace.test(String.fromCharCode(code))
+	}
+
 	// ## Tokenizer
 
 	// Reset the token state. Used at the start of a parse.

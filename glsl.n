@@ -1659,6 +1659,7 @@ DecodeBlendEquation( eq ){
 		else throw new Error('Blend equation invalid (not frame or pixel)')
 	}
 	else throw new Error('Blend equation invalid (main type) ' + eq.type + ' ' + eq.op)
+
 	return out
 }
 

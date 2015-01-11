@@ -1270,7 +1270,7 @@ class Device extends Draw{
 
 	fill = #black
 
-	frame = Texture.rgba_depth_stencil()
+	frame = Texture.rgb_depth_stencil()
 	// placeholder framebuffer
 	
 	// settings flags
@@ -1435,7 +1435,7 @@ class Device extends Draw{
 		// lets request an init
 		last = 0
 		window.count = 0
-
+		window._gl= gl
 		//document.body.addEventListener('mousedown', function(){
 		//	document.body.webkitRequestFullscreen()
 		//})
