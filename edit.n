@@ -41,7 +41,7 @@ class EditImpl{
 
 		moveLeft(only_end){
 			end = end - 1
-			if(end<0) end = 0
+			if(end < 0) end = 0
 			if(!only_end) start = end
 			max = cursors.text_layer.cursorRect(end).x
 		}
@@ -55,10 +55,8 @@ class EditImpl{
 
 		moveUp(only_end, lines = 1){
 			var rect = cursors.text_layer.cursorRect(end)
-
 			//console.log(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
 			//cursors.text_layer.debugChunks()
-
 			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
 			if(!only_end) start = end
 		}
@@ -78,6 +76,69 @@ class EditImpl{
 			max = r.x
 		}
 
+		moveLeftWord(only_end){
+			var se = end
+			while(end > 0 && AST.parse.parser.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(end - 1))){
+				end --
+			}
+			while(end > 0 && AST.parse.parser.isIdentifierChar(cursors.text_layer.charCodeAt(end - 1))){
+				end --
+			}
+			if(se == end) end --
+			if(!only_end) start = end
+		}
+
+		moveRightWord(only_end){
+			var se = end
+			while(end < cursors.text_layer.char_count && AST.parse.parser.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(end))){
+				end ++
+			}
+			while(end < cursors.text_layer.char_count && AST.parse.parser.isIdentifierChar(cursors.text_layer.charCodeAt(end))){
+				end ++
+			}
+			if(se == end) end ++
+			if(!only_end) start = end
+		}
+
+		moveLeftLine(only_end){
+			// if we are a tab we scan to the right.
+			if(cursors.text_layer.charCodeAt(end) == 9){
+				while(end < cursors.text_layer.char_count && cursors.text_layer.charCodeAt(end) == 9){
+					end ++
+				}
+			}
+			else{ // if we are a newline 
+				if(cursors.text_layer.charCodeAt(end - 1) == 9){
+					while(end > 0 && cursors.text_layer.charCodeAt(end - 1) != 10){
+						end --
+					}
+				}
+				else{
+					while(end > 0 && cursors.text_layer.charCodeAt(end - 1) > 10){
+						end --
+					}
+				}
+			}
+			if(!only_end) start = end
+		}
+
+		moveRightLine(only_end){
+			while(end < cursors.text_layer.char_count && cursors.text_layer.charCodeAt(end) != 10){
+				end ++
+			}
+			if(!only_end) start = end
+		}
+
+		moveTop(only_end){
+			end = 0
+			if(!only_end) start = end
+		}
+
+		moveBottom(only_end){
+			end = cursors.text_layer.char_count
+			if(!only_end) start = end
+		}
+
 		var is_white_space = {
 			9:3
 			10:2
@@ -94,7 +155,7 @@ class EditImpl{
 			start += cursors.delta
 			end += cursors.delta
 
-			// help the cursor eating whitespace
+			// help the cursor eating injected whitespace
 			if(start == end){
 				var t
 				if(is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
@@ -111,6 +172,7 @@ class EditImpl{
 						lo = lo - 2
 				}
 			}
+
 			if(start == end){
 				if(lo == 0) return
 				cursors.text_layer.addUndoInsert(lo -1, hi)
@@ -253,7 +315,7 @@ class EditImpl{
 		update(){
 			if(pending) return
 			pending = 1
-			setImmediate() do()=>{
+			setImmediate() do =>{
 				pending = 0
 				text_layer.clearMarkers()
 				text_layer.clearCursors()
@@ -378,6 +440,24 @@ class EditImpl{
 		cursors.fromArray(last_cursor)
 	}
 
+	// alright we serialize all ze cursors and concat and send over.
+	selectionToClipboard(){
+		// alright. so. we need to sort the cursors.
+		var str = ''
+		for(var cursor from cursors.list){
+			str += serializeText(cursor.lo, cursor.hi)
+		}
+		clipboard.value = str
+	}
+	
+	// change event type	
+	enum Change{
+		keyPress
+		delete
+		undoRedo
+		clipboard
+	}
+
 	constructor(){
 		cursors = Cursors.new(text_layer || this)
 		undo_stack = []
@@ -388,7 +468,7 @@ class EditImpl{
 			// ok ! we shalt dosomething
 			undo_group++
 			cursors.insert(v)
-			change = 4
+			change = Change.clipboard
 		}
 
 		key.press(v)=>{
@@ -396,17 +476,18 @@ class EditImpl{
 			// we have to replace our cursor set start->end with something
 			undo_group++
 			cursors.insert(v.value)
-			change = 1
+			change = Change.keyPress
 		}
 
 		key.down(v)=>{
 			clipboard.focus()
 			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
 			undo_group++
+
+			if(key.ctrl || key.leftmeta || key.rightmeta) name += 'Cmd'
+			if(key.alt) name += 'Alt'
+
 			if(this[name]) this[name](v)
-			if(key.ctrl || key.leftmeta || key.rightmeta){
-				if(this[name+'Cmd']) this[name+'Cmd'](v)
-			}
 		}
 
 		mouse.leftdown(v)=>{
@@ -426,6 +507,8 @@ class EditImpl{
 				},=>{
 					cursors.fusing = true
 					cursors.update()
+					// we are done. serialize to clipboard
+					selectionToClipboard()
 				})
 			}
 			else
@@ -443,6 +526,7 @@ class EditImpl{
 				},=>{
 					cursors.fusing = true
 					cursors.update()
+					selectionToClipboard()
 				})
 			}
 			// normal selection
@@ -452,6 +536,8 @@ class EditImpl{
 				cursors.moveTo(mouse.x, mouse.y)
 				mouse.capture(=>{
 					cursors.moveTo(mouse.x, mouse.y, true)
+				}, =>{
+					selectionToClipboard()
 				})
 			}
 		}
@@ -462,37 +548,82 @@ class EditImpl{
 	// alright so. undo. 
 	keyZCmd(){
 		undoRedo(undo_stack, redo_stack)
-		change = 3
+		change = Change.undoRedo
 	}
 
 	keyYCmd(){
 		undoRedo(redo_stack, undo_stack)
-		change = 3
+		change = Change.undoRedo
 	}
 
 	keyBackspace(){
 		cursors.backspace()
-		change = 2
+		change = Change.delete
 	}
 
-	keyLeftarrow(){
+	doCursor(){
+		cursor = 1
+		selectionToClipboard()
+	}
+	
+	// move line up
+	keyDownarrowAlt(){
+
+	}
+
+	// move line down
+	keyUparrowAlt(){
+
+	}
+
+	keyLeftarrowAlt(){
+		cursors.moveLeftWord(key.shift)
+		doCursor()
+	}
+	
+	keyRightarrowAlt(){
+		cursors.moveRightWord(key.shift)
+		doCursor()
+	}
+
+	keyLeftarrowCmd(){
+		cursors.moveLeftLine(key.shift)
+		doCursor()
+	}
+
+	keyRightarrowCmd(){
+		cursors.moveRightLine(key.shift)
+		doCursor()
+	}
+
+	keyUparrowCmd(){
+		cursors.moveTop(key.shift)
+		doCursor()
+	}
+
+	keyDownarrowCmd(){
+		cursors.moveBottom(key.shift)
+		doCursor()
+	}
+
+	keyLeftarrow(){ 
 		cursors.moveLeft(key.shift)
-		cursor =1
+		doCursor()
 	}
 
 	keyRightarrow(){
 		cursors.moveRight(key.shift)
-		cursor =1
+		doCursor()
 	}
 
 	keyUparrow(){
 		cursors.moveUp(key.shift)
-		cursor =1
+		doCursor()
 	}
 
 	keyDownarrow(){
 		cursors.moveDown(key.shift)
-		cursor =1
+		doCursor()
 	}
 }
 
