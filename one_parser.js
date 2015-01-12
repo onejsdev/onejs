@@ -323,9 +323,7 @@ ONE.parser_strict_ = function(){
 	// we assign a variable name to it for quick comparing.
 
 	this._in = {keyword: "in", preIdent:this._name, binop: 7, beforeExpr: true}
-	this._to = {keyword: "to", preIdent:this._name, binop: 7, beforeExpr: true}
 	this._of = {keyword: "of", preIdent:this._name, binop: 7, beforeExpr: true}
-	this._from = {keyword: "from", preIdent:this._name, binop: 7, beforeExpr: true}
 
 	this._instanceof = {keyword: "instanceof", preIdent:this._name, binop: 7, beforeExpr: true}, 
 	this._typeof = {keyword: "typeof", preIdent:this._name, prefix: true, beforeExpr: true}
@@ -539,6 +537,14 @@ ONE.parser_strict_ = function(){
 		if(code == 9) return true
 		return code >= 0xaa && this.nonASCIIwhitespace.test(String.fromCharCode(code))
 	}
+
+	this.isWhiteSpace = function(code) {
+		if(code == 32) return true
+		if(code == 9) return true
+		if(code == 10) return true
+		return code >= 0xaa && this.nonASCIIwhitespace.test(String.fromCharCode(code))
+	}
+
 
 	// ## Tokenizer
 
@@ -2142,12 +2148,22 @@ ONE.parser_strict_ = function(){
 				this.finishNode(init, "Var")
 			}
 
-			if (this.eat(this._of)) return this.parseForOf(node, init, compr)
-			if (this.eat(this._from)) return this.parseForFrom(node, init, compr)
+			if (this.tokType == this._of){
+				this.next()
+				return this.parseForOf(node, init, compr)
+			}
+
+			if (this.tokType == this._name && this.tokVal == 'from'){
+				this.next()
+				return this.parseForFrom(node, init, compr)
+			}
 
 			if( init.defs.length === 1 ){
 				if (this.eat(this._in)) return this.parseForIn(node, init, compr)
-				if (this.eat(this._to)) return this.parseForTo(node, init, compr)
+				if (this.tokType == this._name && this.tokVal == 'to'){
+					this.next()
+					return this.parseForTo(node, init, compr)
+				}
 			}
 
 			return this.parseFor(node, init)
@@ -2155,9 +2171,22 @@ ONE.parser_strict_ = function(){
 		var init = this.parseExpression(true)
 
 		if (this.eat(this._in)) return this.parseForIn(node, init, compr)
-		if (this.eat(this._to)) return this.parseForTo(node, init, compr)
-		if (this.eat(this._of)) return this.parseForOf(node, init, compr)
-		if (this.eat(this._from)) return this.parseForFrom(node, init, compr)
+
+
+		if(this.tokType == this._of){
+			this.next()
+			return this.parseForOf(node, init, compr)
+		}
+		else if (this.tokType == this._name){
+			if(this.tokVal == 'to'){
+				this.next()
+				return this.parseForTo(node, init, compr)
+			}
+			if(this.tokVal == 'from'){
+				this.next()
+				return this.parseForFrom(node, init, compr)
+			}
+		}
 
 		return this.parseFor(node, init)
 	}
@@ -2401,7 +2430,9 @@ ONE.parser_strict_ = function(){
 	this.parseExprOp = function(left, minPrec, noIn) {
 
 		var prec = this.tokType.binop
-		if (prec != null && !this.tokType.isAssign && (!noIn || (this.tokType !== this._in && this.tokType !== this._of && this.tokType !== this._to) )) {
+		if(noIn) console.log(this.tokVal)
+		if (prec != null && !this.tokType.isAssign && 
+			(!noIn || (this.tokType !== this._in && this.tokTYpe !== this._of &&  (this.tokType !== this._name || (this.tokVal !== 'to' && this.tokVal !== 'from'))))) {
 			if (prec > minPrec) {
  				var node = this.startNodeFrom(left)
 				if(this.probe_flag) node.store = 8

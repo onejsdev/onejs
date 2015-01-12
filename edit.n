@@ -77,118 +77,115 @@ class EditImpl{
 		}
 
 		moveLeftWord(only_end){
-			var se = end
-			while(end > 0 && AST.parse.parser.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(end - 1))){
-				end --
-			}
-			while(end > 0 && AST.parse.parser.isIdentifierChar(cursors.text_layer.charCodeAt(end - 1))){
-				end --
-			}
-			if(se == end) end --
+			var pos = cursors.text_layer.scanLeftWord(end)
+			if(pos == end) end --
+			else end = pos
 			if(!only_end) start = end
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		moveRightWord(only_end){
-			var se = end
-			while(end < cursors.text_layer.char_count && AST.parse.parser.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(end))){
-				end ++
-			}
-			while(end < cursors.text_layer.char_count && AST.parse.parser.isIdentifierChar(cursors.text_layer.charCodeAt(end))){
-				end ++
-			}
-			if(se == end) end ++
+			var pos = cursors.text_layer.scanRightWord(end)
+			if(pos == end) end ++
+			else end = pos
 			if(!only_end) start = end
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		moveLeftLine(only_end){
 			// if we are a tab we scan to the right.
-			if(cursors.text_layer.charCodeAt(end) == 9){
-				while(end < cursors.text_layer.char_count && cursors.text_layer.charCodeAt(end) == 9){
-					end ++
-				}
-			}
-			else{ // if we are a newline 
-				if(cursors.text_layer.charCodeAt(end - 1) == 9){
-					while(end > 0 && cursors.text_layer.charCodeAt(end - 1) != 10){
-						end --
-					}
-				}
-				else{
-					while(end > 0 && cursors.text_layer.charCodeAt(end - 1) > 10){
-						end --
-					}
-				}
-			}
+			end = cursors.text_layer.scanLeftLine(end)
 			if(!only_end) start = end
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		moveRightLine(only_end){
-			while(end < cursors.text_layer.char_count && cursors.text_layer.charCodeAt(end) != 10){
-				end ++
-			}
+			end = cursors.text_layer.scanRightLine(end)
 			if(!only_end) start = end
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		moveTop(only_end){
 			end = 0
 			if(!only_end) start = end
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		moveBottom(only_end){
 			end = cursors.text_layer.char_count
 			if(!only_end) start = end
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
-		var is_white_space = {
-			9:3
-			10:2
-			32:1
+		startIsEnd(){
+			start = end
 		}
 
-		function not_word(ch){
-			return ch < 48 || ch > 57 && ch < 65 || ch > 90 && ch <97 || ch > 122
+		// we need to make a whole bunch of these things.
+		deleteRange(from, to){
+			cursors.text_layer.addUndoInsert(from, to)
+			cursors.text_layer.removeText(from, to)
+			cursors.delta -= from - to
+			start = end = to
+
+			cursors.text_layer.forkRedo()
+			max = cursors.text_layer.cursorRect(end).x
+		}
+
+		deleteWord(){
+			deleteRange(lo, cursors.text_layer.scanRightWord(hi))
+		}
+
+		deleteLine(){
+			deleteRange(lo, cursors.text_layer.scanRightLine(hi))
+		}
+
+		backspaceLine(){
+			deleteRange(cursors.text_layer.scanLeftLine(lo), hi)
+		}
+
+		backspaceWord(){
+			deleteRange(cursors.text_layer.scanLeftWord(lo), hi)
+		}
+
+		delete(){
+			if(start != end) return deleteRange(lo, hi)
+			// otherwise we have to delete the character upnext
+			cursors.text_layer.addUndoInsert(end, end + 1)
+			cursors.text_layer.removeText(end, end + 1)
+			cursors.delta -= 1
+			cursors.text_layer.forkRedo()
+			max = cursors.text_layer.cursorRect(end).x
 		}
 
 		backspace(){
 			if(cursors.text_layer.processDelete) cursors.text_layer.processDelete()
 
+			if(start != end) return deleteRange(lo, hi)
+
 			start += cursors.delta
 			end += cursors.delta
 
-			// help the cursor eating injected whitespace
-			if(start == end){
-				var t
-				if(is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
-					while(t = is_white_space[cursors.text_layer.charCodeAt(lo - 1)]){
-						lo = lo - 1
-						if(t == 2) break
-					}
-				}
-				else if(is_white_space[cursors.text_layer.charCodeAt(lo - 2)] == 1){
-					var my_ch = cursors.text_layer.charCodeAt(lo - 1)
-					var prev_ch = cursors.text_layer.charCodeAt(lo - 3)
-
-					if( not_word(my_ch) || not_word(prev_ch) )
-						lo = lo - 2
+			var t
+			if(parse.isWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
+				while(t = parse.isWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
+					lo = lo - 1
+					if(t == 2) break
 				}
 			}
+			else if(parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 2))){
+				var my_ch = cursors.text_layer.charCodeAt(lo - 1)
+				var prev_ch = cursors.text_layer.charCodeAt(lo - 3)
 
-			if(start == end){
-				if(lo == 0) return
-				cursors.text_layer.addUndoInsert(lo -1, hi)
-				cursors.text_layer.removeText(lo - 1, hi)
-				start = end = lo - 1
-				cursors.delta -= span
+				if( !parse.isIdentifierChar(my_ch) || !parse.isIdentifierChar(prev_ch) )
+					lo = lo - 2
 			}
-			else {
-				cursors.text_layer.addUndoInsert(lo, hi)
-				cursors.text_layer.removeText(lo, hi)
-				cursors.delta -= span
-				start = end = lo
-			}
-			cursors.text_layer.forkRedo()
-			max = cursors.text_layer.cursorRect(end).x
-			// lets update all cursors after us with - delta
+
+			if(lo == 0) return
+			cursors.text_layer.addUndoInsert(lo -1, hi)
+			cursors.text_layer.removeText(lo - 1, hi)
+			start = end = lo - 1
+			cursors.delta -= span
 		}
 
 		insert(text){
@@ -449,6 +446,54 @@ class EditImpl{
 		}
 		clipboard.value = str
 	}
+
+	scanLeftWord(pos){
+		while(pos > 0 && parse.isNonNewlineWhiteSpace(charCodeAt(pos - 1))){
+			pos --
+		}
+		while(pos > 0 && parse.isIdentifierChar(charCodeAt(pos - 1))){
+			pos --
+		}
+		return pos
+	}
+
+	scanRightWord(pos){
+		while(pos < char_count && parse.isNonNewlineWhiteSpace(charCodeAt(pos))){
+			pos ++
+		}
+		while(pos < char_count && parse.isIdentifierChar(charCodeAt(pos))){
+			pos ++
+		}
+		return pos
+	}
+
+	scanLeftLine(pos){
+		if(charCodeAt(pos) == 9){
+			while(pos < char_count && charCodeAt(pos) == 9){
+				pos ++
+			}
+		}
+		else{ // if we are a newline 
+			if(charCodeAt(pos - 1) == 9){
+				while(pos > 0 && charCodeAt(pos - 1) != 10){
+					pos --
+				}
+			}
+			else{
+				while(pos > 0 && charCodeAt(pos - 1) > 10){
+					pos --
+				}
+			}
+		}
+		return pos
+	}
+
+	scanRightLine(pos){
+		while(pos < char_count && charCodeAt(pos) != 10){
+			pos ++
+		}
+		return pos
+	}
 	
 	// change event type	
 	enum Change{
@@ -484,7 +529,8 @@ class EditImpl{
 			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
 			undo_group++
 
-			if(key.ctrl || key.leftmeta || key.rightmeta) name += 'Cmd'
+			if(key.leftmeta || key.rightmeta) name += 'Cmd'
+			if(key.ctrl) name += 'Ctrl'
 			if(key.alt) name += 'Alt'
 
 			if(this[name]) this[name](v)
@@ -549,16 +595,19 @@ class EditImpl{
 	keyZCmd(){
 		undoRedo(undo_stack, redo_stack)
 		change = Change.undoRedo
+		doCursor()
 	}
 
 	keyYCmd(){
 		undoRedo(redo_stack, undo_stack)
 		change = Change.undoRedo
+		doCursor()
 	}
 
 	keyBackspace(){
 		cursors.backspace()
 		change = Change.delete
+		doCursor()
 	}
 
 	doCursor(){
@@ -566,21 +615,50 @@ class EditImpl{
 		selectionToClipboard()
 	}
 	
-	// move line up
+	// move selection up one line
 	keyDownarrowAlt(){
 
 	}
 
-	// move line down
+	// move selection down one line
 	keyUparrowAlt(){
 
 	}
 
+	keyDelete(){
+		cursors.delete()
+		doCursor()
+	}
+
+	keyDeleteCtrl =
+	keyDeleteAlt(){
+		cursors.deleteWord()
+		doCursor()
+	}
+
+	keyBackspaceCtrl = 
+	keyBackspaceAlt(){
+		cursors.backspaceWord()
+		doCursor()
+	}
+
+	keyBackspaceCmd(){
+		cursors.backspaceLine()
+		doCursor()
+	}
+
+	keyDeleteCmd(){
+		cursors.deleteLine()
+		doCursor()
+	}
+
+	keyLeftArrowCtrl = 
 	keyLeftarrowAlt(){
 		cursors.moveLeftWord(key.shift)
 		doCursor()
 	}
 	
+	keyRightArrowCtrl = 
 	keyRightarrowAlt(){
 		cursors.moveRightWord(key.shift)
 		doCursor()

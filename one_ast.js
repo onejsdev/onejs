@@ -23,30 +23,20 @@ ONE.init_ast = function(){
 
 ONE.ast_ = function(){
 
-	// include the parser
-	var parser_normal = {}
-	ONE.parser_strict_.call( parser_normal )
-
-	var parser_live = Object.create(parser_normal)
-	//parser_live.snapToAST = true
-	//parser_live.debugging = true
-	//parser_live.dont_strip = true
 	this.parseLive = function( source, filename ){
-		return this._parse(source, undefined, undefined, undefined, filename, true, parser_live)
+		return this._parse(source, undefined, undefined, undefined, filename, true, this.parse)
 	}
-	this.parseLive.parser = parser_live
 
 	// external parse api
 	this.parse = function( source, filename ){
-		return this._parse(source, undefined, undefined, undefined, filename, true, parser_normal)
+		return this._parse(source, undefined, undefined, undefined, filename, true, this.parse)
 	}
 
-	// expose the parser object
-	this.parse.parser = parser_normal
+	ONE.parser_strict_.call( this.parse )
 	
 	// internal parse api used by compiler
 	this._parse = function( source, module, locals, template, filename, noclone, parser){
-		if(!parser) parser = parser_normal
+		if(!parser) parser = this.parse
 
 		parser.sourceFile = filename || ''
         //console.log('parsing', source)
@@ -314,7 +304,7 @@ ONE.ast_ = function(){
 			console.log(stack[i].getThis())
 		}
 	}
-	parser_live.Node = parser_normal.Node = Object.create(null)
+	this.parse.Node = Object.create(null)
 
 	// AST node
 	this.AST = this.Base.extend(function(outer){
