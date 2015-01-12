@@ -3,8 +3,11 @@ import math
 class Mouse extends WorkerProxy{
 
 	// mouse signals
-	signal move, x, y, isdown, left, right, middle, click, dblclick, cursor, leftdown, leftup, rightdown, rightup, cancapture
+	signal move, x, y, isdown, left, right, middle, click, dblclick, clicker, cursor, leftdown, leftup, rightdown, rightup, cancapture
+	
 	ratio = 1
+	clickspeed = 350
+
 	enum cursors{
 		'default'
 		'none'
@@ -69,6 +72,14 @@ class Mouse extends WorkerProxy{
 			if(cancapture == 3) sub2 = on_rightup.bind(end)
 		}
 	}
+	
+	resetClicker(){
+		callHost('resetClicker')
+	}
+
+	$resetClicker(){
+		last_click = undefined
+	}
 
 	$constructor:(){
 		x = 0
@@ -85,7 +96,17 @@ class Mouse extends WorkerProxy{
 			dblclick = 1
 		}
 
+		click_count = 0
+
 		window.addEventListener('mousedown') do(e) => {
+			var now = Date.now()
+			if(last_click !== undefined && now - last_click < clickspeed){
+				click_count ++
+			}
+			else click_count = 1
+			last_click = now
+
+			clicker = click_count
 			x = e.pageX * ratio//* window.devicePixelRatio
 			y = e.pageY * ratio//* window.devicePixelRatio
 			cancapture = e.button+1
@@ -106,6 +127,7 @@ class Mouse extends WorkerProxy{
 		}
 
 		window.addEventListener('mousemove') do(e) => {
+			last_click = undefined
 			x = e.pageX * ratio//* window.devicePixelRatio
 			y = e.pageY * ratio//* window.devicePixelRatio
 			move = 1

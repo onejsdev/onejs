@@ -125,8 +125,8 @@ class EditImpl{
 		deleteRange(from, to){
 			cursors.text_layer.addUndoInsert(from, to)
 			cursors.text_layer.removeText(from, to)
-			cursors.delta -= from - to
-			start = end = to
+			cursors.delta -= to - from
+			start = end = from
 
 			cursors.text_layer.forkRedo()
 			max = cursors.text_layer.cursorRect(end).x
@@ -148,6 +148,24 @@ class EditImpl{
 			deleteRange(cursors.text_layer.scanLeftWord(lo), hi)
 		}
 
+		selectWord(){
+			start = cursors.text_layer.scanLeftWord(lo)
+			end = cursors.text_layer.scanRightWord(hi)
+			max = cursors.text_layer.cursorRect(end).x
+		}
+		
+		selectLine(){
+			start = cursors.text_layer.scanLeftLine(lo)
+			end = cursors.text_layer.scanRightLine(hi) + 1
+			max = cursors.text_layer.cursorRect(end).x
+		}
+
+		selectAll(){
+			start = 0
+			end = cursors.text_layer.char_count
+			max = cursors.text_layer.cursorRect(end).x
+		}
+
 		delete(){
 			if(start != end) return deleteRange(lo, hi)
 			// otherwise we have to delete the character upnext
@@ -167,8 +185,8 @@ class EditImpl{
 			end += cursors.delta
 
 			var t
-			if(parse.isWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
-				while(t = parse.isWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
+			if(parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
+				while(t = parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
 					lo = lo - 1
 					if(t == 2) break
 				}
@@ -177,8 +195,9 @@ class EditImpl{
 				var my_ch = cursors.text_layer.charCodeAt(lo - 1)
 				var prev_ch = cursors.text_layer.charCodeAt(lo - 3)
 
-				if( !parse.isIdentifierChar(my_ch) || !parse.isIdentifierChar(prev_ch) )
+				if( !parse.isIdentifierChar(my_ch) && !parse.isIdentifierChar(prev_ch) ){
 					lo = lo - 2
+				}
 			}
 
 			if(lo == 0) return
@@ -536,10 +555,11 @@ class EditImpl{
 			if(this[name]) this[name](v)
 		}
 
+
+
 		mouse.leftdown(v)=>{
-			// rectangular selection
+
 			if(key.alt){
-				
 				var startx = mouse.x
 				var starty = mouse.y
 				var clone
@@ -564,6 +584,13 @@ class EditImpl{
 				// in that case what we need to 
 				cursors.fusing = false
 				cursor.moveTo(mouse.x, mouse.y)
+				// lets make it select the word 
+				if(mouse.clicker == 2) cursor.selectWord()
+				else if(mouse.clicker == 3){
+					cursor.selectLine()
+					mouse.resetClicker()
+				}
+
 				cursors.update()
 				mouse.capture(=>{
 					// move
@@ -580,6 +607,13 @@ class EditImpl{
 				// in that case what we need to 
 				cursors.fusing = true
 				cursors.moveTo(mouse.x, mouse.y)
+
+				if(mouse.clicker == 2) cursors.selectWord()
+				else if(mouse.clicker == 3){
+					cursors.selectLine()
+					mouse.resetClicker()
+				}
+
 				mouse.capture(=>{
 					cursors.moveTo(mouse.x, mouse.y, true)
 				}, =>{
@@ -587,21 +621,36 @@ class EditImpl{
 				})
 			}
 		}
+
 		cursors.moveDown(1,0)
 		//cursors.moveDown(1, 100)
 	}
 
 	// alright so. undo. 
+	keyZCtrl =
 	keyZCmd(){
 		undoRedo(undo_stack, redo_stack)
 		change = Change.undoRedo
-		doCursor()
+		//doCursor()
 	}
 
+	keyYCtrl =
 	keyYCmd(){
 		undoRedo(redo_stack, undo_stack)
 		change = Change.undoRedo
-		doCursor()
+		//doCursor()
+	}
+
+	keyACtrl = 
+	keyACmd(){
+		// select all
+		cursors.selectAll()
+	}
+
+	keyXCtrl = 
+	keyXCmd(){
+		// cut the crap
+		cursors.delete()
 	}
 
 	keyBackspace(){

@@ -2430,7 +2430,6 @@ ONE.parser_strict_ = function(){
 	this.parseExprOp = function(left, minPrec, noIn) {
 
 		var prec = this.tokType.binop
-		if(noIn) console.log(this.tokVal)
 		if (prec != null && !this.tokType.isAssign && 
 			(!noIn || (this.tokType !== this._in && this.tokTYpe !== this._of &&  (this.tokType !== this._name || (this.tokVal !== 'to' && this.tokVal !== 'from'))))) {
 			if (prec > minPrec) {
