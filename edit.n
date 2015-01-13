@@ -197,20 +197,22 @@ class EditImpl{
 					if(t == 2) break
 				}
 			}
-			else if(parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 2))){
-				var my_ch = cursors.text_layer.charCodeAt(lo - 1)
-				var prev_ch = cursors.text_layer.charCodeAt(lo - 3)
+			//else if(parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 2))){
+			//	var my_ch = cursors.text_layer.charCodeAt(lo - 1)
+			//	var prev_ch = cursors.text_layer.charCodeAt(lo - 3)
 
-				if( !parse.isIdentifierChar(my_ch) && !parse.isIdentifierChar(prev_ch) ){
-					lo = lo - 2
-				}
-			}
+			//	if( !parse.isIdentifierChar(my_ch) && !parse.isIdentifierChar(prev_ch) ){
+			//		lo = lo - 2
+			//	}
+			//}
 
 			if(lo == 0) return
 			cursors.text_layer.addUndoInsert(lo -1, hi)
 			cursors.text_layer.removeText(lo - 1, hi)
-			start = end = lo - 1
 			cursors.delta -= span
+			cursors.text_layer.forkRedo()
+			start = end = lo - 1
+			max = cursors.text_layer.cursorRect(end).x			
 		}
 
 		insert(text){
@@ -671,7 +673,7 @@ class EditImpl{
 
 
 		mouse.leftdown(v)=>{
-			console.log(mouse.clicker)
+			//console.log(mouse.clicker)
 			if(key.alt){
 				var startx = mouse.x
 				var starty = mouse.y
