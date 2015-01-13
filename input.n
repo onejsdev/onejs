@@ -77,7 +77,7 @@ class Mouse extends WorkerProxy{
 		callHost('resetClicker')
 	}
 
-	$resetClicker(){
+	$resetClicker:(){
 		last_click = undefined
 	}
 

@@ -133,7 +133,9 @@ class EditImpl{
 		}
 
 		deleteWord(){
-			deleteRange(lo, cursors.text_layer.scanRightWord(hi))
+			var my = cursors.text_layer.scanRightWord(hi)
+			if(my == lo) return delete()
+			deleteRange(lo, my)
 		}
 
 		deleteLine(){
@@ -145,7 +147,9 @@ class EditImpl{
 		}
 
 		backspaceWord(){
-			deleteRange(cursors.text_layer.scanLeftWord(lo), hi)
+			var my = cursors.text_layer.scanLeftWord(lo)
+			if(my == hi) return backspace()
+			deleteRange(my, hi)
 		}
 
 		selectWord(){
@@ -667,7 +671,7 @@ class EditImpl{
 
 
 		mouse.leftdown(v)=>{
-
+			console.log(mouse.clicker)
 			if(key.alt){
 				var startx = mouse.x
 				var starty = mouse.y
@@ -694,6 +698,7 @@ class EditImpl{
 				cursors.fusing = false
 				cursor.moveTo(mouse.x, mouse.y)
 				// lets make it select the word 
+
 				if(mouse.clicker == 2) cursor.selectWord()
 				else if(mouse.clicker == 3){
 					cursor.selectLine()
@@ -833,11 +838,13 @@ class EditImpl{
 		doCursor()
 	}
 
+	keyHome = 
 	keyUparrowCmd(){
 		cursors.moveTop(key.shift)
 		doCursor()
 	}
 
+	keyEnd = 
 	keyDownarrowCmd(){
 		cursors.moveBottom(key.shift)
 		doCursor()
