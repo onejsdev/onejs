@@ -93,6 +93,14 @@ class CodeEdit extends Layer{
 		}
 		return [text, cdelta]
 	}
+
+	stripNextOnBackspace(pos){
+		ch = charCodeAt(pos)
+		if(ch == 91 && charCodeAt(pos+1) == 93) return true
+		if(ch == 123 && charCodeAt(pos+1) == 125) return true
+		if(ch == 40 && charCodeAt(pos+1) == 41) return true
+		return false
+	}
 	
 	change(){
 		was_cursor = false

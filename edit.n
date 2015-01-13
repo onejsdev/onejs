@@ -177,12 +177,14 @@ class EditImpl{
 		}
 
 		backspace(){
-			if(cursors.text_layer.processDelete) cursors.text_layer.processDelete()
-
 			if(start != end) return deleteRange(lo, hi)
 
 			start += cursors.delta
 			end += cursors.delta
+
+			if(cursors.text_layer.stripNextOnBackspace(lo - 1)){
+				hi++
+			}
 
 			var t
 			if(parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
@@ -522,6 +524,100 @@ class EditImpl{
 		clipboard
 	}
 
+	var utfmap = {
+		accent:1//`
+		_accent:'`'
+		num1:'¡'
+		_num1:'⁄'
+		num2:'™'
+		_num2:'€'
+		num3:'£'
+		_num3:'‹'
+		num4:'¢'
+		_num4:'›'
+		num5:'∞'
+		_num5:'ﬁ'
+		num6:'§'
+		_num6:'ﬂ'
+		num7:'¶'
+		_num7:'‡'
+		num8:'•'
+		_num8:'°'
+		num9:'ª'
+		_num9:'·'
+		num0:'º'
+		_num0:'‚'
+		equals:'≠'
+		_equalt:'±'
+		q:'œ'
+		_q:'Œ'
+		w:'∑'
+		_w:'„'
+		e:2//´
+		_e:'´'
+		r:'®'
+		_r:'‰'
+		t:'†'
+		_t:'ˇ'
+		y:'¥'
+		u:3//¨
+		_u:'¨'
+		i:4//ˆ
+		_i:'ˆ'
+		o:'ø'
+		_o:'Ø'
+		p:'π'
+		_p:'∏'
+		openbracket:'“'
+		_openbracket:'”'
+		closebracket:'‘'
+		_closebracket:'’'
+		backslash:'«'
+		_backslash:'»'
+		a:'å'
+		_a:'Å'
+		s:'ß'
+		_s:'Í'
+		d:'∂'
+		_d:'Î'
+		f:'ƒ'
+		_f:'Ï'
+		g:'©'
+		_g:'˝'
+		h:'˙'
+		_h:'Ó'
+		j:'∆'
+		_j:'Ô'
+		k:'˚'
+		_k:''
+		l:'¬'
+		_l:'Ò'
+		semicolon:'…'
+		_semicolon:'Ú'
+		singlequote:'æ'
+		_singlequote:'Æ'
+		z:'Ω'
+		_z:'¸'
+		x:'≈'
+		_x:'˛'
+		c:'ç'
+		_c:'Ç'
+		v:'√'
+		_v:'◊'
+		b:'∫'
+		_b:'ı'
+		n:5//'˜'
+		_n:'˜'
+		m:'µ'
+		_m:'Â'
+		comma:'≤'
+		_comma:'¯'
+		period:'≥'
+		_period:'˘'
+		slash:'÷'
+		_slash:'¿'
+	}
+
 	constructor(){
 		cursors = Cursors.new(text_layer || this)
 		undo_stack = []
@@ -541,6 +637,7 @@ class EditImpl{
 			undo_group++
 			cursors.insert(v.value)
 			change = Change.keyPress
+
 		}
 
 		key.down(v)=>{
@@ -553,6 +650,18 @@ class EditImpl{
 			if(key.alt) name += 'Alt'
 
 			if(this[name]) this[name](v)
+			else if(key.alt){
+				name = v.name
+				if(key.shift) name = '_'+name
+				var trans = utfmap[name]
+				if(typeof trans == 'number'){ // we have to do a 2 step unicode
+					console.log('2 step unicode not implemented')
+				}
+				else if(trans !== undefined){
+					cursors.insert(trans)
+					change = Change.keyPress
+				}
+			}
 		}
 
 
@@ -645,6 +754,7 @@ class EditImpl{
 	keyACmd(){
 		// select all
 		cursors.selectAll()
+		selectionToClipboard()
 	}
 
 	keyXCtrl = 

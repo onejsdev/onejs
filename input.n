@@ -185,6 +185,7 @@ class Touch extends WorkerProxy{
 class Clipboard extends WorkerProxy{
 	$constructor:(){
 		// we have to create a textnode
+		//return
 		text = document.createElement('textarea')
 		text.style.width = '100%'
 		text.style.height = '100%'
@@ -195,6 +196,9 @@ class Clipboard extends WorkerProxy{
 			var text = e.clipboardData.getData('text/plain')
 			paste = text
 		}
+
+		text.addEventListener('keydown', function(e){
+		})
 	}
 
 	signal paste
@@ -230,12 +234,18 @@ class Key extends WorkerProxy{
 			173:189 // minus
 			59:186 // semicolon
 		}
+		
+		var special_key_hack = false
 
 		window.addEventListener('keydown') do(e)=>{
 			var code = fireFoxTable[e.keyCode] || e.keyCode
+			// we go into special mode
+			if(e.keyCode == 229){
+				special_key_hack = true
+				return e.preventDefault()
+			}
 			var keyname = toKey[ code ]
 			if( keyname ) this[ keyname ] = 1
-			//console.log(e)
 			var msg = {	
 				repeat: e.repeat
 				code: code
@@ -263,6 +273,7 @@ class Key extends WorkerProxy{
 		window.addEventListener('keyup') do(e)=>{
 			var code = fireFoxTable[e.keyCode] || e.keyCode
 			var keyname = toKey[ code ]
+
 			if( keyname ) this[ keyname ] = 0
 			var msg = {
 				repeat: e.repeat
@@ -270,6 +281,11 @@ class Key extends WorkerProxy{
 				name: keyname
 			}
 			msg[msg.name] = 1
+			if(special_key_hack){
+				special_key_hack = false
+				down = msg
+			}
+
 			up = msg
 			if(code == toCode.tab || code == toCode.backspace){
 				e.preventDefault()
@@ -277,8 +293,8 @@ class Key extends WorkerProxy{
 		}
 
 		window.addEventListener('keypress') do(e)=>{
-
 			if(e.metaKey || e.altKey || e.ctrlKey) return
+
 			var code = e.charCode
 			if(code == 13 || e.keyCode == 13) code = 10 // make newlines unix defaults
 			else if(e.charCode == 0) return
