@@ -100,7 +100,6 @@ class Mouse extends WorkerProxy{
 
 		window.addEventListener('mousedown') do(e) => {
 			var now = Date.now()
-			console.log(last_click !== undefined, now, last_click, clickspeed, now - last_click < clickspeed)
 			if(last_click !== undefined && now - last_click < clickspeed){
 				click_count ++
 			}
