@@ -478,7 +478,7 @@ class TextImpl{
 			if(px + font_size > 1) px = left, py -= maxh, maxh = 0
 		}
 
-		genDefaults(font)
+		genWhitespace(font)
 		// lets do a font scaling, and then just stack em horizontally
 		sdf_texture = Texture.rgba(width, height)
 
