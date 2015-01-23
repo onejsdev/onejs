@@ -1,0 +1,161 @@
+import math
+import input
+import glscene
+
+// Screen holds the main UI Scene
+class Screen{
+	prestructor(){
+		screen = this
+	}
+
+	constructor(){
+		mouse = Mouse.new(layer)
+		clipboard = Clipboard.new()
+		key = Key.new()
+
+		mouse.move() => bubbleSignal('mouseMove', mouse.hit)
+		mouse.leftdown() => bubbleSignal('mouseLeftDown', mouse.hit)
+		mouse.rightdown() => bubbleSignal('mouseRightDown', mouse.hit)
+		mouse.leftup() => bubbleSignal('mouseLeftUp', mouse.hit)
+		mouse.rightup() => bubbleSignal('mouseRightUp', mouse.hit)
+
+		// where are we going to paste it? the focus object
+		clipboard.paste(v) =>{
+			if(this.focus) this.focus.on_clipPaste.emit(v)
+		}
+		key.down(v) =>{
+			if(this.focus) this.focus.on_keyDown.emit(v)
+		} 
+		key.up(v) =>{
+			if(this.focus) this.focus.on_keyUp.emit(v)
+		} 
+		key.press(v) =>{
+			if(this.focus) this.focus.on_keyPress.emit(v)
+		} 
+
+	}
+
+	mouseCapture(move, end, which_layer){
+		if(mouse.cancapture == 1) mouse_cap_trig = 'mouseLeftUp'
+		else if(mouse.cancapture == 2) mouse_cap_trig = 'mouseRightUp'
+		else{
+			return
+		}
+		layer.hit_capture = which_layer || layer
+		mouse_cap_move = move
+		mouse_cap_end = end
+		// send an initial move event
+		var hit = layer.hit_capture.findHit(mouse.hit)
+		if(hit && mouse_cap_move) mouse_cap_move(hit.where)
+	}
+
+	// root layer
+	Scene layer{}
+
+	bubbleSignal(name, hits){
+		if(layer.hit_capture){ // captured mode
+			if(name == mouse_cap_trig){
+				if(mouse_cap_end) mouse_cap_end(hits[0].where)
+				mouse_cap_end = undefined
+				mouse_cap_move = undefined
+				layer.hit_capture = undefined
+			}
+			else if(name == 'mouseMove' && mouse_cap_move){
+				mouse_cap_move(hits[0].where)
+			}
+			return
+		}
+
+		// fetch the outer
+		for(var hit from hits){
+			var view = hit.layer
+			while(view.outer) view = view.outer
+			// lets bubbple it up
+			while(view){
+				var sig = view['on_'+name]
+				if(sig && sig.hasListeners()){
+					if(!sig.callListeners(hits)) return
+				}
+				view = view.parent
+			}
+			return true
+		}
+	}
+}
+
+// view class owns a Layer
+class View{
+	prestructor(owner){
+		parent = owner
+		if(!parent.children) parent.children = []
+		parent.children.push(this)
+		screen = parent.screen
+	}
+
+	// forward the input objects
+	get key()->screen.key
+	get mouse()->screen.mouse
+	get clipboard()->screen.clipboard
+
+	// forward simple dimensions to our layer
+	get x()->layer.x, set x(v)->layer.x = v
+	get y()->layer.y, set y(v)->layer.y = v
+	get w()->layer.w, set w(v)->layer.w = v
+	get h()->layer.h, set h(v)->layer.h = v
+
+	// lets capture the nmouse
+	mouseCapture(move, end, which_layer){
+		screen.mouseCapture(move, end, which_layer || layer)
+	}
+
+	focus(){
+		screen.focus = this
+	}
+
+	// view signals
+	signal mouseMove, mouseLeftDown, mouseMiddleDown, mouseRightDown, mouseLeftUp, mouseMiddleUp, mouseRightUp
+	signal clipPaste
+	signal keyUp, keyDown, keyPress
+
+	Layer layer{}
+}
+
+class Button extends View{
+	get text()->layer.title.text, set text(v)->layer.title.text = v
+
+	signal click, down, up
+
+	down(){
+		layer = downState
+	}
+
+	up(){
+		layer = upState
+	}
+
+	downState(){
+		pixel: #orange
+	}
+
+	upState(){
+		pixel: #red
+	}
+
+	mouseLeftDown(m){
+		on_down.emit()
+		var hit = layer.findHit(m)
+		// ok so what do we do
+		// what youd want is to capture the mouse eh
+		mouseCapture(pos=>{}, vec3 pos=>{
+			on_up.emit()
+			if(pos.x>=0 && pos.x<=1 && pos.y>=0 && pos.y<=1){
+				on_click.emit()
+			}
+		})
+	}
+
+	layer(){
+		Text title{}
+		pixel: #red
+	}
+}
