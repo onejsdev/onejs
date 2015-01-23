@@ -35,7 +35,7 @@ define line(p, left, top, right, bottom, radius){
 	vec2 b(right, bottom)
 	var pa = p - a, ba = b - a
 	float h = clamp(dot(pa,ba)/dot(ba,ba), 0., 1.)
-	return length(pa - ba*h) - radius
+	return length(pa - ba * h) - radius
 }
 
 define drawField(coord, field, color){

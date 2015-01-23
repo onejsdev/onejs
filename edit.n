@@ -11,6 +11,8 @@ class EditImpl{
 	class Cursor{
 		constructor(cursors){
 			this.cursors = cursors
+			this.editor = cursors.editor
+			this.layer = editor.layer
 			start = 0
 			end = 0
 			max = 0
@@ -43,78 +45,78 @@ class EditImpl{
 			end = end - 1
 			if(end < 0) end = 0
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveRight(only_end){
 			end = end + 1
-			if(end > cursors.text_layer.char_count) end = cursors.text_layer.char_count
+			if(end > layer.char_count) end = layer.char_count
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveUp(only_end, lines = 1){
-			var rect = cursors.text_layer.cursorRect(end)
+			var rect = layer.cursorRect(end)
 			//console.log(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
 			//cursors.text_layer.debugChunks()
-			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h - lines * cursors.text_layer.line_height)
+			end = layer.offsetFromPos(max, rect.y + .5*rect.h - lines * layer.line_height)
 			if(!only_end) start = end
 		}
 
 		moveDown(only_end, lines = 1){
-			var rect = cursors.text_layer.cursorRect(end)
-			end = cursors.text_layer.offsetFromPos(max, rect.y + .5*rect.h + lines * cursors.text_layer.line_height)
+			var rect = layer.cursorRect(end)
+			end = layer.offsetFromPos(max, rect.y + .5*rect.h + lines * layer.line_height)
 			if(!only_end) start = end
 		}
 
 		moveTo(x, y, only_end){
-			var off = cursors.text_layer.offsetFromPos(x, y)
+			var off = layer.offsetFromPos(x, y)
 			var change = end != off 
 			end = off
 			if(!only_end) change = start != end || change, start = end
-			var r = cursors.text_layer.cursorRect(off)
+			var r = layer.cursorRect(off)
 			max = r.x
 		}
 
 		moveLeftWord(only_end){
-			var pos = cursors.text_layer.scanLeftWord(end)
+			var pos = editor.scanLeftWord(end)
 			if(pos == end) end --
 			else end = pos
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveRightWord(only_end){
-			var pos = cursors.text_layer.scanRightWord(end)
+			var pos = editor.scanRightWord(end)
 			if(pos == end) end ++
 			else end = pos
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveLeftLine(only_end){
 			// if we are a tab we scan to the right.
-			end = cursors.text_layer.scanLeftLine(end)
+			end = editor.scanLeftLine(end)
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveRightLine(only_end){
-			end = cursors.text_layer.scanRightLine(end)
+			end = editor.scanRightLine(end)
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveTop(only_end){
 			end = 0
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		moveBottom(only_end){
-			end = cursors.text_layer.char_count
+			end = layer.char_count
 			if(!only_end) start = end
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		startIsEnd(){
@@ -123,60 +125,60 @@ class EditImpl{
 
 		// we need to make a whole bunch of these things.
 		deleteRange(from, to){
-			cursors.text_layer.addUndoInsert(from, to)
-			cursors.text_layer.removeText(from, to)
+			editor.addUndoInsert(from, to)
+			layer.removeText(from, to)
 			cursors.delta -= to - from
 			start = end = from
 
-			cursors.text_layer.forkRedo()
-			max = cursors.text_layer.cursorRect(end).x
+			editor.forkRedo()
+			max = layer.cursorRect(end).x
 		}
 
 		deleteWord(){
-			var my = cursors.text_layer.scanRightWord(hi)
+			var my = editor.scanRightWord(hi)
 			if(my == lo) return delete()
 			deleteRange(lo, my)
 		}
 
 		deleteLine(){
-			deleteRange(lo, cursors.text_layer.scanRightLine(hi))
+			deleteRange(lo, editor.scanRightLine(hi))
 		}
 
 		backspaceLine(){
-			deleteRange(cursors.text_layer.scanLeftLine(lo), hi)
+			deleteRange(editor.scanLeftLine(lo), hi)
 		}
 
 		backspaceWord(){
-			var my = cursors.text_layer.scanLeftWord(lo)
+			var my = editor.scanLeftWord(lo)
 			if(my == hi) return backspace()
 			deleteRange(my, hi)
 		}
 
 		selectWord(){
-			start = cursors.text_layer.scanLeftWord(lo)
-			end = cursors.text_layer.scanRightWord(hi)
-			max = cursors.text_layer.cursorRect(end).x
+			start = editor.scanLeftWord(lo)
+			end = editor.scanRightWord(hi)
+			max = layer.cursorRect(end).x
 		}
 		
 		selectLine(){
-			start = cursors.text_layer.scanLeftLine(lo)
-			end = cursors.text_layer.scanRightLine(hi) + 1
-			max = cursors.text_layer.cursorRect(end).x
+			start = editor.scanLeftLine(lo)
+			end = editor.scanRightLine(hi) + 1
+			max = layer.cursorRect(end).x
 		}
 
 		selectAll(){
 			start = 0
-			end = cursors.text_layer.char_count
-			max = cursors.text_layer.cursorRect(end).x
+			end = layer.char_count
+			max = layer.cursorRect(end).x
 		}
 
 		delete(){
 			if(start != end) return deleteRange(lo, hi)
 			// otherwise we have to delete the character upnext
-			cursors.text_layer.addUndoInsert(end, end + 1)
-			cursors.text_layer.removeText(end, end + 1)
+			editor.addUndoInsert(end, end + 1)
+			layer.removeText(end, end + 1)
 			cursors.delta -= 1
-			cursors.text_layer.forkRedo()
+			editor.forkRedo()
 			max = cursors.text_layer.cursorRect(end).x
 		}
 
@@ -186,7 +188,7 @@ class EditImpl{
 			start += cursors.delta
 			end += cursors.delta
 
-			if(cursors.text_layer.stripNextOnBackspace(lo - 1)){
+			if(editor.stripNextOnBackspace(lo - 1)){
 				hi++
 			}
 
@@ -207,34 +209,34 @@ class EditImpl{
 			//}
 
 			if(lo == 0) return
-			cursors.text_layer.addUndoInsert(lo -1, hi)
-			cursors.text_layer.removeText(lo - 1, hi)
+			editor.addUndoInsert(lo -1, hi)
+			layer.removeText(lo - 1, hi)
 			cursors.delta -= span
-			cursors.text_layer.forkRedo()
+			editor.forkRedo()
 			start = end = lo - 1
-			max = cursors.text_layer.cursorRect(end).x			
+			max = layer.cursorRect(end).x			
 		}
 
 		insert(text){
 			var cdelta = 0
-			if(cursors.text_layer.processInsert){
-				[text, cdelta] = cursors.text_layer.processInsert(lo, hi, text)
+			if(editor.processInsert){
+				[text, cdelta] = editor.processInsert(lo, hi, text)
 			}
 			start += cursors.delta
 			end += cursors.delta
 			if(start != end){
-				cursors.text_layer.addUndoInsert(lo, hi)
-				cursors.text_layer.removeText(lo, hi)
+				editor.addUndoInsert(lo, hi)
+				layer.removeText(lo, hi)
 				cursors.delta -= span
 			}
 			if(text.length){
-				var len =  cursors.text_layer.insertText(lo, text)
+				var len =  layer.insertText(lo, text)
 				cursors.delta += len
-				cursors.text_layer.addUndoDelete(lo, lo + len)
+				editor.addUndoDelete(lo, lo + len)
 			}	
-			cursors.text_layer.forkRedo()
+			editor.forkRedo()
 			start = end = lo + text.length + cdelta
-			max = cursors.text_layer.cursorRect(end).x
+			max = layer.cursorRect(end).x
 		}
 
 		isSelection(){
@@ -248,8 +250,9 @@ class EditImpl{
 
 	// cursor set 
 	class Cursors{
-		constructor(text_layer){
-			this.text_layer = text_layer
+		constructor(editor){
+			this.editor = editor
+			this.layer = editor.layer
 			list = [Cursor.new(this)]
 			fusing = true
 		}
@@ -301,14 +304,14 @@ class EditImpl{
 		
 		markDelta(){
 			for(var cursor from list){
-				cursor.mark_start = text_layer.charCodeAt(cursor.start - 1)
-				cursor.mark_end = text_layer.charCodeAt(cursor.end - 1)
+				cursor.mark_start = layer.charCodeAt(cursor.start - 1)
+				cursor.mark_end = layer.charCodeAt(cursor.end - 1)
 			}
 		}
 
 		markSeek(pos, delta, mark){
 			pos += delta
-			var count = text_layer.char_count
+			var count = layer.char_count
 			if(pos < 0) pos = 0
 			if(pos >= count) pos = count - 1
 			// ignore markers that are volatile
@@ -316,7 +319,7 @@ class EditImpl{
 				pos++
 				var start = pos
 				var max = abs(delta)
-				while(pos > 0 && text_layer.charCodeAt(pos - 1) != mark){
+				while(pos > 0 && layer.charCodeAt(pos - 1) != mark){
 					if(start-pos>max)break
 					pos--
 				}
@@ -341,17 +344,17 @@ class EditImpl{
 			pending = 1
 			setImmediate() do =>{
 				pending = 0
-				text_layer.clearMarkers()
-				text_layer.clearCursors()
+				layer.clearMarkers()
+				layer.clearCursors()
 
 				// fuse the cursor list
 				if(fusing) fuse()
 				// draw it into geometry buffers 
 				for(var cursor from list){
 					if(cursor.start != cursor.end){
-						text_layer.addMarkers(cursor.start, cursor.end)
+						layer.addMarkers(cursor.start, cursor.end)
 					}
-					text_layer.addCursor(cursor.end)
+					layer.addCursor(cursor.end)
 				}
 			}
 		}
@@ -363,13 +366,13 @@ class EditImpl{
 				y2 = t
 			}
 			var new_list = Array.prototype.slice.apply(clone)
-			var height = text_layer.line_height
+			var height = layer.line_height
 			var y = y1
 			while(1){
 				var cur = Cursor.new(this,0)
 				new_list.push(cur)
-				cur.start = text_layer.offsetFromPos(x1,y)
-				cur.end = text_layer.offsetFromPos(x2,y)
+				cur.start = layer.offsetFromPos(x1,y)
+				cur.end = layer.offsetFromPos(x2,y)
 				//console.log(cur.end, x2)
 				if(y >= y2) break
 				y += height
@@ -411,7 +414,7 @@ class EditImpl{
 			group: undo_group
 			type: 'insert'
 			start: start
-			data: serializeTags(start, end)
+			data: layer.serializeTags(start, end)
 			cursors: cursors.toArray()
 		})
 	}
@@ -451,12 +454,12 @@ class EditImpl{
 			// lets do what it says
 			if(item.type == 'insert'){
 				addUndoDelete(item.start, item.start + item.data.length, stack2)
-				insertText(item.start, item.data)
+				layer.insertText(item.start, item.data)
 				last_cursor = item.cursors
 			}
 			else{
 				addUndoInsert(item.start, item.end, stack2)
-				removeText(item.start, item.end)
+				layer.removeText(item.start, item.end)
 				last_cursor = item.cursors
 			}
 		}
@@ -469,7 +472,7 @@ class EditImpl{
 		// alright. so. we need to sort the cursors.
 		var str = ''
 		for(var cursor from cursors.list){
-			str += serializeText(cursor.lo, cursor.hi)
+			str += layer.serializeText(cursor.lo, cursor.hi)
 		}
 		clipboard.value = str
 	}
@@ -623,123 +626,120 @@ class EditImpl{
 		slash:'÷'
 		_slash:'¿'
 	}
-
+	
 	constructor(){
-		cursors = Cursors.new(text_layer || this)
+		cursors = Cursors.new(this, this.layer)
 		undo_stack = []
 		redo_stack = []
 		undo_group = 0
 
-		clipboard.paste(v)=>{
-			// ok ! we shalt dosomething
-			undo_group++
-			cursors.insert(v)
-			change = Change.clipboard
-		}
-
-		key.press(v)=>{
-			// lets do the inserts.
-			// we have to replace our cursor set start->end with something
-			undo_group++
-			cursors.insert(v.value)
-			change = Change.keyPress
-
-		}
-
-		key.down(v)=>{
-			clipboard.focus()
-			var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
-			undo_group++
-
-			if(key.leftmeta || key.rightmeta) name += 'Cmd'
-			if(key.ctrl) name += 'Ctrl'
-			if(key.alt) name += 'Alt'
-
-			if(this[name]) this[name](v)
-			else if(key.alt){
-				name = v.name
-				if(key.shift) name = '_'+name
-				var trans = utfmap[name]
-				if(typeof trans == 'number'){ // we have to do a 2 step unicode
-					console.log('2 step unicode not implemented')
-				}
-				else if(trans !== undefined){
-					cursors.insert(trans)
-					change = Change.keyPress
-				}
-			}
-		}
-
-
-
-		mouse.leftdown(v)=>{
-			//console.log(mouse.clicker)
-			if(key.alt){
-				var startx = mouse.x
-				var starty = mouse.y
-				var clone
-				if(key.leftmeta || key.rightmeta) clone = cursors.list
-				else clone = []
-
-				cursors.rectSelect(startx, starty, startx, starty, clone)
-				cursors.fusing = false
-				mouse.capture(=>{
-					cursors.rectSelect(startx, starty, mouse.x, mouse.y, clone)
-				},=>{
-					cursors.fusing = true
-					cursors.update()
-					// we are done. serialize to clipboard
-					selectionToClipboard()
-				})
-			}
-			else
-			// add a cursor
-			if(key.leftmeta || key.rightmeta){
-				var cursor = cursors.add()
-				// in that case what we need to 
-				cursors.fusing = false
-				cursor.moveTo(mouse.x, mouse.y)
-				// lets make it select the word 
-
-				if(mouse.clicker == 2) cursor.selectWord()
-				else if(mouse.clicker == 3){
-					cursor.selectLine()
-					mouse.resetClicker()
-				}
-
-				cursors.update()
-				mouse.capture(=>{
-					// move
-					cursor.moveTo(mouse.x, mouse.y, true)
-					cursors.update()
-				},=>{
-					cursors.fusing = true
-					cursors.update()
-					selectionToClipboard()
-				})
-			}
-			// normal selection
-			else{
-				// in that case what we need to 
-				cursors.fusing = true
-				cursors.moveTo(mouse.x, mouse.y)
-
-				if(mouse.clicker == 2) cursors.selectWord()
-				else if(mouse.clicker == 3){
-					cursors.selectLine()
-					mouse.resetClicker()
-				}
-
-				mouse.capture(=>{
-					cursors.moveTo(mouse.x, mouse.y, true)
-				}, =>{
-					selectionToClipboard()
-				})
-			}
-		}
+		focus()
 
 		cursors.moveDown(1,0)
 		//cursors.moveDown(1, 100)
+	}
+
+	clipPaste(v){
+		// ok ! we shalt dosomething
+		undo_group++
+		cursors.insert(v)
+		change = Change.clipboard
+	}
+
+	keyPress(v){
+		undo_group++
+		cursors.insert(v.value)
+		change = Change.keyPress		
+	}
+
+	keyDown(v){
+		clipboard.focus()
+		var name = 'key' + v.name[0].toUpperCase() + v.name.slice(1)
+		undo_group++
+
+		if(key.leftmeta || key.rightmeta) name += 'Cmd'
+		if(key.ctrl) name += 'Ctrl'
+		if(key.alt) name += 'Alt'
+
+		if(this[name]) this[name](v)
+		else if(key.alt){
+			name = v.name
+			if(key.shift) name = '_'+name
+			var trans = utfmap[name]
+			if(typeof trans == 'number'){ // we have to do a 2 step unicode
+				console.log('2 step unicode not implemented')
+			}
+			else if(trans !== undefined){
+				cursors.insert(trans)
+				change = Change.keyPress
+			}
+		}
+	}
+
+	mouseLeftDown(v){
+		//console.log(mouse.clicker)
+		if(key.alt){
+			var startx = mouse.x
+			var starty = mouse.y
+			var clone
+			if(key.leftmeta || key.rightmeta) clone = cursors.list
+			else clone = []
+
+			cursors.rectSelect(startx, starty, startx, starty, clone)
+			cursors.fusing = false
+			mouseCapture(=>{
+				cursors.rectSelect(startx, starty, mouse.x, mouse.y, clone)
+			},=>{
+				cursors.fusing = true
+				cursors.update()
+				// we are done. serialize to clipboard
+				selectionToClipboard()
+			})
+		}
+		else
+		// add a cursor
+		if(key.leftmeta || key.rightmeta){
+			var cursor = cursors.add()
+			// in that case what we need to 
+			cursors.fusing = false
+			cursor.moveTo(mouse.x, mouse.y)
+			// lets make it select the word 
+
+			if(mouse.clicker == 2) cursor.selectWord()
+			else if(mouse.clicker == 3){
+				cursor.selectLine()
+				mouse.resetClicker()
+			}
+
+			cursors.update()
+			mouseCapture(=>{
+				// move
+				cursor.moveTo(mouse.x, mouse.y, true)
+				cursors.update()
+			},=>{
+				cursors.fusing = true
+				cursors.update()
+				selectionToClipboard()
+			})
+		}
+		// normal selection
+		else{
+			// in that case what we need to 
+			cursors.fusing = true
+			cursors.moveTo(mouse.x, mouse.y)
+
+			if(mouse.clicker == 2) cursors.selectWord()
+			else if(mouse.clicker == 3){
+				cursors.selectLine()
+				mouse.resetClicker()
+			}
+
+			mouseCapture(=>{
+				cursors.moveTo(mouse.x, mouse.y, true)
+			}, =>{
+				selectionToClipboard()
+			})
+		}
 	}
 
 	// alright so. undo. 
@@ -839,7 +839,7 @@ class EditImpl{
 		cursors.moveRightLine(key.shift)
 		doCursor()
 	}
-
+ 
 	keyHome = 
 	keyUparrowCmd(){
 		cursors.moveTop(key.shift)
@@ -870,13 +870,5 @@ class EditImpl{
 	keyDownarrow(){
 		cursors.moveDown(key.shift)
 		doCursor()
-	}
-}
-
-class Edit extends Text{
-	load(EditImpl)
-	constructor(){
-		Text::constructor()
-		EditImpl::constructor()
 	}
 }

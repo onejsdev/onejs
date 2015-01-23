@@ -18,57 +18,62 @@ import text_tagged
 
 class Scene extends Device{
 
-	clipboard = Clipboard.new()
-	mouse = Mouse.new()
-	key = Key.new()
-	//midi = Midi.new()
-
+	// its asynchronous hittesting.
 	m_camera = mat4()
 
-	// set up a constraint solver
-	solver = CS.SimplexSolver.new()
+	signal test
 
-	// when we are adding a node we get called
-	onAddChild(node){
-		// lets process some constraints
-		var proto = node
-		while(proto && proto.__constraints__){
-			if(proto.hasOwnProperty('__constraints__')){
-				for(var c from proto.__constraints__){
-					var constraint = CS.ASTNodeToConstraint(node, c)
-					var storage = node.__constraint_store__ || (node.__constraint_store__ = [])
-					storage.push(constraint)
-					solver.addConstraint(constraint)
-				}
-			}
-			proto = Object.getPrototypeOf(proto)
-		}
-		if(!layout_cb) layout_cb = setImmediate(onLayout.bind(this))
+	hit_capture = 0
+
+	hitTest2D(x, y){
+		// worker
+		return callHost('hitTest2D', x, y)
 	}
 
-	onLayout(){
-		layout_cb = undefined
-		solver.solve()
-		// alright so.. how do we get those pesky values to update?
-		redraw()
+	$hitTest2D:(x, y){
+		test = 10
+		// main thread
+		vec3 pick( (x / frame.w) * 2 - 1, -( y / frame.h) * 2 + 1, -1)
+
+		ray3 ray()
+		ray.origin = pick * mat4 m_unproj
+		if(perspective){
+			ray.direction = vec3(0, 0, -1) * mat4 m_view
+		}
+		else{
+			ray.direction = vec3(0, 0, -1) * mat4 m_view
+		}
+
+		var results = []
+
+		if(hit_capture){
+			hit_capture.hitTest(ray, results, true)
+		}
+		else for(var child from children){
+			child.hitTest(ray, results)
+		}
+		return results
 	}
 
 	// allright so lets solve our layout..
 	m_view = mat4.identity()//mat4.RT(0,0,0, 0,0,3)
+	m_unproj = mat4.identity()
+
 	draw:(parent, sec){
 		vec3 f = fill
 		clearAll(f)
-
 		//h = frame.w * 0.5 
 		//h = frame.h
 		if(perspective){
-			m_proj = mat4.perspective(perspective, frame.w/frame.h, -1, 1)			
+			m_proj = mat4.perspective(perspective, frame.w / frame.h, -1, 1)			
 		}
 		else{
 			m_proj = mat4.ortho(0, frame.w / frame.ratio, 0, frame.h / frame.ratio, -1000, 1000)
 		}
+		m_unproj = mat4.invert(m_proj)
 		//m_proj = mat4.perspective(-90deg, -1, -1000, 1000) * mat4.S(0.01,0.01,0.01)
 		// silently assign camera matrix
+		m_uncamera = mat4 m_view * mat4 m_unproj
 		__m_camera = mat4 m_view * mat4 m_proj 
 		m_childworld = mat4.identity()
 		drawChildren(this, sec) 
@@ -78,11 +83,6 @@ class Scene extends Device{
 // a layer with matrices
 class Layer extends Draw{
 
-	// forward the mouse object
-	clipboard = Scene.clipboard
-	mouse = Scene.mouse
-	midi = Scene.midi
-	key = Scene.key
 	// define object types
 	mesh = vec2Rect(0, 0, 1, 1)
 
@@ -96,19 +96,50 @@ class Layer extends Draw{
 	p: pixel mesh[]
 	hp: 2.*(pixel mesh[] -.5)
 
-    beforeMatrix:(){
-    }
+	beforeMatrix:(){
+	}
 
-    drawSelf:(sec){
-    	this{}
-    }
+	drawSelf:(sec){
+		this{}
+	}
+		
+	bounding_box = box3(0,0,0, 1,1,1)
+	infinity_box = box3(-1000000, -1000000,0,1000000,1000000,1)
+
+	findHit(hits){
+		for(var hit from hits){
+			if(hit.layer == this) return hit
+		}
+		return undefined
+	}
+
+	$hitTest:(ray3 ray, results, captured){
+		// lets move to our mesh space
+		var to_mesh = mat4.invert(mat4 m_mesh * mat4 m_world)
+		var my_ray = ray3.transform(ray, to_mesh)
+
+		// we can do a box intersection
+		if(captured){
+			results.push({layer:this, where: my_ray.intersectBox(infinity_box)})
+			return true
+		}
+
+		var where = my_ray.intersectBox(bounding_box)
+		if(where){
+			results.unshift({layer:this, where:where})
+			if(children) for(var child from children){
+				child.hitTest(ray, results)
+			}
+			return true
+		}
+	}
 
 	draw:(parent, sec){
 		drawn = true
 		mat4 m_parent = parent.m_childworld
 		// set our matrix
 		beforeMatrix()
-        var dx = ax*w, dy = ay*h, dz = az*d
+		var dx = ax*w, dy = ay*h, dz = az*d
 		mat4 m_local = mat4.TSRT(-dx,-dy,-dz ,sx,sy,sz, rx,ry,rz, x+dx,y+dy,z+dz)
 		// scale our mesh
 		m_mesh = mat4.S(w, h, d)
@@ -147,14 +178,14 @@ class Layer extends Draw{
 	// size
 	w = 100
 	h = 100
-	d = 0
+	d = 1
 }
 
 class Text extends Layer{
 	load(TaggedTextImpl)
 
-	constructor(){
-		Layer::constructor()
+	constructor(deep_outer){
+		Layer::constructor(deep_outer)
 		TaggedTextImpl::constructor()
 	}
 	vertex: (mesh[].xy+vec2(text_x, text_y)) * (m_world * device.m_camera)
@@ -191,3 +222,39 @@ class DebugLayerImpl{
 		return #orange
 	}
 }
+
+
+
+	//clipboard = Clipboard.new()
+	//mouse = Mouse.new()
+	//key = Key.new()
+	//midi = Midi.new()
+/*
+	// set up a constraint solver
+	solver = CS.SimplexSolver.new()
+
+	// when we are adding a node we get called
+	onAddChild(node){
+		// lets process some constraints
+		var proto = node
+		while(proto && proto.__constraints__){
+			if(proto.hasOwnProperty('__constraints__')){
+				for(var c from proto.__constraints__){
+					var constraint = CS.ASTNodeToConstraint(node, c)
+					var storage = node.__constraint_store__ || (node.__constraint_store__ = [])
+					storage.push(constraint)
+					solver.addConstraint(constraint)
+				}
+			}
+			proto = Object.getPrototypeOf(proto)
+		}
+		if(!layout_cb) layout_cb = setImmediate(onLayout.bind(this))
+	}
+
+	onLayout(){
+		layout_cb = undefined
+		solver.solve()
+		// alright so.. how do we get those pesky values to update?
+		redraw()
+	}
+*/

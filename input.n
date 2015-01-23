@@ -3,9 +3,9 @@ import math
 class Mouse extends WorkerProxy{
 
 	// mouse signals
-	signal move, x, y, isdown, left, right, middle, click, dblclick, clicker, cursor, leftdown, leftup, rightdown, rightup, cancapture
+	signal move, x, y, isdown, left, right, middle, click, dblclick, clicker, cursor, leftdown, leftup, rightdown, rightup, cancapture, hit
 	
-	ratio = 1
+	ratio = 0
 	clickspeed = 350
 
 	enum cursors{
@@ -68,8 +68,8 @@ class Mouse extends WorkerProxy{
 				if(onend) onend()
 			}
 			if(cancapture == 1) sub2 = on_leftup.bind(end)
-			if(cancapture == 2) sub2 = on_middleup.bind(end)
-			if(cancapture == 3) sub2 = on_rightup.bind(end)
+			if(cancapture == 2) sub2 = on_rightup.bind(end)
+			if(cancapture == 3) sub2 = on_middleup.bind(end)
 		}
 	}
 	
@@ -81,9 +81,14 @@ class Mouse extends WorkerProxy{
 		last_click = undefined
 	}
 
+	constructor(layer){
+		this.layer = layer
+	}
+
 	$constructor:(){
 		x = 0
 		y = 0
+		if(ratio == 0) ratio = window.devicePixelRatio
 		// allright we need to figure out how we send back the mouse events to the worker
 		// are we going to send a vec2? or something else
 
@@ -100,6 +105,7 @@ class Mouse extends WorkerProxy{
 
 		window.addEventListener('mousedown') do(e) => {
 			var now = Date.now()
+
 			if(last_click !== undefined && now - last_click < clickspeed){
 				click_count ++
 			}
@@ -107,27 +113,32 @@ class Mouse extends WorkerProxy{
 			last_click = now
 
 			clicker = click_count
+			
+			if(layer) hit = layer.hitTest2D(e.pageX * ratio, e.pageY * ratio)
+
 			x = e.pageX * ratio//* window.devicePixelRatio
 			y = e.pageY * ratio//* window.devicePixelRatio
-			cancapture = e.button+1
-			if(e.button === 0 ) left = 1, leftdown = 1
-			if(e.button === 1 ) middle = 1
-			if(e.button === 2 ) right = 1, rightdown = 1
+
+			if(e.button === 0 ) cancapture = 1, left = 1, leftdown = 1
+			if(e.button === 1 ) cancapture = 3, middle = 1
+			if(e.button === 2 ) cancapture = 2, right = 1, rightdown = 1
 			isdown = 1
 		}
 
-		window.addEventListener('mouseup') do(e) => {
+		window.addEventListener('mouseup') do (e) => {
+			if(layer) hit = layer.hitTest2D(e.pageX * ratio, e.pageY * ratio)
 			x = e.pageX * ratio//* window.devicePixelRatio
 			y = e.pageY * ratio //* window.devicePixelRatio
 			cancapture = 0
-			if(e.button === 0 ) left = 0, leftup = 1
-			if(e.button === 1 ) middle = 0
-			if(e.button === 2 ) right = 0, rightup = 1
+			if(e.button === 0) left = 0, leftup = 1
+			if(e.button === 1) middle = 0
+			if(e.button === 2) right = 0, rightup = 1
 			isdown = 0
 		}
 
 		window.addEventListener('mousemove') do(e) => {
 			//last_click = undefined
+			if(layer) hit = layer.hitTest2D(e.pageX * ratio, e.pageY * ratio)
 			x = e.pageX * ratio//* window.devicePixelRatio
 			y = e.pageY * ratio//* window.devicePixelRatio
 			move = 1
@@ -187,8 +198,8 @@ class Clipboard extends WorkerProxy{
 		// we have to create a textnode
 		//return
 		text = document.createElement('textarea')
-		text.style.width = '100%'
-		text.style.height = '100%'
+		text.style.width = '0px'
+		text.style.height = '0px'
 		text.style.position = 'absolute'
 		text.style.zIndex = -10000000
 		document.body.appendChild(text)

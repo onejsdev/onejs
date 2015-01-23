@@ -38,31 +38,16 @@ define vec4Rect( x, y, w, h, z = 0, ww = 1 ){
 
 class Draw extends WorkerProxy{
 	
-	// support the { } syntax but store owner on parent
-	call( pthis, nest, parent ){
-		var obj = Object.create(this)
-
-		obj.parent = parent
-
-		if(obj._constructor) obj._constructor()
-
-		if(!parent.children) parent.children = []
-		parent.children.push(this)
-		device = parent.device
-
-		if(nest) nest.call(obj, parent)
-
-		obj.constructor()
-
-		if(!obj.device) out('no device on class ', obj)
-
-		if(obj.device.onAddChild) obj.device.onAddChild(obj)
-		if(parent != obj.device && parent.onAddChild) parent.onAddChild(obj)
-
-		return obj
-	}
-
-	constructor(){
+	prestructor(deep_outer){
+		WorkerProxy::prestructor()
+		if(deep_outer !== undefined){
+			this.outer = deep_outer
+			// identify deep_outer as being another Draw object
+			if(Draw.isPrototypeOf(deep_outer)) parent = deep_outer
+			else{
+				parent = deep_outer.parent.layer
+			}
+		}
 		if(!device){
 			if(!parent.children) parent.children = []
 			parent.children.push(this)
@@ -892,7 +877,7 @@ class Draw extends WorkerProxy{
 		js.store_tempid = 1
 		js.store_pretemp = 'this._store1._'
 
-		code += 'this._constructor = function(){ this._store1 = {}, this._store2 = {} }\n'
+		code += 'this.prestructor = function(){ this._store1 = {}, this._store2 = {} }\n'
 		if(debug_draw) debug_draw(js)
 
 		var swap = 'var _store = this._store2;this._store2 = this._store1;this._store1 = _store;this._dirty = false;'
@@ -1259,8 +1244,8 @@ class Texture extends WorkerProxy{
 
 class Device extends Draw{
 
-	_constructor(){
-		Draw::_constructor()
+	prestructor(){
+		WorkerProxy::prestructor()
 		device = this // buck stops here
 	}
 

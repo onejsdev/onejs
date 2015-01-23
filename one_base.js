@@ -1,3 +1,4 @@
+
 // Copyright (C) 2014 OneJS
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,7 +43,7 @@ ONE.base_ = function(){
 	
 	this.__class__ = 'Base'
 	// inherit a new class, whilst passing on the scope
-	this.extend = function( outer, role, selfname ){
+	this.extend = function( outer, role, selfname, nopost ){
 
 		// variable API
 		if(typeof outer == 'string') selfname = outer, outer = this
@@ -54,42 +55,89 @@ ONE.base_ = function(){
 		obj.__class__ = selfname || 'unknown-class'
 		obj.defineProperty('__class__', { enumerable:false, configurable:true })
 		
-		// allow reference to self on inherited classes
-		if(selfname) obj[selfname] = obj
+		// allow reference to self on inherited classeshttp://worrydream.com/refs/Hamming-TheArtOfDoingScienceAndEngineering.pdf
+		if(selfname && selfname.indexOf(':') == -1) obj[selfname] = obj
 
 		if(obj._extendPre) obj._extendPre()
+
+		// lets auto-extend all deep classes
+		if(obj.__deep__){
+			var deep = obj.__deep__
+			obj.__deep__ = Object.create(null)
+			for(var k in deep){
+				obj.__deep__[k] = deep[k].extend(obj, undefined, obj.__class__+':'+k, true)
+			}
+		}
 		
-		if( role ){
-			if( typeof role == 'function') role.call(obj, outer)
+		if(role){
+			if(typeof role == 'function') role.call(obj, outer)
 			else obj.import(role)
 		}
-
-		if(obj._extendPost) obj._extendPost()
+		// this flag causes all deep classes to extendPost together 'after' the outer 
+		// class has completed its role call
+		if(!nopost) if(obj._extendPost) obj._extendPost()
 
 		return obj
+	}
+
+	this._extendPost = function(){
+		if(this.__deep__){
+			var deep = this.__deep__
+			for(var k in deep){
+				deep[k]._extendPost()
+			}
+		}
 	}
 
 	// new an object with variable arguments and automatic parent/owner
 	this.new = function(){
 		var obj = Object.create(this)
-		if(obj._constructor) obj._constructor.apply(obj, arguments)
+
+		if(obj.prestructor) obj.prestructor.apply(obj, arguments)
+		if(obj.__deep__) obj.deepNew()
 		if(obj.constructor) obj.constructor.apply(obj, arguments)
+
+		return obj
+	}
+	
+	this.deepNew = function(){
+		// construct deep objects
+		var deep = this.__deep__
+		this.__deep__ = Object.create(null)
+		for(var k in deep){
+			this.__deep__[k] = deep[k].new(this)
+		}
+	}
+
+	this.deepExtend = function(owner, name, nest){
+		if(!owner.__deep__) owner.__deep__ = Object.create(null)
+
+		var obj = this.extend(owner, nest, this.__class__ + ':' + name)
+		// store it
+		owner.__deep__[name] = obj
+		owner.defineProperty(name, {
+			enumerable:true,
+			configurable:false,
+			get:function(){
+				return this.__deep__[name]
+			},
+			set:function(v){
+				if(typeof v == 'function'){
+					v.call(this.__deep__[name])
+				}
+				else throw new Error('Cannot assign type to deep class')
+			}
+		})
 		return obj
 	}
 
-	this.call = function(self, nest, owner){
-		if(self !== this) throw new Error('Call has incorrect self')
-
+	this.call = function(pthis, nest, owner){
 		var obj = Object.create(this)
 
-		obj.__owner__ = owner
-		obj.defineProperty('__owner__', { enumerable:false, configurable:true })
-
-		if(obj._constructor) obj._constructor.apply(obj, arguments)
-		
+		if(obj.prestructor) obj.prestructor.call(obj, owner)
+		if(obj.__deep__) obj.deepNew()
 		nest.call(obj)
-
-		if(obj.constructor) obj.constructor.apply(obj, arguments)
+		if(obj.constructor) obj.constructor.call(obj, owner)
 
 		return obj
 	}
@@ -659,6 +707,7 @@ ONE.base_ = function(){
 	}
 	
 	// call all set listeners
+	this.Signal.emit = 
 	this.Signal.callListeners = function( _value ){
 
 		var value = _value === undefined? this.value: this.value = _value
@@ -678,6 +727,19 @@ ONE.base_ = function(){
 		return ret
 	}
 
+	this.Signal.hasListeners = function(set){
+		set = set || 'set_list'
+		var proto = this
+ 		while(proto){
+ 			if(proto.hasOwnProperty(set)){
+ 				var list = proto[set]
+				if(!Array.isArray(list)) return true
+				else if(list.length) return true
+			}
+			proto = Object.getPrototypeOf(proto)
+		}
+		return false
+	}
 
 	// listen to the end  / error
 	this.Signal.then = function( end_cb, error_cb ){

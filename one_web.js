@@ -45,13 +45,23 @@ ONE.worker_boot_ = function(host){
 			if(msg._type == 'signal'){ // we have to set a value
 				var obj = host.proxy_obj[msg._uid]
 				if(!obj) throw new Error('set on nonexistant object ' + msg._uid)
-				obj[msg.name] = msg.value
+				var value = ONE.proxyDataUnescape(msg.value, host.proxy_obj) || msg.value
+				obj[msg.name] = value
 			}
 			else if(msg._type == 'call'){
 				var obj = host.proxy_obj[msg._uid]
 				if(!obj) throw new Error('Call on nonexistant object ' + msg._uid)
 				if(msg.args) obj[msg.name].apply(obj, msg.args)
 				else obj[msg.name].call(obj)
+			}
+			else if (msg._type == 'return'){
+				var sig = host.call_signals[msg.callid]
+				if(!sig) throw new Error('Return on nonexistant signal ')
+				host.call_free.push(msg.callid)
+				host.call_signals[msg.callid] = undefined
+				var obj = ONE.proxyDataUnescape(msg.ret, host.proxy_obj)
+				if(obj) msg.ret = obj
+				sig.end(msg.ret)
 			}
 			else if(msg._type == 'eval'){ // lets parse and eval a module
 				var module = ONE.__modules__[msg.module_name]
@@ -104,6 +114,9 @@ ONE.worker_boot_ = function(host){
 		}
 	}.bind(host)
 
+	host.call_id = 0
+	host.call_signals = {}
+	host.call_free = []
 	// message queueing
 	host.msg_queue = []
 	host.msg_transfer = []
@@ -272,10 +285,9 @@ ONE.worker_boot_ = function(host){
 			host.postProcess()
 		}, time)
 	}
-
+	ONE.Base.hideProperties()
 	ONE.root = ONE.Base.new()
 	ONE.root.__class__ = 'Root'
-
 }
 
 ONE.proxy_ = function(){
@@ -286,7 +298,7 @@ ONE.proxy_ = function(){
 		this.__class__ = 'WorkerProxy'
 
 		// called when someone makes an instance
-		this._constructor = function(){
+		this.prestructor = function(){
 			if(!ONE.host.proxy_free.length) this.__proxy__ = ONE.host.proxy_uid++
 			else this.__proxy__ = ONE.host.proxy_free.pop()
 			this.defineProperty('__proxy__', { enumerable:false, configurable:true })
@@ -313,6 +325,7 @@ ONE.proxy_ = function(){
 
 		this._extendPost = function(){
 			if(this == blockPrePost) return // make sure our current.extend doesnt trigger us
+			this.Base._extendPost.call(this)
 			this._proxify()
 		}
 
@@ -340,7 +353,7 @@ ONE.proxy_ = function(){
 					}
 					if(this.hasOwnProperty('__compilehash__')){
 						// if we switch from value to astnode and back we need a recompile
-						if(v && v.__proxy__ || old && old.__proxy__){
+						if(v && v.__proxy__/* || old && old.__proxy__*/){
 							return ONE.host.sendToHost({_type:'setref', _uid:this.__proxy__, name:name, value:v.__proxy__})
 						}
 						var recompile = false
@@ -441,6 +454,11 @@ ONE.proxy_ = function(){
 						js.new_state()
 						js.module = prop.module
 						methods += 'this.' + base + ' = ' + js.expand(prop) + '\n'
+						for(var k in js.type_methods){
+							methods = js.type_methods[k] + '\n'+ methods
+						}
+
+						// ok we have to now also add 
 						//cache += base + '=' + prop.source + '\n'
 					}
 				}
@@ -563,11 +581,33 @@ ONE.proxy_ = function(){
 			ONE.host.sendToHost(msg)
 		}
 
-		this.callHost = function(name){
+		// its a call without return expectation
+		this.postHost = function(name){
 			if(arguments.length > 1){
 				ONE.host.sendToHost({_type:"call", name:name, _uid: this.__proxy__, args:Array.prototype.slice.call(arguments,1)})
 			}
 			else ONE.host.sendToHost({_type:"call", name:name, _uid: this.__proxy__})
+		}
+
+		// make an call and return a signal as return value
+		this.callHost = function(name){
+			// lets create a pending callback hook
+			var sig = ONE.Base.Signal.new()
+			// fetch a call id
+			var myid
+			if(ONE.host.call_free.length){
+				myid = ONE.host.call_free.pop()
+			}
+			else{
+				myid = ONE.host.call_id++
+				if(myid > 1000) console.log("Runaway call ID detected")
+			}
+			ONE.host.call_signals[myid] = sig
+			if(arguments.length > 1){
+				ONE.host.sendToHost({_type:"call", name:name, _uid: this.__proxy__, args:Array.prototype.slice.call(arguments,1), callid:myid})
+			}
+			else ONE.host.sendToHost({_type:"call", name:name, _uid: this.__proxy__, callid:myid})
+			return sig
 		}
 
 		this.hideProperties(Object.keys(this))
@@ -634,7 +674,8 @@ ONE.proxy_ = function(){
 							}
 						}
 						if(worker){
-							var msg = {_type:'signal', _uid:this.__proxy__, name:prop, value:v}
+							var obj = ONE.proxyDataEscape(v) || v
+							var msg = {_type:'signal', _uid:this.__proxy__, name:prop, value:obj}
 							//console.log('sig',msg)
 							worker.sendToWorker(msg)
 						}
@@ -723,7 +764,7 @@ ONE.proxy_ = function(){
 
 			if(!this.hasOwnProperty('__class__')){
 				if(!isupdate){
-					if(this._constructor) this._constructor()
+					if(this.prestructor) this.prestructor()
 					if(this.constructor) this.constructor()
 				}
 				if(this._initBinds) this._initBinds()
@@ -732,6 +773,48 @@ ONE.proxy_ = function(){
 	})
 
 
+}
+
+// recursively walk js datastructure and escape __proxy__ object refs
+ONE.proxyDataEscape = function(data){
+	// how do we store refs? {__proxy__}
+	if(Array.isArray(data)){
+		var out = []
+		for(var k = 0; k < data.length;k++){
+			var obj = ONE.proxyDataEscape(data[k])
+			if(obj) data[k] = obj
+		}
+	}
+	else if(data && typeof data == 'object'){
+		if(data.__proxy__){
+			return {__proxy__:data.__proxy__}
+		}
+		for(var k in data){
+			var obj = ONE.proxyDataEscape(data[k])
+			if(obj) data[k] = obj
+		}
+	}
+}
+
+// recursively walk js datastructure and unescape __proxy__ object refs
+ONE.proxyDataUnescape = function(data, proxy_lut){
+	// how do we store refs? {__proxy__}
+	if(Array.isArray(data)){
+		var out = []
+		for(var k = 0; k < data.length; k++){
+			var obj = ONE.proxyDataUnescape(data[k], proxy_lut)
+			if(obj) data[k] = obj
+		}
+	}
+	else if(data && typeof data == 'object'){
+		if(data.__proxy__){
+			return proxy_lut[data.__proxy__]
+		}
+		for(var k in data){
+			var obj = ONE.proxyDataUnescape(data[k], proxy_lut)
+			if(obj) data[k] = obj
+		}
+	}
 }
 
 ONE._createWorker = function(){
@@ -750,6 +833,7 @@ ONE._createWorker = function(){
 		'\nONE.color_ = ' + ONE.color_.toString() +
 		'\nONE.parser_strict_ = ' + ONE.parser_strict_.toString() +
 		'\nONE.worker_boot_ = ' + ONE.worker_boot_.toString() +
+		'\nONE.proxyDataUnescape = ' + ONE.proxyDataUnescape.toString() + 
 		'\nONE.origin = "'+window.location.origin+'"'+
 		'\nONE.compress_cache = ' +ONE.compress_cache+
 		'\nONE.worker_boot_(self)'
@@ -1160,7 +1244,13 @@ ONE.browser_boot_ = function(){
 						console.log('Call on nonexistant object ' + msg._uid)
 					}
 					else{
-						obj[msg.name].call(obj, msg.args)
+						var ret = obj[msg.name].apply(obj, msg.args)
+						if(msg.callid){ // we need a return value
+							// we realisticly need to process ret to be a cross thread dered.
+							var obj = ONE.proxyDataEscape(ret)
+							if(obj) ret = obj
+							worker.sendToWorker({_type:'return', callid:msg.callid, ret:ret})
+						}
 					}
 				}
 				else if(msg._type == 'proxify'){
@@ -1177,7 +1267,12 @@ ONE.browser_boot_ = function(){
 					}
 					else{
 						if(msg._proto == 0) obj = ONE.Base.HostProxy.new()
-						else obj = Object.create(this.proxy_obj[msg._proto])
+						else{
+							var proxy_obj = this.proxy_obj[msg._proto]
+							if(!proxy_obj) throw new Error("Cannot instantiate proxy object " + msg._proto)
+							obj = Object.create(proxy_obj)
+						}
+
 						this.proxy_obj[msg._uid] = obj
 
 						obj._initFrom(msg, worker, false)
@@ -1344,12 +1439,12 @@ ONE.browser_boot_ = function(){
 	// initialize ONEJS also on the main thread	
 	if(!ONE.fake_worker) ONE.init_ast()
 	if(location.hash) ONE.reloader()
-		
+	/*	
 	window.onerror = function(msg, url, line) {
 		var name = url.match(/[^\/]*$/)[0]
 		console.log(msg + ' in '+name+' line '+line)
 		return false
-	}
+	}*/
 } 
 
 ONE.browser_boot_()

@@ -1,33 +1,35 @@
+#tojs
 import math
+import glui
 import glscene
 import codeedit
 
-Scene{
+Screen{
 	antialias = false
-	fill = #002041
+	layer.fill = #002041
 	CodeEdit{
 		ax = 0
 		ay = 0
 
 		sx = sy = 1.//:2.1 + 0.5cos(time.sec)
 
-		font_size = 13
-		u_bgcolor = #002041
+		layer.font_size = 12
+		layer.u_bgcolor = #002041
 
 		//u_bgcolor = undefined
-		u_markcolor = #86543a
+		layer.u_markcolor = #86543a
 
-		u_contrast = 1.2
-		u_subpixel_distance = 3.
-		u_boldness =1.0//0.5
-		u_boldness = 0.7
-		line_spacing = 1.3
+		layer.u_contrast = 1.2
+		layer.u_subpixel_distance = 3.
+		layer.u_boldness =1.0//0.5
+		layer.u_boldness = 0.7
+		layer.line_spacing = 1.3
+		
 		source = import('tests/trash.n', 'string')
-		console.log(source.replace(/[\s\r\n]/g,function(f){
-			return '\\'+f.charCodeAt(0)
-		}))
-
-		ast = parseLive(source)
-		console.log(AST.toDump(ast))
+		//console.log(source.replace(/[\s\r\n]/g,function(f){
+		//	return '\\'+f.charCodeAt(0)
+		//}))
+		layer.ast = parseLive(source)
+		//console.log(AST.toDump(ast))
 	}
 }

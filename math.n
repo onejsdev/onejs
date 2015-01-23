@@ -816,20 +816,27 @@ struct vec3 extends vec_t{
 		z = a[2] * b[2]
 	}
 
-	vec3_mul_mat3( mat3 m, vec3 v ){
+	vec3_mul_mat3( vec3 v,  mat3 m ){
 		var vx = v.x, vy = v.y, vz = v.z
-		x = vx * m[0] + vy * m[3] + vz * m[6]
-		y = vx * m[1] + vy * m[4] + vz * m[7]
-		z = vx * m[2] + vy * m[5] + vz * m[8]
+		x = vx * m[0] + vy * m[1] + vz * m[2]
+		y = vx * m[3] + vy * m[4] + vz * m[5]
+		z = vx * m[6] + vy * m[7] + vz * m[8]
 	}
 
-	vec3_mul_mat4( mat4 m, vec3 v ){
+	vec3_mul_mat4( vec3 v, mat4 m ){
 		var vx = v.x, vy = v.y, vz = v.z, vw = 
-			m[3] * vx + m[7] * vy + m[11] * vz + m[15]
+			m[12] * vx + m[13] * vy + m[14] * vz + m[15]
 		vw = vw || 1.0
-		x = (m[0] * vx + m[4] * vy + m[8] * vz + m[12]) / vw
-		y = (m[1] * vx + m[5] * vy + m[9] * vz + m[13]) / vw
-		z = (m[2] * vx + m[6] * vy + m[10] * vz + m[14]) / vw
+		x = (m[0] * vx + m[1] * vy + m[2] * vz + m[3]) / vw
+		y = (m[4] * vx + m[5] * vy + m[6] * vz + m[7]) / vw
+		z = (m[8] * vx + m[9] * vy + m[10] * vz + m[11]) / vw
+	}
+
+	mulminor( vec3 v, mat4 m ){
+		var vx = v.x, vy = v.y, vz = v.z
+		x = vx * m[0] + vy * m[1] + vz * m[2]
+		y = vx * m[4] + vy * m[5] + vz * m[6]
+		z = vx * m[8] + vy * m[9] + vz * m[10]
 	}
 
 	cross( vec3 a, vec3 b ){
@@ -851,6 +858,12 @@ struct vec3 extends vec_t{
 		y = a.y * v
 		z = a.z * v
 	}
+
+	unproject(vec4mat4 world, mat4 project){
+		mat4 nproj = world * mat4.inverse(project)
+		return this * 
+		project()
+	}
 }
 
 struct vec4 extends vec_t{
@@ -866,10 +879,10 @@ struct vec4 extends vec_t{
 
 	vec4_mul_mat4( mat4 m, vec4 v ){
 		var vx = v.x, vy = v.y, vz = v.z, vw = v.w
-		x = m[0] * vx + m[4] * vy + m[8] * vz + m[12] * vw
-		y = m[1] * vx + m[5] * vy + m[9] * vz + m[13] * vw
-		z = m[2] * vx + m[6] * vy + m[10] * vz + m[14] * vw
-		w = m[3] * vx + m[7] * vy + m[11] * vz + m[15] * vw
+		x = m[0] * vx + m[1] * vy + m[2] * vz + m[3] * vw
+		y = m[4] * vx + m[5] * vy + m[6] * vz + m[7] * vw
+		z = m[8] * vx + m[9] * vy + m[10] * vz + m[11] * vw
+		w = m[12] * vx + m[13] * vy + m[14] * vz + m[15] * vw
 	}
 
 	vec4_mul_quat( quat q, vec4 v ){
@@ -1468,7 +1481,7 @@ struct mat4 extends mat{
 
 			d = b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06
 
-		if (!d) return identity() 
+		if (!d) return _.identity() 
 		d = 1.0 / d
 
 		m00  = (a11 * b11 - a12 * b10 + a13 * b09) * d
@@ -1797,3 +1810,102 @@ struct mat4 extends mat{
 		m30 = c.w * r.x, m31 = c.w * r.y, m32 = c.w * r.z, m33 = c.w * r.w 
 	}
 }
+
+struct box3{
+	vec3 min
+	vec3 max
+}
+
+struct sphere3{
+	vec3 center
+	float radius
+}
+
+struct ray3{
+	vec3 origin
+	vec3 direction
+	
+	transform(ray3 r, mat4 m){
+		_.origin = r.origin * m
+		_.direction = vec3.mulminor(r.direction, m)
+	}
+
+	at(float t){
+		return origin + t * direction
+	}
+
+	intersectSphere(sphere3 sphere){
+		vec3 v1 = sphere.center - _.origin
+
+		float tca = v1.dot(_.direction)
+		float d2 = v1.dot(v1) - tca * tca
+		float radius2 = sphere.radius * sphere.radius
+
+		if(d2 > radius2) return 
+
+		float thc = sqrt(radius2 - d2)
+
+		float t0 = tca - thc
+		float t1 = tca + thc
+
+		if(t0 < 0 && t1 < 0) return
+		if(t0 < 0) return _.origin + t1 * _.direction
+
+		return _.origin + t0 * _.direction
+	}
+
+	intersectBox(box3 box){
+		// http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-7-intersecting-simple-shapes/ray-box-intersection/
+		var tmin,tmax,tymin,tymax,tzmin,tzmax
+
+		var invdirx = 1 / direction.x
+		var invdiry = 1 / direction.y
+		var invdirz = 1 / direction.z
+
+		if ( invdirx >= 0 ) {
+			tmin = ( box.min.x - origin.x ) * invdirx
+			tmax = ( box.max.x - origin.x ) * invdirx
+		} 
+		else {
+			tmin = ( box.max.x - origin.x ) * invdirx
+			tmax = ( box.min.x - origin.x ) * invdirx
+		}
+
+		if ( invdiry >= 0 ) {
+			tymin = ( box.min.y - origin.y ) * invdiry
+			tymax = ( box.max.y - origin.y ) * invdiry
+		} 
+		else {
+			tymin = ( box.max.y - origin.y ) * invdiry
+			tymax = ( box.min.y - origin.y ) * invdiry
+		}
+
+		if ( ( tmin > tymax ) || ( tymin > tmax ) ) return
+
+		// These lines also handle the case where tmin or tmax is NaN
+		// (result of 0 * Infinity). x !== x returns true if x is NaN
+		if ( tymin > tmin || tmin !== tmin ) tmin = tymin
+		if ( tymax < tmax || tmax !== tmax ) tmax = tymax
+		if ( invdirz >= 0 ) {
+			tzmin = ( box.min.z - origin.z ) * invdirz
+			tzmax = ( box.max.z - origin.z ) * invdirz
+		} 
+		else {
+			tzmin = ( box.max.z - origin.z ) * invdirz
+			tzmax = ( box.min.z - origin.z ) * invdirz
+		}
+
+		if ( ( tmin > tzmax ) || ( tzmin > tmax ) ) return
+		if ( tzmin > tmin || tmin !== tmin ) tmin = tzmin
+		if ( tzmax < tmax || tmax !== tmax ) tmax = tzmax
+
+		//return point closest to the ray (positive side)
+
+		if ( tmax < 0 ) return
+
+		var tsel = tmin >= 0 ? tmin : tmax
+		return _.origin + _.direction * float tsel
+	}
+}
+
+

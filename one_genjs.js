@@ -1920,8 +1920,8 @@ ONE.genjs_ = function(){
 			   	// alright so, we have
 				var left_t = n.left.infer
 				var right_t = n.right.infer
-				if(!left_t) throw new Error('Operator will not do what you want, please type the left side: '+n)
-				if(!right_t) throw new Error('Operator will not do what you want, please type the right side: '+n)
+				if(!left_t) throw new Error('Operator will not do what you want, please type the left side: '+outer.AST.toString(n))
+				if(!right_t) throw new Error('Operator will not do what you want, please type the right side: '+outer.AST.toString(n))
 				var left_name = left_t.name
 				var right_name = right_t.name
 				var name = this.bin_op_table[n.op]
@@ -2038,7 +2038,7 @@ ONE.genjs_ = function(){
 				var typing = method.params[i].id.typing
 				gen += '_'+(typing && typing.name || 'var')
 			}
-
+			
 			// make a type_method
 			if(!this.type_methods[gen]){
 				var d = this.depth
@@ -2659,10 +2659,9 @@ ONE.genjs_ = function(){
 			}
 			var name = n.fn
 			var id 
-			if(n.fn.type == 'Id' && n.fn.typing){
-				// just use the .call property
+			if(n.fn.type == 'Id' && n.fn.typing){ // its a deep class
 				var exp = this.expand(n.fn.typing, n)
-				return 'this.'+n.fn.name + " = " + exp + '.call('+exp+', ' + this.Function( n, undefined, ['__outer__']) + ', this, "' + n.fn.name + '")'
+				return exp + '.deepExtend(this,"' + n.fn.name + '",' + this.Function(n, undefined, ['__outer__']) + ')'
 			}
 			// just use the .call property
 			var exp = this.expand(n.fn, n)

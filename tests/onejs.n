@@ -30,6 +30,40 @@ Signals(){
 }
 */
 
+DeepClasses(){
+	class Inner1{
+		x = 10
+	}
+	class Outer1{
+		Inner1 inner1{}
+	}
+	assert(Inner1.x == 10)
+	Inner1.x = 20
+	class Outer2 extends Outer1{
+	}
+
+	assert(Outer2.inner1.x == 20)
+	Outer2.inner1.x = 30
+	assert(Outer1.inner1.x == 20)
+	assert(Outer2.inner1.x == 30)
+
+	var outer3 = Outer2.new()
+	outer3.inner1.x = 40
+	assert(outer3.inner1.x == 40)
+	assert(Outer1.inner1.x == 20)
+	assert(Outer2.inner1.x == 30)
+
+	class Mixin1{
+		inner1(){
+			x = 50
+		}
+	}
+	outer3.load(Mixin1)
+	assert(outer3.inner1.x == 50)
+	assert(Outer1.inner1.x == 20)
+	assert(Outer2.inner1.x == 30)
+}
+
 Super(){
 	var order = ''
 	class Role1{
@@ -430,6 +464,6 @@ for(var key in this){
 }
 
 for(var [name, fn] of run){
-	out('Testing:'+name)
+	out('Testing:' + name)
 	Base{ fn() }
 }
