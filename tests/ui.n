@@ -1,0 +1,29 @@
+import math
+import glscene
+import glui
+
+Screen{
+	for(var i = 0 to 100)
+	Button{
+		layer.v = i
+		layer.rz = :time.sec+v
+
+		y = parseInt(i/10)*100
+		x = (i%10)*100
+		text = "Button"+i
+		layer.pixel = #purple
+		click(){
+			console.log("CLICKED!")
+		}
+	}
+	Button{
+		x = 200
+		layer.pixel= #blue
+		text = "Button2"
+		click(){
+			layer(){
+				pixel:#green
+			}
+		}
+	}
+}
