@@ -25,11 +25,13 @@ node --harmony one_node.js app_server.n
 
 open in browser:
 http://localhost:2000#tests/jsconf
+
 http://localhost:2000#tests/framebuf
+
 etc.
 
 (onejs apps are served using the #hash)
 
-Sofar you can find the same files accessible as: http://jsconf.tests.onejs.io using the subdomain name
+Sofar you can find the same files accessible as: http://hello.onejs.io using the subdomain name
 
-OneJS is currently getting a fully fledged UI kit with constraints, and a font engine. Stay tuned.
+OneJS is currently getting a fully fledged UI kit, and a live code editor is well under way.
