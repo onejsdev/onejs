@@ -31,15 +31,17 @@ class StaticServer extends HttpServer{
 
 		out(`Reading ${fullpath}`)
 
-		res.writeHead(200, {"Content-Type": mime.fromFilename(fullpath)})
 		var ex = await fs.exists(fullpath)
 		if(!ex){
-			res.end('OK')
+			res.writeHead(500)
+			res.end('')
+			return
 		}
-		else{
-			var stream = fs.createReadStream(fullpath)
-			stream.pipe(res)
-		} 
+		var stat = await fs.stat(fullpath)
+		res.writeHead(200, {"Content-Length":stat.size,"Content-Type": mime.fromFilename(fullpath)})
+		var stream = fs.createReadStream(fullpath)
+		stream.pipe(res)
+
 	}
 
 	constructor( port, addr ){
