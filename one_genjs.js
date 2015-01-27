@@ -2661,7 +2661,7 @@ ONE.genjs_ = function(){
 			var id 
 			if(n.fn.type == 'Id' && n.fn.typing){ // its a deep class
 				var exp = this.expand(n.fn.typing, n)
-				return exp + '.deepExtend(this,"' + n.fn.name + '",' + this.Function(n, undefined, ['__outer__']) + ')'
+				return exp + '._extendDeep(this,"' + n.fn.name + '",' + this.Function(n, undefined, ['__outer__']) + ')'
 			}
 			// just use the .call property
 			var exp = this.expand(n.fn, n)

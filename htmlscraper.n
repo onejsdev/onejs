@@ -294,7 +294,7 @@ class HTMLScraper extends HTMLParser{
 	// and assign-on-this
 	parse(source, @stripempty){
 		node = HTMLNode.new()
-		HTMLParser.parse.call(this, source)
+		HTMLParser::parse(source)
 		return node
 	}
 

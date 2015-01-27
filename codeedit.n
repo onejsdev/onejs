@@ -32,6 +32,7 @@ class CodeEdit extends View{
 			CodeViewImpl::constructor()
 			_sortChunks()
 		}
+
 	}
 	load(EditImpl)
 	
@@ -214,7 +215,6 @@ class CodeEdit extends View{
 
 	applyStep(){
 		// and now we update it.
-
 		//console.log('applyStep!')
 		step_timeout = 0
 	}

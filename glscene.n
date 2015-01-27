@@ -147,8 +147,6 @@ class Layer extends Draw{
 		// generate our world matrix
 		m_world = m_local * m_parent
 
-		//if(__proxy__ == 72)console.log(m_local)
-
 		// draw ourselves
 		drawSelf(sec)
 

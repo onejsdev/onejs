@@ -80,36 +80,7 @@ ONE.base_ = function(){
 		return obj
 	}
 
-	this._extendPost = function(){
-		if(this.__deep__){
-			var deep = this.__deep__
-			for(var k in deep){
-				deep[k]._extendPost()
-			}
-		}
-	}
-
-	// new an object with variable arguments and automatic parent/owner
-	this.new = function(){
-		var obj = Object.create(this)
-
-		if(obj.prestructor) obj.prestructor.apply(obj, arguments)
-		if(obj.__deep__) obj.deepNew()
-		if(obj.constructor) obj.constructor.apply(obj, arguments)
-
-		return obj
-	}
-	
-	this.deepNew = function(){
-		// construct deep objects
-		var deep = this.__deep__
-		this.__deep__ = Object.create(null)
-		for(var k in deep){
-			this.__deep__[k] = deep[k].new(this)
-		}
-	}
-
-	this.deepExtend = function(owner, name, nest){
+	this._extendDeep = function(owner, name, nest){
 		if(!owner.__deep__) owner.__deep__ = Object.create(null)
 
 		var obj = this.extend(owner, nest, this.__class__ + ':' + name)
@@ -131,14 +102,82 @@ ONE.base_ = function(){
 		return obj
 	}
 
+	this._extendPost = function(){
+		if(this.__deep__){
+			var deep = this.__deep__
+			for(var k in deep){
+				deep[k]._extendPost()
+			}
+		}
+	}
+
+	// new an object with variable arguments and automatic parent/owner
+	this.new = function(){
+		var obj = Object.create(this)
+
+		if(obj.__deep__){
+			if(obj.prestructor) obj.prestructor.apply(obj, arguments)
+			obj._deepPrestructor()
+			if(obj.constructor) obj.constructor.apply(obj, arguments)
+			obj._deepConstructor()
+			if(obj.poststructor) obj.poststructor.apply(obj, arguments)
+			obj._deepPoststructor()
+		}
+		else{
+			if(obj.prestructor) obj.prestructor.apply(obj, arguments)
+			if(obj.constructor) obj.constructor.apply(obj, arguments)
+			if(obj.poststructor) obj.poststructor.apply(obj, arguments)
+		}
+		return obj
+	}
+
+	this._deepPrestructor = function(){
+		var deep = this.__deep__
+		this.__deep__ = Object.create(null)
+		for(var k in deep){
+			var obj = this.__deep__[k] = Object.create(deep[k])
+			if(obj.prestructor) obj.prestructor(this)
+			if(obj.__deep__) obj._deepPrestructor()
+		}
+	}
+
+	this._deepConstructor = function(){
+		var deep = this.__deep__
+		for(var k in deep){
+			var obj = deep[k]
+			if(obj.constructor) obj.constructor(this)
+			if(obj.__deep__) obj._deepConstructor()
+		}
+	}
+
+	this._deepPoststructor = function(){
+		var deep = this.__deep__
+		for(var k in deep){
+			var obj = deep[k]
+			if(obj.poststructor) obj.poststructor(this)
+			if(obj.__deep__) obj._deepPoststructor()
+		}
+	}
+
 	this.call = function(pthis, nest, owner){
 		var obj = Object.create(this)
 
-		if(obj.prestructor) obj.prestructor.call(obj, owner)
-		if(obj.__deep__) obj.deepNew()
-		nest.call(obj)
-		if(obj.constructor) obj.constructor.call(obj, owner)
-
+		// make the call order deep.prestructor->nest->deep.constructor
+		if(obj.__deep__){
+			if(obj.prestructor) obj.prestructor(owner)
+			obj._deepPrestructor()
+			nest.call(obj)
+			if(obj.constructor) obj.constructor(owner)
+			obj._deepConstructor()
+			if(obj.poststructor) obj.poststructor(owner)
+			obj._deepPoststructor()
+		}
+		else{
+			if(obj.prestructor) obj.prestructor(owner)
+			nest.call(obj)
+			if(obj.constructor) obj.constructor(owner)
+			if(obj.poststructor) obj.poststructor(owner)
+		}
 		return obj
 	}
 

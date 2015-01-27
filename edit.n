@@ -18,16 +18,12 @@ class EditImpl{
 			max = 0
 		}
 
+		get lo() -> end>start?start:end
+		get hi() -> end>start?end:start
+
 		set lo(v){
 			if(end>start) start = v
 			else end = v
-		}
-
-		get lo(){
-			return end>start?start:end
-		}
-		get hi(){
-			return end>start?end:start
 		}
 
 		set hi(v){
@@ -193,8 +189,8 @@ class EditImpl{
 			}
 
 			var t
-			if(parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
-				while(t = parse.isNonNewlineWhiteSpace(cursors.text_layer.charCodeAt(lo - 1))){
+			if(parse.isNonNewlineWhiteSpace(layer.charCodeAt(lo - 1))){
+				while(t = parse.isNonNewlineWhiteSpace(layer.charCodeAt(lo - 1))){
 					lo = lo - 1
 					if(t == 2) break
 				}
@@ -627,7 +623,8 @@ class EditImpl{
 		_slash:'¿'
 	}
 	
-	constructor(){
+	// called after child constructors
+	poststructor(){
 		cursors = Cursors.new(this, this.layer)
 		undo_stack = []
 		redo_stack = []
@@ -636,11 +633,9 @@ class EditImpl{
 		focus()
 
 		cursors.moveDown(1,0)
-		//cursors.moveDown(1, 100)
 	}
 
 	clipPaste(v){
-		// ok ! we shalt dosomething
 		undo_group++
 		cursors.insert(v)
 		change = Change.clipboard

@@ -1,4 +1,3 @@
-#tojs
 import math
 import glui
 import glscene
@@ -8,17 +7,17 @@ Screen{
 	antialias = false
 	layer.fill = #002041
 	CodeEdit{
-		ax = 0
-		ay = 0
-
-		sx = sy = 1.//:2.1 + 0.5cos(time.sec)
-
-		layer.font_size = 12
+		// okaay so. when is this nest thing going to execute.
+		// ok so what we really want is this part to be
+		layer.ax = 0
+		layer.ay = 0
+		layer.w = 1000
+		layer.h = 1000
+		layer.sx = layer.sy = 1.//:2.1 + 0.5cos(time.sec)
+		layer.font_size = 30
 		layer.u_bgcolor = #002041
-
 		//u_bgcolor = undefined
 		layer.u_markcolor = #86543a
-
 		layer.u_contrast = 1.2
 		layer.u_subpixel_distance = 3.
 		layer.u_boldness =1.0//0.5

@@ -97,6 +97,11 @@ class ChunkedTextLayerImpl{
 		dontProxy('char_offset')
 		y = 0
 		char_offset = 0
+
+		get font_size(){
+			return parent.font_size
+		}
+		get line_spacing() ->parent.line_spacing
 		constructor(parent){
 			this.parent = parent
 			first_add_x = 0
@@ -154,6 +159,7 @@ class ChunkedTextLayerImpl{
 	constructor(){
 		MarkedTextLayerImpl::constructor()
 		DebugLayerImpl::constructor()
+		console.log('hea', font_size)
 		// create a new last_chunk to start growing
 		append_chunk = this.Chunk.new(this)
 		append_chunk.allocText(chunk_count)

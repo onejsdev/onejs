@@ -21,18 +21,17 @@ class Screen{
 
 		// where are we going to paste it? the focus object
 		clipboard.paste(v) =>{
-			if(this.focus) this.focus.on_clipPaste.emit(v)
+			if(focus) focus.on_clipPaste.emit(v)
 		}
 		key.down(v) =>{
-			if(this.focus) this.focus.on_keyDown.emit(v)
+			if(focus) focus.on_keyDown.emit(v)
 		} 
 		key.up(v) =>{
-			if(this.focus) this.focus.on_keyUp.emit(v)
+			if(focus) focus.on_keyUp.emit(v)
 		} 
 		key.press(v) =>{
-			if(this.focus) this.focus.on_keyPress.emit(v)
-		} 
-
+			if(focus) focus.on_keyPress.emit(v)
+		}
 	}
 
 	mouseCapture(move, end, which_layer){
@@ -144,8 +143,6 @@ class Button extends View{
 	mouseLeftDown(m){
 		on_down.emit()
 		var hit = layer.findHit(m)
-		// ok so what do we do
-		// what youd want is to capture the mouse eh
 		mouseCapture(pos=>{}, vec3 pos=>{
 			on_up.emit()
 			if(pos.x>=0 && pos.x<=1 && pos.y>=0 && pos.y<=1){
