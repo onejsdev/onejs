@@ -140,7 +140,7 @@ ONE.worker_boot_ = function(host){
 	host.immediate_queue = []
 	if(typeof window !== 'undefined') window.setImmediate = _setImmediate
 	else if(typeof global !== 'undefined') global.setImmediate = _setImmediate
-	else setImmediate = _setImmediate
+	else self.setImmediate = _setImmediate
 
 	// Set interval
 	var __setInterval = setInterval
@@ -152,7 +152,7 @@ ONE.worker_boot_ = function(host){
 	}
 	if(typeof window !== 'undefined') window.setInterval = _setInterval
 	else if(typeof global !== 'undefined') global.setInterval = _setInterval
-	else setInterval = _setInterval
+	else self.setInterval = _setInterval
 
 	// Set timeout
 	var __setTimeout = setTimeout
@@ -164,7 +164,7 @@ ONE.worker_boot_ = function(host){
 	}
 	if(typeof window !== 'undefined') window.setTimeout = _setTimeout
 	else if(typeof global !== 'undefined') global.setTimeout = _setTimeout
-	else setTimeout = _setTimeout
+	else self.setTimeout = _setTimeout
 
 	// vector queue, used to auto transfer typed vectors when their length changes
 	host.vector_queue = []
