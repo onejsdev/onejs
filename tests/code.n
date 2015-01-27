@@ -14,7 +14,7 @@ Screen{
 		layer.w = 1000
 		layer.h = 1000
 		layer.sx = layer.sy = 1.//:2.1 + 0.5cos(time.sec)
-		layer.font_size = 30
+		layer.font_size = 20
 		layer.u_bgcolor = #002041
 		//u_bgcolor = undefined
 		layer.u_markcolor = #86543a
